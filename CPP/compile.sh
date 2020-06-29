@@ -1,8 +1,9 @@
 #!/bin/bash
-if [ "$#" -ne 1 ]; then
-    echo "Include the path to the python2.7 include directory"
-    exit 1
-fi
+set -eu
+
+echo "Compiling"
+Python_Path="$(dirname $(which python))/../include/python2.7"
+echo $Python_Path
 
 unameOut="$(uname -s)"
 case "${unameOut}" in
@@ -13,17 +14,13 @@ case "${unameOut}" in
     *)          machine="UNKNOWN:${unameOut}"
 esac
 
-	
-	
-Python_Path=$1 
-
 if [ ! -d $Python_Path ]
 then
     echo "Python include path does not exist"
     exit 1 # die with error code 1
 fi
 
-rm *.so *.o *.cxx *.pyc *.py 2> /dev/null
+rm -f *.so *.o *.cxx *.pyc *.py
 touch __init__.py
 g++ -c -fPIC -fPIC -std=c++11  VASim.cpp
 swig -c++ -python VASim.i
@@ -48,6 +45,5 @@ then
 	echo "Done!"
 else
 	echo "Unsuccessful. Please follow instructions in www.swig.org to install swig and run this script again"
+	exit 1
 fi
-
-

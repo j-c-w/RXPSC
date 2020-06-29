@@ -57,7 +57,8 @@ def process_single_ds(uat):
 
     print "folder name to store the HDLs:", hdl_folder_name
 
-    generator_ins = hd_gen.HDL_Gen(path=os.path.join("/home/gr5yf/FCCM_2020/bram8", hdl_folder_name), before_match_reg=False,
+    generator_ins = hd_gen.HDL_Gen(path=os.path.join("/home/jackson/LocalProjects/PhD/RegexSynthesis/APsim/temp_scripts/FCCM",
+                                   hdl_folder_name), before_match_reg=False,
                                    after_match_reg=False, ste_type=1,
                                    total_input_len=dbw, use_mid_fifo=use_mid_fifo, use_rst=use_rst, bram_shape=(512, 36))
 
