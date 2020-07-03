@@ -18,10 +18,18 @@ let
 		];
 		ignoreCollisions = true;
 	};
+
+	# Get HSCompile
+	hscompile = (import ~/.scripts/Nix/CustomPackages/AutomataTools/hscompile/default.nix);
 in
 pkgs.mkShell {
 	SHELL_NAME = "APSim";
-	buildInputs = [ pythonenv swig ];
+	buildInputs = [ pythonenv swig
+	# Get VASim tools
+	(callPackage ~/.scripts/Nix/CustomPackages/AutomataTools/vasim/default.nix {})  
+	verilog
+	hscompile
+	];
 
 	shellHook = ''
 		if [[ ! -f CPP/_VASim.so ]]; then
