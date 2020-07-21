@@ -63,8 +63,11 @@ def branchify(nodes, edges, start_node, branches_analysis, loops_analysis):
         # Check if there are any branches that start
         # at the same place.
 
+    TODO
+
 
 def has_path(nodes, edges, outputlookup, node_from, node_to):
+    TODO
     pass
 
 
@@ -90,25 +93,99 @@ def generate_output_lookup(nodes, edges):
     return output_lookup
 
 
-# Given an automata, compute any "regions" that
-# are loops, where a region may contain subloops.
+# Given an automata, compute a "region" that is a
+# loop, where a region may contain subloops.
 # Each region is some number of branches, along
 # with a start and end node.    We assume single
 # entry loops only.
-def compute_loop_subregions(nodes, edges, start_node):
-    branches = compute_branches(nodes, edges, start_node)
-    loops = compute_loops_deduplicated(nodes, edges, start_node)
+# This returns the nodes, edges, branches and loops
+# within that region.
+def compute_loop_subregion(nodes, edges, loop_start_node, loops, branches):
+    if loops[loop_start_node] == []:
+        # There is no subregion here.
+        return []
+    else:
+        search_nodes = []
+        new_edges = []
 
-    # We define the start of a subregion
-    pass
-    # TODO
+        existing_edges_lookup = generate_output_lookup(nodes, edges)
+
+        for loop in loops[loop_start_node]:
+            # Add every node and every edge that
+            # can be reached from the loop_start_node,
+            # /provided/ they are in the loop. i.e., 
+            # we do not add all edges that can be reached
+            # from the start node, but after the start
+            # node, we do add all edges.
+            if loop[1] != loop_start_node:
+                search_nodes.append(loop[1])
+
+        # Now, go through and find every node that
+        # can be reached from each of these nodes.
+        # Store the edges in a dictionary.
+        new_edges_dict = {}
+        
+        for node in search_nodes:
+            visited = {}
+            # Do not want to go past the start node.
+            visited[loop_start_node] = 1
+            to_visit = [node]
+
+            while len(to_visit) > 0:
+                node = to_visit[0]
+                del to_visit[0]
+
+                if node not in visited:
+                    to_visit += existing_edges_lookup[node]
+                    new_edges_dict[node] = [(node, dst) for dst in existing_edges_lookup[node]]
+
+                    visited[node] = 1
+
+        # Now, we have a list of nodes and edges, so construct
+        # the new graph, and the new branches:
+        new_nodes = new_edges_dict.keys()
+        edges = []
+        for node in new_nodes:
+            edges += new_edges_dict[node]
+
+        # We also have to add the edges from the loop start node
+        # to the start of each loop at this point.
+        for node in search_nodes:
+            edges.append((loop_start_node, node))
+
+        # Finally, the loop start node should also be in the
+        # list of nodes.
+        new_nodes.append(loop_start_node)
+        removed_edges = []
+
+        # However, the loop should not be completed,
+        # so we also need to delete all edges coming
+        # back into the starting node.
+        i = 0
+        while i < len(edges):
+            (src, dst) = edges[i]
+            if dst == loop_start_node:
+                del edges[i]
+                i -= 1
+
+            removed_edges.append((src,dst))
+            i += 1
+
+        return (new_nodes, edges, removed_edges,
+                compute_branches(new_nodes, edges, loop_start_node),
+                compute_loops(new_nodes, edges, loop_start_node))
 
 
 # Given a graph, compute the loops in it and group them
 # by entry point on the shortest path from the start node.
+# This returns a dictionary from [node] -> [list of loops
+# whose shortest path from the start is on node]
+# This does not support loops with multiple entrances,
+# and neither does the path algebra.  Those loops should
+# be cleaned up somewhere else.
 def compute_loop_groups(nodes, edges, start):
     dists, paths = compute_sssp(nodes, edges, start)
-    loops = compute_loops(nodes, edges)
+    loops = compute_loops_with_duplicates(nodes, edges)
 
     # Group the loops by entry-point.  Once they
     # are grouped by entry point, then it is easy
@@ -137,7 +214,10 @@ def compute_loop_groups(nodes, edges, start):
     return groups
 
 
-def compute_loops_deduplicated(nodes, edges, start):
+# This returns a dictionary from [node] -> [loops starting at that node]
+# The loops are 'deduplicated', i.e. are not cyclic rotations
+# of each other.
+def compute_loops(nodes, edges, start):
     groups = compute_loop_groups(nodes, edges, start)
 
     # Now, we have all loops grouped by starting point.
@@ -229,7 +309,7 @@ def compute_sssp(nodes, edges, source):
     return (node_dists, node_paths)
 
 # Given an automata, return a list of all loops.
-def compute_loops(nodes, edges):
+def compute_loops_with_duplicates(nodes, edges):
     output_lookup = generate_output_lookup(nodes, edges)
     # Algorithm is basically to do a DFS for each node, and
     # see if we get back to it.  (Every time we do, we note
@@ -237,7 +317,9 @@ def compute_loops(nodes, edges):
     loops = []
     for search_node in nodes:
         next_node = [search_node]
-        visited = [0] * len(nodes)
+        visited = {}
+        for node in nodes:
+            visited[node] = 0
         # This is a stack that keeps track of the last
         # place the brances diverged.  It report any full
         # path to any node by joining all the parts
@@ -294,7 +376,9 @@ def compute_end_states(nodes, edges):
 def compute_branches(nodes, edges, start_node):
     next_node = [start_node]
     output_lookup = generate_output_lookup(nodes, edges)
-    visited = [0] * len(nodes)
+    visited = {}
+    for node in nodes:
+        visited[node] = 0
     loops = []
     # Every path that is currently being walked.
     branches = [[]]
