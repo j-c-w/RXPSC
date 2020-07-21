@@ -16,11 +16,15 @@ class AlgebraTest(unittest.TestCase):
 
     def test_complex_branch(self):
         branches = alg.generate([0, 1, 2, 3, 4, 5], [(0, 1), (0, 2), (0, 3), (3, 4), (3, 5)], 0, [2, 3, 5])
-        print(branches)
+        self.assertEquals(str(branches), "{1 + e, 1 + a + e, 1 + a + {1 + e, 1 + a + e}}")
 
     def test_generate_linear_algebras(self):
         simple = str(alg.linear_algebra_for([0, 1, 2], [2]).normalize())
         self.assertEquals("2 + a", simple)
+
+    def test_simple_loop(self):
+        loop = alg.generate([0, 1, 2, 3], [(0, 1), (1, 2), (2, 1), (1, 3)], 0, [3])
+        print(str(loop))
 
 
 if __name__ == "__main__":

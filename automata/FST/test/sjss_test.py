@@ -16,6 +16,25 @@ class SJSSTest(unittest.TestCase):
     def test_loops(self):
         self.assertTrue([1, 2, 0, 1] in sjss.compute_loops([0, 1, 2], [(0, 1), (1, 2), (2, 0)]))
 
+    def test_loop_subregions(self):
+        print(sjss.compute_loop_subregions([0, 1, 2, 3], [(0, 1), (1, 2), (2, 1), (1, 3)], 0))
+
+    def test_sssp(self):
+        dists, lut = (sjss.compute_sssp([0, 1, 2, 3], [(0, 1), (1, 2), (1, 3), (0, 3)], 0))
+        self.assertTrue(lut[3] == [0, 3])
+        self.assertTrue(dists[2] == 2)
+
+
+    def test_compute_loop_groups(self):
+        groups = sjss.compute_loop_groups([0, 1, 2, 3], [(0, 1), (1, 2), (2, 1)], 0)
+        self.assertTrue(len(groups[1]) == 2)
+        self.assertTrue(sum([len(groups[i]) for i in groups]) == 2)
+
+    def test_compute_loops_deduplicated(self):
+        groups = sjss.compute_loops_deduplicated([0, 1, 2, 3], [(0, 1), (1, 2), (2, 1)], 0)
+        self.assertTrue(len(groups[1]) == 1)
+        self.assertTrue(groups[1][0] == [1, 2, 1])
+
     def test_branches(self):
         # No change expected.
         self.assertEqual(sjss.compute_branches([0, 1, 2], [(0, 1), (1, 2)], 0)[0], [0, 1, 2])
