@@ -25,19 +25,17 @@ class DepthEquation(object):
 
 
 class Product(DepthEquation):
-    def __init__(self, e1, e2):
+    def __init__(self, e1):
         self.e1 = e1
-        self.e2 = e2
 
     def isproduct(self):
         return True
 
     def __str__(self):
-        return str(self.e1) + "*" + str(self.e2)
+        return "(" + str(self.e1) + ")*"
 
     def normalize(self):
         self.e1 = self.e1.normalize()
-        self.e2 = self.e2.normalize()
 
         return self
 
