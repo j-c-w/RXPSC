@@ -24,7 +24,27 @@ class AlgebraTest(unittest.TestCase):
 
     def test_simple_loop(self):
         loop = alg.generate([0, 1, 2, 3], [(0, 1), (1, 2), (2, 1), (1, 3)], 0, [3])
-        print(str(loop))
+        self.assertEquals("1 + (2)* + 1 + a + e", str(loop))
+
+    def test_simple_loop_2(self):
+        loop = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 2), (2, 1), (2, 3), (3, 2), (1, 4)], 0, [4])
+        self.assertEquals("1 + (1 + (2)* + 1)* + 1 + a + e", str(loop))
+
+    def test_mono_loop(self):
+        loop = alg.generate([0], [(0, 0)], 0, [0])
+        self.assertEqual("(1)*", str(loop))
+
+    # This is an edge case we don't really handle well, but
+    # it isn't incorrect -- the algebra just makes the automaton
+    # seem more general than it is.  That problem will get
+    # fixed upon unification though.
+    def test_diverging_triple(self):
+        triple = alg.generate([0, 1, 2, 3, 4], [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 4), (3, 4)], 0, [4])
+        print str(triple)
+
+    def test_converging_triple(self):
+        triple = alg.generate([0, 1, 2, 3, 4], [(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (1, 4), (2, 4)], 0, [4])
+        print triple
 
 
 if __name__ == "__main__":
