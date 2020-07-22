@@ -52,7 +52,7 @@ class Automatanetwork(object):
             node.mark_index = -1
 
     def __repr__(self):
-        return self.id
+        return self._id
 
     def get_new_id(self):
         #TODO should not be provate
@@ -122,7 +122,30 @@ class Automatanetwork(object):
     def nodes(self):
         return self._my_graph.nodes
 
+    def node_ids_list(self):
+        nodes = list(self.nodes())
+        result = [None] * len(nodes)
+        for i in range(len(nodes)):
+            result[i] = int(nodes[i].id)
 
+        return result
+
+    def reporting_states_list(self):
+        nodes = self.nodes()
+        result = []
+        for node in nodes:
+            if node.report:
+                result.append(node.id)
+
+        return result
+
+    def edge_ids_list(self):
+        edges = list(self.get_edges(data=False))
+        results = [None] * len(edges)
+        for i in range(len(edges)):
+            results[i] = (edges[i][0].id, edges[i][1].id)
+
+        return results
 
     @classmethod
     def from_xml(cls, xml_node):
