@@ -1,3 +1,7 @@
+# Due to poor choices, we largely don't use this.
+import networkx as nx
+import time
+
 # This file computes an SJSS graph from a non-SJSS input graph.
 
 # I think I actually don't need to do this.  I think we
@@ -40,7 +44,7 @@ def loopify(nodes, edges, start_node, branches_analysis, loops_analysis):
                     else:
                         # This is a second 'entry'
                         # area to the loop.  We need
-                        # to duplicate this loop, and 
+                        # to duplicate this loop, and
                         # remove all edges into and out
                         # of this.
                         pass
@@ -81,6 +85,7 @@ def generate_input_lookup(nodes, edges):
 
     return input_lookup
 
+
 def generate_output_lookup(nodes, edges):
     # Compute an efficient output lookup for the edges.
     output_lookup = {}
@@ -113,18 +118,17 @@ def compute_loop_subregion(nodes, edges, loop_start_node, loops, branches):
         for loop in loops[loop_start_node]:
             # Add every node and every edge that
             # can be reached from the loop_start_node,
-            # /provided/ they are in the loop. i.e., 
+            # /provided/ they are in the loop. i.e.,
             # we do not add all edges that can be reached
             # from the start node, but after the start
             # node, we do add all edges.
-            if loop[1] != loop_start_node:
-                search_nodes.append(loop[1])
+            search_nodes.append(loop[1])
 
         # Now, go through and find every node that
         # can be reached from each of these nodes.
         # Store the edges in a dictionary.
         new_edges_dict = {}
-        
+
         for node in search_nodes:
             visited = {}
             # Do not want to go past the start node.
@@ -308,9 +312,30 @@ def compute_sssp(nodes, edges, source):
 
     return (node_dists, node_paths)
 
+counts = 0
 # Given an automata, return a list of all loops that
 # don't involved a repeated node.
 def compute_loops_with_duplicates(nodes, edges):
+    if edges == []:
+        return []
+    print nodes
+    print edges
+    global counts
+    counts += 1
+    # print counts
+    # Use NX to do large graphs because it has
+    # an asymptotically faster algorithm.
+    if len(edges) > 50:
+        nx_graph = nx.MultiDiGraph()
+        nx_graph.add_edges_from(edges)
+        nx_cycles = list(nx.cycles.simple_cycles(nx_graph))
+        # Convert these to the format we expect.
+        for i in range(len(nx_cycles)):
+            nx_cycles[i].append(nx_cycles[i][0])
+
+        return nx_cycles
+
+
     output_lookup = generate_output_lookup(nodes, edges)
     # Algorithm is basically to do a DFS for each node, and
     # see if we get back to it.  (Every time we do, we note
