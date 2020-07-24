@@ -24,5 +24,10 @@ class LargeTest(unittest.TestCase):
         # I was seeing roughly 10x speedup with caching.
         self.assertTrue(end1 - start < (end2 - start) / 0.5)
 
+    def test_multiple_in_edges(self):
+        nodes = [4, 9, 10, 11, 12, 16, 17, 18, 19, 20, 8]
+        edges = [(4, 16), (9, 9), (9, 17), (10, 10), (10, 18), (11, 11), (11, 19), (12, 12), (12, 20), (16, 9), (16, 17), (17, 10), (17, 18), (18, 11), (18, 19), (19, 12), (19, 20), (8, 4)] 
+
+
 if __name__ == "__main__":
     unittest.main()
