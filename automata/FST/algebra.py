@@ -103,7 +103,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             # and try to compress
             algebra = computed_algebras[node]
             current_tail = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-            algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum(current_tail, algebra)
+            algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([current_tail, algebra])
 
             try_to_compress = True
 
@@ -186,14 +186,48 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 # This should be able to handle more cases, just need
                 # to figure out how to push the removed edge constant
                 # into the loop algebra to the appropriate term.
-                assert len(removed_edges) == 1
-                loop_algebra = Sum(loop_algebra, Const(1, [removed_edges[0]]))
+
+                # We need to construct a branch --- critically,
+                # we need to apply the right edge to the end 
+                # of each algebra.
+
+                if loop_algebra.isbranch():
+                    branch_elems = loop_algebra.e1
+                else:
+                    branch_elems = [loop_algebra]
+
+                # We know that each removed edge will be of
+                # the form [last_node_in_loop, loop_start]
+                # So we can just add a sum to the end of the loop:
+                for i in range(len(branch_elems)):
+                    elemn = branch_elems[i]
+
+                    last_edge = elemn.get_last_node()
+                    if last_edge:
+                        branch_elems[i] = Sum([branch_elems[i], Const(1, [(last_edge, node)])])
+                    else:
+                        # This is likely due to a branch within
+                        # the branch --- we really need some
+                        # complicated recusion here to 
+                        # then go down every
+                        # branch and add the + 1 to
+                        # every end.
+                        pass
+
+                for (src, dst) in removed_edges:
+                    if src == dst:
+                        # THis means there is a 1-loop,
+                        # which was removed from the underlying
+                        # analysis, so add it back in.
+                        branch_elems.append(Const(1, [(src, dst)]))
+
+                loop_algebra = Sum([loop_algebra, Const(1, [removed_edges[0]])])
                 if ALG_DEBUG:
                     print "Generated loop algebra is:"
                     print(loop_algebra)
 
                 algebra = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-                algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum(algebra, Product(loop_algebra))
+                algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([algebra, Product(loop_algebra)])
 
             # If this branch is a dead-end, add that
             # to the result equation:
@@ -202,7 +236,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 if node in end_states:
                     # Save an end state onto the stack.
                     algebra = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-                    algebra = Sum(algebra, End()) if algebra else End()
+                    algebra = Sum([algebra, End()]) if algebra else End()
                     algebra_stack[-1][algebra_stack_counts[-1] - 1] = algebra
                 else:
                     pass
@@ -217,7 +251,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 new_linalg = linear_algebra_for(non_loops_from_this_node[0], accept_states)
                 # Persist that algebra into the stack.
                 current_stack = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-                new_alg = new_linalg if current_stack is None else Sum(current_stack, new_linalg)
+                new_alg = new_linalg if current_stack is None else Sum([current_stack, new_linalg])
                 algebra_stack[-1][algebra_stack_counts[-1] - 1] = new_alg
 
             # If this is a branch, go deeper in the algebra stack.
@@ -298,12 +332,15 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     # at the start of the algebra stack.
                     new_head_of_stack = algebra
                 else:
-                    new_head_of_stack = Sum(new_head_of_stack, algebra)
+                    new_head_of_stack = Sum([new_head_of_stack, algebra])
                 algebra_stack[-1][algebra_stack_counts[-1] - 1] = new_head_of_stack
 
 
             # Decrement the stack counts.
             algebra_stack_counts[-1] = algebra_stack_counts[-1] - 1
+
+    # We should not reach the end here.
+    assert False
 
 
 def generate_branches_by_start_lookup(branches):
