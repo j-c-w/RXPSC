@@ -2,12 +2,17 @@
 from terms import *
 import sjss
 from repoze.lru import lru_cache
+import itertools
 
 ALG_DEBUG = False
 # This should probably be enabled for most things, it
 # drastically helps avoid exponential blowup for non-SJSS
 # graphs.
 CACHE_ENABLED = True
+
+# How many permutations should we explore when trying to
+# find branch equality?
+PERMUTATION_THRESHOLD = 10000
 
 def generate(nodes, edges, start, accept_states):
     # Clear the results cache for 'generate_internal'
@@ -411,12 +416,140 @@ def linear_algebra_for(branch, accept_states):
         sum_elt = algebra[0]
     else:
         # Join them together with Sum operations.
-        algebra = algebra[::-1]
-        sum_elt = Sum(algebra[1], algebra[0])
-        for item in algebra[2:]:
-            sum_elt = Sum(item, sum_elt)
+        sum_elt = Sum(algebra)
 
     if ALG_DEBUG:
         print "Computed Algebra is " + str(sum_elt)
 
     return sum_elt
+
+
+# This is an implementation of the comparison operator ---
+# the concept is that if A < B, then  we can use the circuit
+# for B to implement A.  This does not have to do with
+# the generation of a translator, which will likely
+# use effectively the same algorithm.  See the theory
+# paper for a description of this algorithm in a sensible
+# manner.
+# The problem is that some of these things are massive,
+# so a recursive implementation would exceed stack limits
+# in python.
+comparison_cache = {}
+def leq(A, B):
+    global comparison_cache
+    comparison_cache = {}
+
+    return leq_internal(A, B)
+
+# Trim equality means we can use <= instead of == to compare
+# integers --- only applies at the end of statements.
+def leq_internal(A, B, trim_equality=False):
+    cache_pointer = (A.id, B.id)
+
+    # See if we have a cached comparison for these.
+    if CACHE_ENABLED and cache_pointer in comparison_cache:
+        return comparison_cache[cache_pointer]
+
+    result = None
+    if A.isconst():
+        if B.isconst():
+            if trim_equality and A.val <= B.val:
+                result = True
+            elif A.val == B.val:
+                result = True
+        elif B.isproduct():
+            result = True
+        else:
+            result = False
+    elif B.isend():
+        result = True
+    elif A.isaccept() and B.isaccept():
+        result = True
+    elif A.isproduct() and B.isproduct():
+        result = leq_internal(A.e1, B.e1)
+    elif A.issum() and B.issum():
+        element_equality = []
+
+        if len(A.e1) > len(B.e1):
+            result = False
+        elif len(A.e1) < len(B.e1) and not A.e1[-1].isend():
+            # The part about the end statement is applying
+            # the (trim) rule.
+            result = False
+        elif len(A.e1) == len(B.e1):
+            # There are some optimizations to be done
+            # here, to give more equality.  Not too
+            # sure what the are ATM.
+            for i in range(len(A.e1)):
+                if i == len(A.e1) - 3:
+                    # This is the third to last element ---
+                    # it is likley to be often that the last elements
+                    # are a + e, so do a comparison
+                    # that allows for unequal integers at the end.
+                    if A.e1[-1].isend() and B.e1[-1].isend() and A.e1[-2].isaccept() and B.e1[-2].isaccept():
+                        still_equal = still_equal and leq_internal(A.e1[-3], B.e1[-3], trim_equality=True)
+                else:
+                    still_equal = still_equal and leq_internal(A.e1[i], B.e1[i])
+        else:
+            #assme the A ends with End()
+            # are the same.
+            # Compute equality of all the elements.
+            still_equal = True
+            for i in range(len(A.e1) - 1):
+                if A.e1[-1].isend() and B.e1[-1].isend() and A.e1[-2].isaccept() and B.e1[-2].isaccept():
+                    still_equal = still_equal and leq_internal(A.e1[-3], B.e1[-3], trim_equality=True)
+
+                still_equal = still_equal and leq_internal(A.e1[i], B.e1[i])
+
+            result = still_equal
+
+        # TODO --- This is where we can use the loop rolling
+        # property.
+    elif A.isbranch() and B.isbranch():
+        elements_A = A.options
+        elements_B = B.options
+
+        if len(elements_A) > len(elements_B):
+            # No way to map these things.
+            result = False
+        else:
+            # Try all matches --- likely need some kind
+            # of cutoff here.
+            matches = [None] * len(elements_A)
+            for i in range(len(elements_A)):
+                matches[i] = [None] * len(elements_B)
+
+                for j in range(len(elements_B)):
+                    matches[i][j] = leq_internal(elements_A[i], elements_B[j])
+
+            result = False
+            # Now, try and find some match for each i element in A.
+            perm_count = 0
+
+            # This could be made smarter, by making some sensible guesses
+            # about which permutations might work --- there are definitely
+            # constraints here, e.g. we expect the matches matrix
+            # to be quite sparse.
+            for combination in permutations(len(elements_A), range(len(elements_B))):
+                perm_count += 1
+                if perm_count > PERMUTATION_THRESHOLD:
+                    print "Warning: Permutation fail due to excessive numbers"
+                    break
+                # check if the combination is good.
+                is_match = True
+                for i in range(len(combination)):
+                    if not matches[i][combination[i]]:
+                        is_match = False
+                if is_match:
+                    result = True
+                    break
+    else:
+        result = False
+
+    comparison_cache[cache_pointer] = result
+    return result
+
+
+# Yield every cpermustations of i numbers up to j.
+def permutations(i, j):
+    return itertools.permutations(j, i)
