@@ -46,6 +46,14 @@ class AlgebraTest(unittest.TestCase):
         triple = alg.generate([0, 1, 2, 3, 4], [(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (1, 4), (2, 4)], 0, [4])
         print triple
 
+    def test_multiple_removed_edges(self):
+        res = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 1), (1, 2), (2, 1), (2, 3), (3, 4)], 0, [4])
+        print(res)
+
+    def test_multiple_loops(self):
+        res = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 2), (2, 1), (1, 3), (3, 1), (1, 4)], 0, [4])
+
+
 
 if __name__ == "__main__":
     unittest.main()
