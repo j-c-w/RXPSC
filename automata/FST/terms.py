@@ -144,7 +144,7 @@ class Sum(DepthEquation):
         if self._size:
             return self._size
         else:
-            self._size = self.e1.size() + self.e2.size()
+            self._size = sum([x.size() for x in self.e1])
             return self._size
 
 
