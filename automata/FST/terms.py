@@ -29,6 +29,20 @@ class DepthEquation(object):
     def isend(self):
         return False
 
+    # The concept here is to return the N last
+    # edges from this term, split from the current
+    # item.
+    def split_last(self, n):
+        assert False
+
+    # The concept here is to return the number
+    # of edges that overlap exactly within
+    # the two terms.  It's usecase is for deduplication
+    # of edges within the accepting path algebra at
+    # the end of branches.
+    def overlap_distance(self, other):
+        assert False
+
 
 class Product(DepthEquation):
     def __init__(self, e1):
