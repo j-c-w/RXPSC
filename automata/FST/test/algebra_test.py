@@ -53,6 +53,14 @@ class AlgebraTest(unittest.TestCase):
     def test_multiple_loops(self):
         res = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 2), (2, 1), (1, 3), (3, 1), (1, 4)], 0, [4])
 
+    def test_double_branch(self):
+        res = alg.generate([0, 1, 2, 3, 4, 5], [(0, 1), (0, 2), (2, 3), (1, 3), (3, 4), (3, 5)], 0, [])
+        self.assertEqual(str(res), "{{2, 2} + {1 + e, 1 + e}}")
+
+    def test_double_branch_2(self):
+        res = alg.generate([0, 1, 2, 3, 4, 5, 6], [(0, 1), (0, 2), (2, 3), (1, 3), (3, 4), (4, 5), (4, 6)], 0, [])
+        self.assertEqual(str(res), "{{2, 2} + 1 + {1 + e, 1 + e}}")
+
 
 
 if __name__ == "__main__":

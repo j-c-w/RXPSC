@@ -13,8 +13,8 @@ class ComparisonTest(unittest.TestCase):
         self.assertTrue(algebra.leq(Sum([Const(1, [(0, 1)]), Accept(), End()]), Sum([Const(1, [(0, 1)]), Accept(), End()])))
 
         # Test the trim property.
-        self.assertTrue(algebra.leq(Sum([Const(1, [(0, 1)]), End()]),
-                                    Sum([Const(3, [(0, 1)]), End()])))
+        self.assertTrue(algebra.leq(Sum([Const(1, [(0, 1)]), End(), Accept()]),
+                                    Sum([Const(3, [(0, 1), (1, 2), (2, 3)]), End(), Accept()])))
 
 
 if __name__ == "__main__":
