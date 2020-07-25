@@ -102,7 +102,7 @@ class Product(DepthEquation):
         if self._size:
             return self._size
         else:
-            self._size = self.e1.size() + 1
+            self._size = self.e1.size()
             return self._size
 
 
@@ -134,8 +134,8 @@ class Sum(DepthEquation):
                 head = self.e1[i]
                 tail = Const(0, [])
 
-            head_match = Sum(self.e1[:i] + [head])
-            tail_match = Sum([tail] + self.e1[i + 1:])
+            head_match = Sum(self.e1[:i] + [head]).normalize()
+            tail_match = Sum([tail] + self.e1[i + 1:]).normalize()
             return head_match, tail_match
 
     def overlap_distance(self, other):
@@ -366,6 +366,8 @@ class Branch(DepthEquation):
             max_j = []
             for i in range(len(branch_sets)):
                 for j in range(len(branch_sets)):
+                    if i == j:
+                        continue
                     if overlap_distances[i][j] > max_overlap:
                         max_i = i
                         max_j = [j]
@@ -385,9 +387,8 @@ class Branch(DepthEquation):
                 # Get the bif of each algebra that isn't shared.
                 new_j_algebra, shared_tail_j = branch_sets[j].split_last(max_overlap)
                 branch_sets[max_i].append(new_j_algebra)
-                print "Joining"
 
-            branch_sets[max_i] = Sum([Branch(branch_sets[max_i]), shared_tail]).normalize()
+            branch_sets[max_i] = Sum([Branch(branch_sets[max_i]), shared_tail])
 
             # Now, delete all the 'j' stuff that has been copied
             # across.
@@ -396,10 +397,16 @@ class Branch(DepthEquation):
                 assert j != max_i
                 if j < max_i:
                     max_i -= 1
-                del overlap_distances[max_i][j]
+                del overlap_distances[j]
+
+                # Also need to delete the column:
+                for i in range(len(overlap_distances)):
+                    del overlap_distances[i][j]
+
 
         # Finally, set the elements to the ones we computed.
         self.options = branch_sets
+        self._size = None
 
 
     def size(self):
