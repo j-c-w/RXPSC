@@ -23,7 +23,9 @@ def generate(nodes, edges, start, accept_states):
     end_states = sjss.compute_end_states(nodes, edges)
 
     result = generate_internal(nodes, edges, start, accept_states, end_states, branches, loops)
-    return result.normalize()
+    result = result.normalize()
+
+    return result
 
 
 def clean_caches():
@@ -457,6 +459,8 @@ def leq_internal(A, B, trim_equality=False):
                 result = True
             elif A.val == B.val:
                 result = True
+            else:
+                result = False
         elif B.isproduct():
             result = True
         else:
@@ -480,6 +484,7 @@ def leq_internal(A, B, trim_equality=False):
             # There are some optimizations to be done
             # here, to give more equality.  Not too
             # sure what the are ATM.
+            still_equal = True
             for i in range(len(A.e1)):
                 if i == len(A.e1) - 3:
                     # This is the third to last element ---
@@ -490,6 +495,7 @@ def leq_internal(A, B, trim_equality=False):
                         still_equal = still_equal and leq_internal(A.e1[-3], B.e1[-3], trim_equality=True)
                 else:
                     still_equal = still_equal and leq_internal(A.e1[i], B.e1[i])
+            result = still_equal
         else:
             #assme the A ends with End()
             # are the same.
@@ -547,6 +553,11 @@ def leq_internal(A, B, trim_equality=False):
         result = False
 
     comparison_cache[cache_pointer] = result
+    if result is None:
+        print "Failed to produce a comparison for:"
+        print A
+        print B
+    assert result is not None
     return result
 
 
