@@ -443,9 +443,7 @@ def leq(A, B):
 
     return leq_internal(A, B)
 
-# Trim equality means we can use <= instead of == to compare
-# integers --- only applies at the end of statements.
-def leq_internal(A, B, trim_equality=False):
+def leq_internal(A, B):
     cache_pointer = (A.id, B.id)
 
     # See if we have a cached comparison for these.
@@ -455,9 +453,7 @@ def leq_internal(A, B, trim_equality=False):
     result = None
     if A.isconst():
         if B.isconst():
-            if trim_equality and A.val <= B.val:
-                result = True
-            elif A.val == B.val:
+            if A.val == B.val:
                 result = True
             else:
                 result = False
@@ -480,31 +476,17 @@ def leq_internal(A, B, trim_equality=False):
             # The part about the end statement is applying
             # the (trim) rule.
             result = False
-        elif len(A.e1) == len(B.e1):
-            # There are some optimizations to be done
-            # here, to give more equality.  Not too
-            # sure what the are ATM.
-            still_equal = True
-            for i in range(len(A.e1)):
-                if i == len(A.e1) - 3:
-                    # This is the third to last element ---
-                    # it is likley to be often that the last elements
-                    # are a + e, so do a comparison
-                    # that allows for unequal integers at the end.
-                    if A.e1[-1].isend() and B.e1[-1].isend() and A.e1[-2].isaccept() and B.e1[-2].isaccept():
-                        still_equal = still_equal and leq_internal(A.e1[-3], B.e1[-3], trim_equality=True)
-                else:
-                    still_equal = still_equal and leq_internal(A.e1[i], B.e1[i])
-            result = still_equal
         else:
-            #assme the A ends with End()
-            # are the same.
+            # Assume the lengths are the same or that
+            # A ends with End()
             # Compute equality of all the elements.
             still_equal = True
-            for i in range(len(A.e1) - 1):
-                if A.e1[-1].isend() and B.e1[-1].isend() and A.e1[-2].isaccept() and B.e1[-2].isaccept():
-                    still_equal = still_equal and leq_internal(A.e1[-3], B.e1[-3], trim_equality=True)
-
+            # We don't need equality up to the end here, due
+            # the the (trim) rule (i.e. e <= x (provided x != a))
+            for i in range(len(A.e1)):
+                if i == len(A.e1) - 1:
+                    if A.e1[i].isend() and not B.e1[i].isaccept():
+                        continue
                 still_equal = still_equal and leq_internal(A.e1[i], B.e1[i])
 
             result = still_equal
