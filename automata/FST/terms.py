@@ -10,6 +10,7 @@ class DepthEquation(object):
         global terms_id_counter
         self.id = terms_id_counter
         terms_id_counter += 1
+        self._cached_first_edge = None
 
     def isproduct(self):
         return False
@@ -43,6 +44,21 @@ class DepthEquation(object):
     def overlap_distance(self, other):
         assert False
 
+    # Return the first edge from the current term.
+    def _first_edge_internal(self):
+        assert False
+
+    def first_edge(self):
+        if self._cached_first_edge is None:
+            self._cached_first_edge = self._first_edge_internal()
+        return self._cached_first_edge
+
+    def has_first_edge(self):
+        if self.first_edge() is None:
+            return False
+        else:
+            return True
+
 
 class Product(DepthEquation):
     def __init__(self, e1):
@@ -52,6 +68,9 @@ class Product(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _first_edge_internal(self):
+        return self.e1.first_edge()
 
     def overlap_distance(self, other):
         # I think we can do this because the caching
@@ -114,6 +133,15 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _first_edge_internal(self):
+        # Return the first item in this sum that
+        # has an edge.
+        for item in self.e1:
+            first = item.first_edge()
+            if first:
+                return first
+        return None
 
     def split_last(self, n):
         i = len(self.e1) - 1
@@ -243,6 +271,12 @@ class Const(DepthEquation):
         self.edges = edges
         self._size = None
 
+    def _first_edge_internal(self):
+        if len(self.edges) > 0:
+            return [self.edges[0]]
+        else:
+            return None
+
     def split_last(self, n):
         if n == self.size():
             return Const(0, []), self
@@ -295,6 +329,18 @@ class Branch(DepthEquation):
         self.options = [opt for opt in options if opt]
         self.isnormal = False
         self._size = None
+
+    def _first_edge_internal(self):
+        first_edges = []
+        for opt in self.options:
+            sub_first_edge = opt.first_edge()
+            if sub_first_edge:
+                first_edges += sub_first_edge
+
+        if len(first_edges) == 0:
+            return None
+        else:
+            return first_edges
 
     def overlap_distance(self, other):
         if self == other:
@@ -428,6 +474,9 @@ class Accept(DepthEquation):
     def isaccept(self):
         return True
 
+    def _first_edge_internal(self):
+        return None
+
     # Accept and End are not important things
     # to merge anyway -- the concepts they represent
     # are not data dependent, i.e. it does not
@@ -459,6 +508,9 @@ class End(DepthEquation):
 
     def isend(self):
         return True
+
+    def _first_edge_internal(self):
+        return None
 
     def overlap_distance(self, other):
         return 0
