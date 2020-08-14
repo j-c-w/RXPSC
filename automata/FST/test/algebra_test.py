@@ -1,4 +1,6 @@
 import unittest
+from automata.FST.terms import *
+import automata.FST.unifier as unifier
 import automata.FST.algebra as alg
 
 
@@ -61,7 +63,29 @@ class AlgebraTest(unittest.TestCase):
         res = alg.generate([0, 1, 2, 3, 4, 5, 6], [(0, 1), (0, 2), (2, 3), (1, 3), (3, 4), (4, 5), (4, 6)], 0, [])
         self.assertEqual(str(res), "{{2, 2} + 1 + {1 + e, 1 + e}}")
 
+class UnificationTest(unittest.TestCase):
+    def test_simple_unifier(self):
+        res = alg.leq_unify(Const(1, [(1, 2)]), Const(1, [(2, 3)]))
+        self.assertEqual(res.to_edges, [(1, 2)])
+        self.assertEqual(res.from_edges, [(2, 3)])
 
+    def test_unifier_branches(self):
+        t1 = Branch([Const(2, [(1, 2), (2, 3)]), Const(1, [(4, 5)])])
+        t2 = Const(2, [(-1, -2), (-2, -3)])
+
+        res = alg.leq_unify(t2, t1)
+        self.assertEqual(res.from_edges, [(1, 2), (2, 3), (4, 5)])
+        self.assertEqual(res.to_edges, [(-1, -2), (-2, -3), unifier.NoMatchSymbol])
+
+    def test_unifier_both_branches(self):
+        t1 = Branch([Sum([Const(1, [(0, 1)]), Accept()]), Sum([Const(2, [(1, 2), (2, 3)]), End()])])
+        t2 = Branch([Sum([Const(1, [(0, 5)]), End()]), Sum([Const(1, [(0, 1)]), Accept()]), Sum([Const(2, [(2, 3), (3, 4)]), End()])])
+        res = alg.leq_unify(t1, t2)
+        print "Got result:"
+        print(res)
+
+        # print(res.from_edges)
+        # print(res.to_edges)
 
 if __name__ == "__main__":
     unittest.main()
