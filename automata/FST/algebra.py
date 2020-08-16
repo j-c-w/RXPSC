@@ -6,7 +6,7 @@ import itertools
 from unifier import *
 
 ALG_DEBUG = False
-LEQ_DEBUG = True
+LEQ_DEBUG = False
 # This should probably be enabled for most things, it
 # drastically helps avoid exponential blowup for non-SJSS
 # graphs.

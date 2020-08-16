@@ -2,6 +2,7 @@ import automata as atma
 import sjss
 import algebra
 import time
+import generate_fst
 
 def compile(from_atma, to_atma):
     # Compare the shape of the autmata.  If the aren't roughly
@@ -14,7 +15,13 @@ def compile(from_atma, to_atma):
     print "To Eqn:"
     print str(depth_eqn_to)
 
-    # TODO -- Do something with those depth equations.
+    unification = algebra.leq_unify(depth_eqn_from, depth_eqn_to)
+
+    if unification is None:
+        return None
+    else:
+        # Use the unification to generate an FST if possible.
+        return generate_fst.generate(unification, from_atma, to_atma)
 
 def compare(eqn_from, eqn_to):
     return algebra.leq(eqn_from, eqn_to)

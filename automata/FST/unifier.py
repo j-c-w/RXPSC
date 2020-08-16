@@ -49,7 +49,7 @@ class Unifier(object):
 
             if to_chars:
                 for char in to_chars:
-                    matching_symbol[ord(char)] = True
+                    matching_symbol[char] = True
 
            
         # Now, go through and map any None values, which mean
@@ -64,12 +64,12 @@ class Unifier(object):
             return None
         else:
             for disable in disabled_states:
-                state_lookup[disable] = chr(non_matching)
+                state_lookup[disable] = non_matching
 
         # Translate everything else to itself.  This is an
         # relatively arbitrary decision I'm pretty sure.
         for i in range(0, 256):
-            if chr(i) not in state_lookup:
-                state_lookup[chr(i)] = chr(i)
+            if i not in state_lookup:
+                state_lookup[i] = i
 
         return state_lookup
