@@ -15,12 +15,13 @@ let
 			tqdm
 			jinja2
 			pygraphviz
+			repoze_lru
 		];
 		ignoreCollisions = true;
 	};
 
 	# Get HSCompile
-	hscompile = (import ~/.scripts/Nix/CustomPackages/AutomataTools/hscompile/default.nix);
+	hscompile = (import ~/.scripts/Nix/CustomPackages/AutomataTools/hscompile/default.nix );
 in
 pkgs.mkShell {
 	SHELL_NAME = "APSim";
@@ -29,6 +30,7 @@ pkgs.mkShell {
 	(callPackage ~/.scripts/Nix/CustomPackages/AutomataTools/vasim/default.nix {})  
 	verilog
 	hscompile
+	ctags
 	];
 
 	shellHook = ''
