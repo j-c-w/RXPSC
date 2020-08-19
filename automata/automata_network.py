@@ -139,6 +139,9 @@ class Automatanetwork(object):
 
         return result
 
+    def edge_data(self):
+        return self._my_graph.edges.data()
+
     def edge_ids_list(self):
         edges = list(self.get_edges(data=False))
         results = [None] * len(edges)
