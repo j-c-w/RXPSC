@@ -55,7 +55,7 @@ class AutomataContainer(object):
 
 # Given a group, compute a 3D array representing the cross
 # compilability of that matrix.
-def compute_cross_compatibility_matrix_for(group):
+def compute_cross_compatibility_matrix_for(group, options):
     results = [None] * len(group)
     compilation_list = [None] * len(group)
     # The compilation_list should be a 3D array that
@@ -69,12 +69,17 @@ def compute_cross_compatibility_matrix_for(group):
         compilation_list[i] = contents
 
     for i in range(len(group)):
+        if DEBUG_COMPUTE_COMPAT_MATRIX:
+            print "Starting a new group index (", i, ")"
+
         row_results = [0] * len(group[i])
         for j in range(len(group[i])):
             # Now, compile everything that is /not/ in this
             # group to this.
             successful_compiles = []
             source_automata = group[i][j]
+            if DEBUG_COMPUTE_COMPAT_MATRIX:
+                print "Comparing to automata: ", source_automata.algebra
 
             for i2 in range(len(group)):
                 if i2 == i:
@@ -83,6 +88,9 @@ def compute_cross_compatibility_matrix_for(group):
                     continue
 
                 for j2 in range(len(group[i2])):
+                    if DEBUG_COMPUTE_COMPAT_MATRIX:
+                        print "Pair is ", i2, j2
+                        print "Comparied to ", i, j
                     target_automata = group[i2][j2]
 
                     # We could make this faster by not generating
@@ -93,8 +101,10 @@ def compute_cross_compatibility_matrix_for(group):
                     # things are actually assigned).
                     if DEBUG_COMPUTE_COMPAT_MATRIX:
                         print "Comparing ", str(source_automata.algebra)
+                        print "(Hash)", str(source_automata.algebra.structural_hash())
                         print " and, ", str(target_automata.algebra)
-                    conversion_machine = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata)
+                        print "(Hash)", str(target_automata.algebra.structural_hash())
+                    conversion_machine = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata, options)
 
                     if conversion_machine:
                         if DEBUG_COMPUTE_COMPAT_MATRIX:
@@ -114,11 +124,11 @@ def compute_cross_compatibility_matrix_for(group):
 # compute a set of regular expressions to
 # put on hardware, assignments for everything,
 # and conversion machines.
-def compute_hardware_assignments_for(groups):
-    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups)
-    return assign_hardware(compiles_from, compiles_to)
+def compute_hardware_assignments_for(groups, options):
+    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options)
+    return assign_hardware(compiles_from, compiles_to, options)
 
-def assign_hardware(compiles_from, compiles_to):
+def assign_hardware(compiles_from, compiles_to, options):
     # Greedy algorithm is to find the regex with the
     # most coverage, and use that to 
     # We could make this a lot faster with a heap or something.
@@ -169,7 +179,7 @@ def assign_hardware(compiles_from, compiles_to):
             min_assigns_index = None
             min_assings_object = None
             # find the min and min index.
-            for j in range(len(compiles_from[j])):
+            for j in range(len(compiles_from[i])):
                 if assigned_hardware[i][j] is not None:
                     # this has already been assigned a thing,
                     # so doesnt need another one.
@@ -198,7 +208,7 @@ def assign_hardware(compiles_from, compiles_to):
 
     return assigned_hardware
 
-def compile(automata_components):
+def compile(automata_components, options):
     # Takes a list of lists of CCs, and computes a
     # set of CCs that should go in hardware, and a list
     # that can be translated.
@@ -208,11 +218,15 @@ def compile(automata_components):
     for cc_list in automata_components:
         group = []
         for cc in cc_list:
-            group.append(AutomataContainer(cc, sc.compute_depth_equation(cc)))
+            depth_eqn = sc.compute_depth_equation(cc)
+            if options.print_algebras:
+                print depth_eqn
+                print "Hash: ", depth_eqn.structural_hash()
+            group.append(AutomataContainer(cc, depth_eqn))
 
         groups.append(group)
 
-    return compute_hardware_assignments_for(groups)
+    return groups, compute_hardware_assignments_for(groups, options)
 
 
 # Estimate the amount of cross-compatability within
@@ -226,6 +240,7 @@ def compile_statistics(connected_components):
 
     # Now, check for cross compatability:
     cross_compilations = 0
+    exact_duplicates = 0
     for j in range(len(algebras)):
         for i in range(len(algebras)):
             if i != j:
@@ -233,5 +248,8 @@ def compile_statistics(connected_components):
                 if result:
                     print "Compiled ", algebras[i], " to ", algebras[j]
                     cross_compilations += 1
+                if result.isempty():
+                    exact_duplicates += 1
 
     print "Total cross compilations is ", cross_compilations
+    print "Of those, there were ", exact_duplicates, " exact duplicates"
