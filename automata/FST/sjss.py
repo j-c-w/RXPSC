@@ -318,8 +318,6 @@ counts = 0
 def compute_loops_with_duplicates(nodes, edges):
     if edges == []:
         return []
-    print nodes
-    print edges
     global counts
     counts += 1
     # print counts
