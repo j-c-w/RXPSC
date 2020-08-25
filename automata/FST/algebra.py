@@ -439,16 +439,17 @@ def linear_algebra_for(branch, accept_states):
 # so a recursive implementation would exceed stack limits
 # in python.
 comparison_cache = {}
-def leq(A, B):
-    unifier = leq_unify(A, B)
+def leq(A, B, options):
+    unifier = leq_unify(A, B, options)
     return unifier is not None
 
 
-def leq_unify(A, B):
+def leq_unify(A, B, options):
     global comparison_cache
     comparison_cache = {}
+    print "Comparing ", str(A), " and ", str(B)
 
-    unifier = leq_internal(A, B)
+    unifier = leq_internal(A, B, options)
     return unifier
 
 # This is a counter to help distinguish between calls.
@@ -456,9 +457,10 @@ leq_internal_id = 0
 
 # Computes if A <= B, where A <= B means that we can
 # run A using automata B.
-def leq_internal(A, B):
+def leq_internal(A, B, options, use_leq_on_constants=False):
     if LEQ_DEBUG:
         print "Entering a new comparison"
+        print "Types are ", A.type(), " and ", B.type()
         global leq_internal_id
         this_call_id = leq_internal_id
         leq_internal_id += 1
@@ -481,7 +483,7 @@ def leq_internal(A, B):
         opt_unifier = None
         selected_unifier = None
         for opt in B.options:
-            sub_unifier = leq_internal(A, opt)
+            sub_unifier = leq_internal(A, opt, options)
             if sub_unifier is not None:
                 opt_unifier = opt
                 selected_unifier = sub_unifier
@@ -503,12 +505,30 @@ def leq_internal(A, B):
                     # interested in ensuring that it doesn't
                     # get to an unwanted accepting state.
                     first_edges = opt.first_edge()
-                    unifier.add_edges(first_edges, [NoMatchSymbol] * len(first_edges))
+                    if first_edges:
+                        unifier.add_disabled_edges(first_edges)
             result = True
         else:
             # No branch unified.
             unifier = None
             result = False
+    elif A.isbranch() and not B.isbranch():
+        if LEQ_DEBUG:
+            print "A is a branch and B is not a branch -- trying"
+            print "to create structural equality between the two."
+        # We can compile this, but require that every branch
+        # of A compiles to B.
+        unifier = Unifier()
+        result = True
+        for opt in A.options:
+            sub_unifier = leq_internal(opt, B, options)
+            if sub_unifier is None:
+                result = False
+            else:
+                unifier.unify_with(sub_unifier)
+        if not result:
+            # Need to clear the unifier:
+            unifier = None
     elif A.isconst():
         if LEQ_DEBUG:
             print "A is const:"
@@ -521,6 +541,10 @@ def leq_internal(A, B):
                 result = True
                 unifier = Unifier()
                 unifier.add_edges(B.edges, A.edges)
+            elif use_leq_on_constants and B.val < A.val:
+                result = True
+                unifier = Unifier(cost=A.val - B.val)
+                unifier.add_edges(B.edges, A.edges[:len(B.edges)])
             else:
                 result = False
         elif B.isproduct():
@@ -552,7 +576,7 @@ def leq_internal(A, B):
     elif A.isproduct() and B.isproduct():
         if LEQ_DEBUG:
             print "Both are products: Unifying subcomponents"
-        unifier = leq_internal(A.e1, B.e1)
+        unifier = leq_internal(A.e1, B.e1, options)
         if unifier is None:
             result = False
         else:
@@ -560,38 +584,116 @@ def leq_internal(A, B):
     elif A.issum() and B.issum():
         if LEQ_DEBUG:
             print "Both are sums: unifying subsums"
-        element_equality = []
+            print "Lenths are ", len(A.e1),  "and", len(B.e1)
 
-        if len(A.e1) > len(B.e1):
-            result = False
-        elif len(A.e1) < len(B.e1) and not A.e1[-1].isend():
-            # The part about the end statement is applying
-            # the (trim) rule.
-            result = False
+        still_equal = True
+        unifier = Unifier()
+
+        a_index = 0
+        b_index = 0
+        # We don't need equality up to the end here, due
+        # the the (trim) rule (i.e. e <= x (provided x != a))
+        while still_equal and a_index < len(A.e1) and b_index < len(B.e1):
+            # The algorithm here is to progressively increase
+            # the range of terms over which we unify in A to the
+            # first element in B.  If that doesn't work, then
+            # we progressively unify larger terms of B to the
+            # first element of A.
+            # We want to match the biggest section possible ---
+            # e.g. if there is a branch {1, 1 + 1}, we heuristically
+            # want to take the longer branch.
+            # That said, it shouldn't be too hard to extend
+            # this to try all branches --- it might give more coverage.
+            # Unfortunately, the algoritm to unify the biggest
+            # section possible was really quite slow, especially
+            # when considering very long 1 + 1 + 1...
+            # I think it's possible to get away with an heuristic
+            # here that just looks to see if the first two terms
+            # are consts of the same size, and if they are
+            # just bumps forward on the equality.
+            if LEQ_DEBUG:
+                print "Call ID ", this_call_id
+                print "Staritng a new iteration of the sum checker"
+                print "The indexes are:"
+                print a_index, b_index
+
+            last_element_of_a = a_index + 1
+            found_match_expanding_a = False
+            while not found_match_expanding_a and last_element_of_a <= len(A.e1):
+                smaller_elements = Sum(A.e1[a_index:last_element_of_a]).normalize(flatten=False)
+                # Now, try to compile:
+                sub_unifier = leq_internal(smaller_elements, B.e1[b_index], options)
+                if sub_unifier is not None:
+                    # Eat all the matched elements and continue:
+                    found_match_expanding_a = True
+                    if LEQ_DEBUG:
+                        print "Found match expanding A"
+                else:
+                    last_element_of_a += 1
+
+            if found_match_expanding_a:
+                # Shrink things and move onward :)
+                unifier.unify_with(sub_unifier)
+
+                a_index = last_element_of_a
+                b_index += 1
+            else:
+                # Otherwise, try matching more things of B to
+                # the first element of A.
+                last_element_of_b = b_index + 1
+                found_match_expanding_b = False
+
+                while not found_match_expanding_b and last_element_of_b <= len(B.e1):
+                    smaller_elements = Sum(B.e1[b_index:last_element_of_b]).normalize(flatten=False)
+                    sub_unifier = leq_internal(A.e1[a_index], smaller_elements, options)
+
+                    if sub_unifier is not None:
+                        if LEQ_DEBUG:
+                            print "Found match expanding B"
+                        found_match_expanding_b = True
+                    else:
+                        last_element_of_b += 1
+
+                if found_match_expanding_b:
+                    unifier.unify_with(unifier)
+                    b_index = last_element_of_b - 1
+                    a_index += 1
+                else:
+                    # No matches found, so termiate
+                    if LEQ_DEBUG:
+                        print "Unifying sums failed at indexes", a_index, b_index
+                    still_equal = False
+
+        # TODO -- Do the tail approximation check.
+
+        # If A is completely used, then we are done.  We might
+        # have to disable the first edge out of as far as we got into B.
+        if LEQ_DEBUG:
+            print "Exited the sum comparison loop --- managed "
+            print "to unify up to index ", a_index, b_index
+            print "out of ", len(A.e1), len(B.e1)
+        if a_index == len(A.e1):
+            if b_index != len(B.e1):
+                sum_tail = Sum(B.e1[b_index:]).normalize()
+                # Need to disable the first edge.
+                first_edges = sum_tail.first_edge()
+
+                # And if there is an accept before the first
+                # edge, then we need to fail.
+                if sum_tail.has_accept_before_first_edge():
+                    result = False
+                    unifier = None
+                else:
+                    if first_edges:
+                        unifier.add_disabled_edges(first_edges)
+            else: # We used up all of B, so do not
+                # need to add any disabled edges.
+                result = True
         else:
-            # Assume the lengths are the same or that
-            # A ends with End()
-            # Compute equality of all the elements.
-            still_equal = True
-            unifier = Unifier()
-            # We don't need equality up to the end here, due
-            # the the (trim) rule (i.e. e <= x (provided x != a))
-            for i in range(len(A.e1)):
-                if i == len(A.e1) - 1:
-                    if A.e1[i].isend() and not B.e1[i].isaccept():
-                        continue
-                sub_unifier = leq_internal(A.e1[i], B.e1[i])
-                still_equal = still_equal and (sub_unifier is not None)
-                if still_equal:
-                    unifier.unify_with(sub_unifier)
-
-            result = still_equal
-            if not result:
-                # Then clear the unifier, because the unification failed.
-                unifier = None
-
-        # TODO --- This is where we can use the loop rolling
-        # property.
+            # TODO -- Apply the tail approximation. For now,
+            # we makr this as a fail.
+            result = False
+            unifier = None
     elif A.isbranch() and B.isbranch():
         if LEQ_DEBUG:
             print "Both are branches, trying all combinations to find a unifying pair"
@@ -613,7 +715,7 @@ def leq_internal(A, B):
                         print "Performing initial checks to build matrix for branch at call " + str(this_call_id) + ":"
                         print "Checking ", elements_A[i]
                         print "Checking ", elements_B[j]
-                    matches[i][j] = leq_internal(elements_A[i], elements_B[j])
+                    matches[i][j] = leq_internal(elements_A[i], elements_B[j], options)
 
             result = False
             # Now, try and find some match for each i element in A.
@@ -643,26 +745,38 @@ def leq_internal(A, B):
                     # Create the unifier with this sequence of
                     # assignments:
                     unifier = Unifier()
+                    used_branches = []
                     for i in range(len(combination)):
+                        used_branches.append(combination[i])
                         unifier.unify_with(matches[i][combination[i]])
+
+                    # Disable the other edges:
+                    for i in range(len(elements_B)):
+                        if i not in used_branches:
+                            unifier.add_disabled_edges(elements_B[i].first_edge())
 
                     result = True
                     break
     else:
         if LEQ_DEBUG:
             print "Types differ: unification failed"
+            print "Types were", A.type(), B.type()
         result = False
 
     comparison_cache[cache_pointer] = unifier
     if result is None:
-        print "Failed to produce a comparison for:"
-        print A
-        print B
+        if LEQ_DEBUG:
+            print "Failed to produce a comparison for:"
+            print A
+            print B
 
     if LEQ_DEBUG:
         print "Exiting call ", this_call_id
         print "Result is ", unifier
 
+    if unifier:
+        unifier.algebra_from = A
+        unifier.algebra_to = B
     return unifier
 
 
