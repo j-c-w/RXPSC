@@ -1,4 +1,5 @@
 import single_compiler as sc
+import compilation_statistics
 
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = False
@@ -248,8 +249,6 @@ def compile_statistics(connected_components):
                 if result:
                     print "Compiled ", algebras[i], " to ", algebras[j]
                     cross_compilations += 1
-                if result.isempty():
-                    exact_duplicates += 1
 
     print "Total cross compilations is ", cross_compilations
-    print "Of those, there were ", exact_duplicates, " exact duplicates"
+    print "Of those, there were ", compile_statistics.exact_same_compilations, " exact duplicates"
