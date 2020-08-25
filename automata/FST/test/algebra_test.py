@@ -109,5 +109,12 @@ class UnificationTest(unittest.TestCase):
         self.assertNotEqual(res, None)
         # TODO --- Need to consider a case where we have a branch that unifies with more than one term.
 
+    def test_unifier_plus_plus(self):
+        t1 = Sum([Const(30, [(0, 1)] * 30)]).normalize()
+        t2 = Sum([Const(30, [(0, 1)] * 30)]).normalize()
+
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        self.assertNotEqual(res, None)
+
 if __name__ == "__main__":
     unittest.main()
