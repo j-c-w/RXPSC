@@ -1,4 +1,5 @@
 import unittest
+from automata.FST.options import EmptyOptions
 from automata.FST.group_compiler import *
 
 class GroupCompilerTest(unittest.TestCase):
@@ -14,7 +15,7 @@ class GroupCompilerTest(unittest.TestCase):
                 [[], [], []],
                 ]
 
-        assignments = compute_cross_hardware(compiles_from, compiles_to)
+        assignments = assign_hardware(compiles_from, compiles_to, EmptyOptions)
         print assignments
 
 if __name__ == "__main__":

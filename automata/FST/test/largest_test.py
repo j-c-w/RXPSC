@@ -44,7 +44,7 @@ class LargeTest(unittest.TestCase):
         # No true correct answer? Anyway, it's not SJSS, so
         # something odd should happen
         res = alg.generate(nodes, edges, 0, [3])
-        self.assertEqual("{2 + a + e, 1 + {2 + a + e, 1 + a + e}}", str(res))
+        self.assertEqual("{1 + 1 + a + e, 1 + {1 + 1 + a + e, 1 + a + e}}", str(res))
 
         # edges should be internally duplicated though.
         self.assertTrue(res.size() > len(edges))
