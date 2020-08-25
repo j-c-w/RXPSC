@@ -5,10 +5,11 @@ import math
 import shutil
 import os
 import automata as atma
+import automata.FST.options as options
 import automata.HDL.hdl_generator as hd_gen
 import automata.FST.group_compiler as gc
 
-def process(file_groups, name, print_compression_stats=False):
+def process(file_groups, name, print_compression_stats=False, options=None):
     # Output is: HDL file with the important automata
     # selected + table programming.
 
@@ -23,10 +24,11 @@ def process(file_groups, name, print_compression_stats=False):
         automatas.remove_ors()
         automata_components.append(automatas.get_connected_components_as_automatas())
 
-    assignments = gc.compile(automata_components)
+    groups, assignments = gc.compile(automata_components, options)
 
     if print_compression_stats:
         self_compiles = 0
+        equality = 0
         other_compiles = 0
         for i in range(len(assignments)):
             for j in range(len(assignments[i])):
@@ -36,7 +38,14 @@ def process(file_groups, name, print_compression_stats=False):
                 else:
                     # Compiled to something else
                     other_compiles += 1
+
+                    print "Achieved compilation from ", str(groups[i][j].algebra)
+                    print " to ", str(groups[compilation_index.i][compilation_index.j].algebra)
+
+                    if compilation_index.conversion_machine.isempty():
+                        equality += 1
         print "COMPILATION STATISTICS: self compiles = ", self_compiles
+        print "COMPILATION STATISTICS: Of those, ", equality, " were equal"
         print "COMPILATION STATISTICS: other compiles = ", other_compiles
 
 if __name__ == "__main__":
@@ -45,6 +54,8 @@ if __name__ == "__main__":
     parser.add_argument('anml_file_groups', nargs='+')
     parser.add_argument('--compression-stats', default=False, dest='compression_stats', action='store_true')
 
+    options.add_to_parser(parser)
+
     args = parser.parse_args()
 
-    process(args.anml_file_groups, args.name, args.compression_stats)
+    process(args.anml_file_groups, args.name, args.compression_stats, options.create_from_args(args))
