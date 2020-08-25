@@ -617,9 +617,19 @@ def leq_internal(A, B, options, use_leq_on_constants=False):
                 print "The indexes are:"
                 print a_index, b_index
 
-            last_element_of_a = a_index + 1
+            if A.e1[a_index].isconst() and B.e1[b_index].isconst():
+                # Unify and continue:
+                sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
+                if sub_unifier is not None:
+                    # We can just go back around the loop:
+                    unifier.unify_with(sub_unifier)
+                    a_index += 1
+                    b_index += 1
+                    continue
+
+            last_element_of_a = len(A.e1)
             found_match_expanding_a = False
-            while not found_match_expanding_a and last_element_of_a <= len(A.e1):
+            while not found_match_expanding_a and last_element_of_a > a_index:
                 smaller_elements = Sum(A.e1[a_index:last_element_of_a]).normalize(flatten=False)
                 # Now, try to compile:
                 sub_unifier = leq_internal(smaller_elements, B.e1[b_index], options)
@@ -629,7 +639,7 @@ def leq_internal(A, B, options, use_leq_on_constants=False):
                     if LEQ_DEBUG:
                         print "Found match expanding A"
                 else:
-                    last_element_of_a += 1
+                    last_element_of_a -= 1
 
             if found_match_expanding_a:
                 # Shrink things and move onward :)
@@ -640,10 +650,10 @@ def leq_internal(A, B, options, use_leq_on_constants=False):
             else:
                 # Otherwise, try matching more things of B to
                 # the first element of A.
-                last_element_of_b = b_index + 1
+                last_element_of_b = len(B.e1)
                 found_match_expanding_b = False
 
-                while not found_match_expanding_b and last_element_of_b <= len(B.e1):
+                while not found_match_expanding_b and last_element_of_b > b_index:
                     smaller_elements = Sum(B.e1[b_index:last_element_of_b]).normalize(flatten=False)
                     sub_unifier = leq_internal(A.e1[a_index], smaller_elements, options)
 
@@ -652,7 +662,7 @@ def leq_internal(A, B, options, use_leq_on_constants=False):
                             print "Found match expanding B"
                         found_match_expanding_b = True
                     else:
-                        last_element_of_b += 1
+                        last_element_of_b -= 1
 
                 if found_match_expanding_b:
                     unifier.unify_with(unifier)
