@@ -55,9 +55,11 @@ class Unifier(object):
             print "Starting new unification between "
             print self.algebra_from
             print self.algebra_to
-            if self.algebra_from.equals(self.algebra_to, symbol_lookup_2, symbol_lookup_1):
+
+        if self.algebra_from.equals(self.algebra_to, symbol_lookup_2, symbol_lookup_1):
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                 print "Algebras are actually exactly the same..."
-                compilation_statistics.exact_same_compilations += 1
+            compilation_statistics.exact_same_compilations += 1
 
         for i in range(len(self.from_edges)):
             if DEBUG_UNIFICATION:
