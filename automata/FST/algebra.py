@@ -4,6 +4,7 @@ import sjss
 from repoze.lru import lru_cache
 import itertools
 from unifier import *
+import compilation_statistics
 
 ALG_DEBUG = False
 LEQ_DEBUG = False
@@ -446,18 +447,31 @@ def leq(A, B, options):
 
 def leq_unify(A, B, options):
     global comparison_cache
+    global leq_calls
+    leq_calls = 0
     comparison_cache = {}
     print "Comparing ", str(A), " and ", str(B)
 
     unifier = leq_internal(A, B, options)
+    print "Calls", leq_calls
+    if unifier is None:
+        compilation_statistics.leq_unifier_failures_calls.append(leq_calls)
+    else:
+        compilation_statistics.leq_unifier_successes_calls.append(leq_calls)
     return unifier
 
 # This is a counter to help distinguish between calls.
 leq_internal_id = 0
+# Keeps track of the depth of the calls
+leq_calls = 0
 
 # Computes if A <= B, where A <= B means that we can
 # run A using automata B.
 def leq_internal(A, B, options, use_leq_on_constants=False):
+    global leq_calls
+    leq_calls += 1
+    if leq_calls > options.leq_calls_threshold:
+        return None
     if LEQ_DEBUG:
         print "Entering a new comparison"
         print "Types are ", A.type(), " and ", B.type()
@@ -792,4 +806,4 @@ def leq_internal(A, B, options, use_leq_on_constants=False):
 
 # Yield every cpermustations of i numbers up to j.
 def permutations(i, j):
-    return itertools.permutations(j, i)
+    return itertools.product(j, i)
