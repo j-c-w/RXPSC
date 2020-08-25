@@ -1,9 +1,10 @@
 import FST
+import compilation_statistics
 # We need a value to indicate that an edges should not match
 # anything.
 NoMatchSymbol = None
 DEBUG_UNIFICATION = False
-PRINT_UNIFICATION_FAILURE_REASONS = False
+PRINT_UNIFICATION_FAILURE_REASONS = True
 
 class Unifier(object):
     def __init__(self, algebra_from=None, algebra_to=None, cost=0):
@@ -83,6 +84,7 @@ class Unifier(object):
                         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                             print "Unification failed due to double-mapped state"
                             print "(" + str(from_char) + ") already mapped to " + str(state_lookup[from_char]) + " when something in " + str(to_chars) + " is required"
+                        compile_statistics.single_state_unification_double_map_fails += 1
                         return None
                     else:
                         # The overlap set is non-zero, but may
@@ -112,6 +114,7 @@ class Unifier(object):
         if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation:
             if DEBUG_UNIFICATION:
                 print "Unification failed due to required edge disabling that cannot be achieved"
+            compilation_statistics.single_state_unification_non_matching ++ 1
             return None
         elif non_matching is not None:
             for disable in disabled_edges:
@@ -128,4 +131,6 @@ class Unifier(object):
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Returning a real result"
+
+        compilation_statistics.single_state_unification_success += 1
         return FST.SingleStateTranslator(state_lookup)
