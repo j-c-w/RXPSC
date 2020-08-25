@@ -55,6 +55,10 @@ class Unifier(object):
             print "Starting new unification between "
             print self.algebra_from
             print self.algebra_to
+            if self.algebra_from.equals(self.algebra_to, symbol_lookup_2, symbol_lookup_1):
+                print "Algebras are actually exactly the same..."
+                compilation_statistics.exact_same_compilations += 1
+
         for i in range(len(self.from_edges)):
             if DEBUG_UNIFICATION:
                 print "Trying to unify edges: "
@@ -84,7 +88,7 @@ class Unifier(object):
                         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                             print "Unification failed due to double-mapped state"
                             print "(" + str(from_char) + ") already mapped to " + str(state_lookup[from_char]) + " when something in " + str(to_chars) + " is required"
-                        compile_statistics.single_state_unification_double_map_fails += 1
+                        compilation_statistics.single_state_unification_double_map_fails += 1
                         return None
                     else:
                         # The overlap set is non-zero, but may
