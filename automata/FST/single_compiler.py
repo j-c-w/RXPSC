@@ -3,32 +3,35 @@ import sjss
 import algebra
 import time
 import generate_fst
+import FST
 
-def compile(from_atma, to_atma):
+def compile(from_atma, to_atma, options):
     # Compare the shape of the autmata.  If the aren't roughly
     # the same shape, compiling won't work very well.
     depth_eqn_from = compute_depth_equation(from_atma)
     depth_eqn_to = compute_depth_equation(to_atma)
 
-    print "From Eqn:"
-    print str(depth_eqn_from)
-    print "To Eqn:"
-    print str(depth_eqn_to)
+    if options.print_algebras:
+        print "Compiling from ", depth_eqn_from
+        print "Compiling to ", depth_eqn_to
 
-    return compile_from_algebras(depth_eqn_from, from_atma, depth_eqn_to, to_atma)
+    return compile_from_algebras(depth_eqn_from, from_atma, depth_eqn_to, to_atma, options)
 
 def compare(eqn_from, eqn_to):
     return algebra.leq(eqn_from, eqn_to)
 
 
-def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to):
-    unification = algebra.leq_unify(eqn_from, eqn_to)
+def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options):
+    unification = algebra.leq_unify(eqn_from, eqn_to, options)
 
     if unification is None:
         return None
     else:
         # Use the unification to generate an FST if possible.
-        return generate_fst.generate(unification, automata_from, automata_to)
+        if options.assume_perfect_unification:
+            return FST.AllPowerfulUnifier()
+        else:
+            return generate_fst.generate(unification, automata_to, automata_from)
 
 
 def compute_depth_equation(atma, dump_output=False):
