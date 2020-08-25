@@ -50,6 +50,9 @@ class DepthEquation(object):
     def _has_accept_before_first_edge(self):
         assert False
 
+    def equals(self, other, selflookup=None, otherlookup=None):
+        assert False
+
     # The concept here is to return the N last
     # edges from this term, split from the current
     # item.
@@ -103,6 +106,12 @@ class Product(DepthEquation):
 
     def _has_accept_before_first_edge(self):
         return self.e1.has_accept_before_first_edge()
+
+    def equals(self, other, selflookup=None, otherlookup=None):
+        if other.isproduct():
+            return self.e1.equals(other.e1, selflookup, otherlookup)
+        else:
+            return False
 
     def overlap_distance(self, other):
         # I think we can do this because the caching
@@ -171,6 +180,15 @@ class Sum(DepthEquation):
 
     def type(self):
         return "Sum"
+
+    def equals(self, other, selflookup=None, otherlookup=None):
+        if other.issum() and len(self.e1) == len(other.e1):
+            for i in range(len(self.e1)):
+                if not self.e1[i].equals(other.e1[i], selflookup, otherlookup):
+                    return False
+            return True
+        else:
+            return False
 
     def _has_accept(self):
         for elem in self.e1:
@@ -348,6 +366,16 @@ class Const(DepthEquation):
         else:
             return None
 
+    def equals(self, other, selflookup=None, otherlookup=None):
+        if other.isconst() and other.val == self.val:
+            for i in range(self.val):
+                if otherlookup and selflookup:
+                    if otherlookup[other.edges[i]] != selflookup[self.edges[i]]:
+                        return False
+            return True
+        else:
+            return False
+
     def split_last(self, n):
         if n == self.size():
             return Const(0, []), self
@@ -409,6 +437,24 @@ class Branch(DepthEquation):
 
     def type(self):
         return "Branch"
+
+    def equals(self, other, selflookup=None, otherlookup=None):
+        if not other.isbranch():
+            return False
+        matches = []
+        for i in range(len(self.options)):
+            found_match = False
+            for j in range(len(other.options)):
+                if j in matches:
+                    continue
+                if self.options[i].equals(other.options[j], selflookup, otherlookup):
+                    found_match = True
+                    matches.append(j)
+
+            if not found_match:
+                return False
+
+        return True
 
     def _has_accept(self):
         for opt in self.options:
@@ -575,6 +621,9 @@ class Accept(DepthEquation):
     def type(self):
         return "Accept"
 
+    def equals(self, other, selflookup=None, otherlookup=None):
+        return other.isaccept()
+
     def _has_accept(self):
         return True
 
@@ -618,6 +667,9 @@ class End(DepthEquation):
         # Not 100% sure what to do in this case.  Pretty
         # sure this shouldn't get called.
         assert False
+
+    def equals(self, other, selflookup=None, otherlookup=None):
+        return other.isend()
 
     def _has_accept(self):
         return False
