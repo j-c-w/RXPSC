@@ -11,6 +11,8 @@ class DepthEquation(object):
         self.id = terms_id_counter
         terms_id_counter += 1
         self._cached_first_edge = None
+        self._cached_has_accept = None
+        self._cached_has_accept_before_first_edge = None
 
     def isproduct(self):
         return False
@@ -29,6 +31,24 @@ class DepthEquation(object):
 
     def isend(self):
         return False
+
+    def has_accept(self):
+        if self._cached_has_accept:
+            return self._cached_has_accept
+        else:
+            return self._has_accept()
+
+    def has_accept_before_first_edge(self):
+        if self._cached_has_accept_before_first_edge:
+            return self._cached_has_accept_before_first_edge
+        else:
+            return self._has_accept_before_first_edge()
+
+    def _has_accept(self):
+        assert False
+
+    def _has_accept_before_first_edge(self):
+        assert False
 
     # The concept here is to return the N last
     # edges from this term, split from the current
@@ -59,6 +79,9 @@ class DepthEquation(object):
         else:
             return True
 
+    def structural_hash(self):
+        assert False
+
 
 class Product(DepthEquation):
     def __init__(self, e1):
@@ -69,8 +92,17 @@ class Product(DepthEquation):
         self._size = None
         self._last_node = None
 
+    def type(self):
+        return "Product"
+
     def _first_edge_internal(self):
         return self.e1.first_edge()
+
+    def _has_accept(self):
+        return self.e1.has_accept()
+
+    def _has_accept_before_first_edge(self):
+        return self.e1.has_accept_before_first_edge()
 
     def overlap_distance(self, other):
         # I think we can do this because the caching
@@ -124,6 +156,9 @@ class Product(DepthEquation):
             self._size = self.e1.size()
             return self._size
 
+    def structural_hash(self):
+        return self.e1.structural_hash() * 2
+
 
 class Sum(DepthEquation):
     def __init__(self, elems):
@@ -133,6 +168,24 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def type(self):
+        return "Sum"
+
+    def _has_accept(self):
+        for elem in self.e1:
+            if self.elem.has_accept():
+                return True
+        return False
+
+    def _has_accept_before_first_edge(self):
+        for elem in self.e1:
+            if elem.has_accept_before_first_edge():
+                return True
+            if elem.first_edge() is not None:
+                return False
+
+        return False
 
     def _first_edge_internal(self):
         # Return the first item in this sum that
@@ -212,41 +265,47 @@ class Sum(DepthEquation):
     def __str__(self):
         return " + ".join([str(x) for x in self.e1])
 
-    def normalize(self):
+    def normalize(self, flatten=True):
         if self.isnormal:
             return self
         self.isnormal = True
         self.e1 = [x.normalize() for x in self.e1]
-        # Now, flatten everything
-        flattened = []
-        for e in self.e1:
-            if e.issum():
-                flattened += e.e1
-            else:
-                flattened.append(e)
+        # We don't always have to flatten, e.g. if we know
+        # that none of the subelements are sum elements.
+        if flatten:
+            # Now, flatten everything
+            flattened = []
+            for e in self.e1:
+                if e.issum():
+                    flattened += e.e1
+                elif e.isconst() and e.val == 0:
+                    pass
+                else:
+                    flattened.append(e)
 
-        self.e1 = flattened
+            self.e1 = flattened
+        # This is from when 'normalizing' meant putting everything
+        # into as few consts as possible rather than as many as possible.
+        # const_sum = 0
+        # edges = []
+        # new_values = []
+        # for e in self.e1:
+        #     if e.isconst():
+        #         const_sum += e.val
+        #         edges += e.edges
+        #     else:
+        #         if const_sum > 0:
+        #             new_values.append(Const(const_sum, edges))
+        #         new_values.append(e)
+        #         const_sum = 0
+        #         edges = []
 
-        const_sum = 0
-        edges = []
-        new_values = []
-        for e in self.e1:
-            if e.isconst():
-                const_sum += e.val
-                edges += e.edges
-            else:
-                if const_sum > 0:
-                    new_values.append(Const(const_sum, edges))
-                new_values.append(e)
-                const_sum = 0
-                edges = []
+        # if const_sum > 0:
+        #     new_values.append(Const(const_sum, edges))
+        #     const_sum = 0
+        #     edges = []
 
-        if const_sum > 0:
-            new_values.append(Const(const_sum, edges))
-            const_sum = 0
-            edges = []
-
-        self.e1 = new_values
+        # self.e1 = new_values
         if len(self.e1) == 1:
             return self.e1[0]
 
@@ -259,6 +318,9 @@ class Sum(DepthEquation):
             self._size = sum([x.size() for x in self.e1])
             return self._size
 
+    def structural_hash(self):
+        return sum([x.structural_hash() for x in self.e1]) * 3
+
 
 class Const(DepthEquation):
     def __init__(self, val, edges):
@@ -270,6 +332,15 @@ class Const(DepthEquation):
         # represents coverage over.
         self.edges = edges
         self._size = None
+
+    def type(self):
+        return "Const"
+
+    def _has_accept(self):
+        return False
+
+    def _has_accept_before_first_edge(self):
+        return False
 
     def _first_edge_internal(self):
         if len(self.edges) > 0:
@@ -316,9 +387,15 @@ class Const(DepthEquation):
             return str(self.val)
 
     def normalize(self):
-        return self
+        if self.val <= 1:
+            return self
+        else:
+            return Sum([Const(1, [self.edges[i]]) for i in range(self.val)])
 
     def size(self):
+        return self.val
+
+    def structural_hash(self):
         return self.val
 
 
@@ -329,6 +406,21 @@ class Branch(DepthEquation):
         self.options = [opt for opt in options if opt]
         self.isnormal = False
         self._size = None
+
+    def type(self):
+        return "Branch"
+
+    def _has_accept(self):
+        for opt in self.options:
+            if opt.has_accept():
+                return True
+        return False
+
+    def _has_accept_before_first_edge(self):
+        for opt in self.options:
+            if opt.has_accept_before_first_edge():
+                return True
+        return False
 
     def _first_edge_internal(self):
         first_edges = []
@@ -366,15 +458,21 @@ class Branch(DepthEquation):
     def __str__(self):
         return "{" + ", ".join([str(opt) for opt in self.options]) + "}"
 
-    def normalize(self):
+    def normalize(self, compress=True):
         if self.isnormal:
             return self
         self.isnormal = True
+        self.options = [opt.normalize() for opt in self.options if opt]
+        # Compression is not required if the sum was constructed
+        # with a number of assumptions, e.g. that it has
+        # already been partially compressed at some point in the
+        # past.
+        if compress:
+            self.compress()
         if len(self.options) == 1:
             return self.options[0].normalize()
         else:
-            self.options = [opt.normalize() for opt in self.options if opt]
-            self.compress()
+            assert len(self.options) != 1
             return self
 
     def compress(self):
@@ -462,6 +560,9 @@ class Branch(DepthEquation):
             self._size = sum([opt.size() for opt in self.options])
             return self._size
 
+    def structural_hash(self):
+        return sum([x.structural_hash() for x in self.options]) * 5
+
 class Accept(DepthEquation):
     def __init__(self):
         super(Accept, self).__init__()
@@ -470,6 +571,15 @@ class Accept(DepthEquation):
         # Not 100% sure what to do in this case.  Pretty
         # sure this shouldn't get called.
         assert False
+
+    def type(self):
+        return "Accept"
+
+    def _has_accept(self):
+        return True
+
+    def _has_accept_before_first_edge(self):
+        return True
 
     def isaccept(self):
         return True
@@ -497,6 +607,9 @@ class Accept(DepthEquation):
     def size(self):
         return 0
 
+    def structural_hash(self):
+        return -1
+
 class End(DepthEquation):
     def __init__(self):
         super(End, self).__init__()
@@ -505,6 +618,15 @@ class End(DepthEquation):
         # Not 100% sure what to do in this case.  Pretty
         # sure this shouldn't get called.
         assert False
+
+    def _has_accept(self):
+        return False
+
+    def _has_accept_before_first_edge(self):
+        return False
+
+    def type(self):
+        return "End"
 
     def isend(self):
         return True
@@ -526,3 +648,6 @@ class End(DepthEquation):
 
     def size(self):
         return 0
+
+    def structural_hash(self):
+        return -2
