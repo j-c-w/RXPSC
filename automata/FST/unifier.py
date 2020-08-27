@@ -2,7 +2,6 @@ import FST
 import compilation_statistics
 # We need a value to indicate that an edges should not match
 # anything.
-NoMatchSymbol = None
 DEBUG_UNIFICATION = False
 PRINT_UNIFICATION_FAILURE_REASONS = True
 
