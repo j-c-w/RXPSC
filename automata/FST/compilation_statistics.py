@@ -10,3 +10,7 @@ exact_same_compilations = 0
 # LEQ
 leq_unifier_failures_calls = []
 leq_unifier_successes_calls = []
+
+
+# Size limit counters
+graph_too_big = 0
