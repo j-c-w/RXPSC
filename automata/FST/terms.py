@@ -287,6 +287,8 @@ class Sum(DepthEquation):
         if self.isnormal:
             return self
         self.isnormal = True
+        if len(self.e1) == 1:
+            return self.e1[0].normalize()
         self.e1 = [x.normalize() for x in self.e1]
         # We don't always have to flatten, e.g. if we know
         # that none of the subelements are sum elements.
@@ -508,6 +510,8 @@ class Branch(DepthEquation):
         if self.isnormal:
             return self
         self.isnormal = True
+        if len(self.options) == 1:
+            return self.options[0].normalize()
         self.options = [opt.normalize() for opt in self.options if opt]
         # Compression is not required if the sum was constructed
         # with a number of assumptions, e.g. that it has
@@ -516,7 +520,7 @@ class Branch(DepthEquation):
         if compress:
             self.compress()
         if len(self.options) == 1:
-            return self.options[0].normalize()
+            return self.options[0]
         else:
             assert len(self.options) != 1
             return self
