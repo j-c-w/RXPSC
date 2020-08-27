@@ -216,28 +216,48 @@ def compile(automata_components, options):
     
     # Generate the group.
     groups = []
+    group_index = 0
+    if options.group_size_distribution:
+        group_sizes = []
     for cc_list in automata_components:
         group = []
         for cc in cc_list:
-            depth_eqn = sc.compute_depth_equation(cc)
+            if options.print_file_info:
+                print "Compiling equation from group ", group_index
+            depth_eqn = sc.compute_depth_equation(cc, options)
+            if not depth_eqn:
+                # Means that the graph was too big for the current
+                # setup.
+                continue
             if options.print_algebras:
                 print depth_eqn
                 print "Hash: ", depth_eqn.structural_hash()
             group.append(AutomataContainer(cc, depth_eqn))
 
+        if options.group_size_distribution:
+            group_sizes.append(str(len(group)))
+
         groups.append(group)
+        group_index += 1
+
+    if options.group_size_distribution:
+        print "Dumping group size distributions to file ", options.group_size_distribution
+        with open(options.group_size_distribution, 'w') as f:
+            f.write(",".join(group_sizes))
 
     return groups, compute_hardware_assignments_for(groups, options)
 
 
 # Estimate the amount of cross-compatability within
 # a suite of automata.
-def compile_statistics(connected_components):
+def compile_statistics(connected_components, options):
     algebras = [None] * len(connected_components)
 
     print "Starting Compilation"
     for i in range(len(connected_components)):
-        algebras[i] = sc.compute_depth_equation(connected_components[i], dump_output=True)
+        algebras[i] = sc.compute_depth_equation(connected_components[i], options, dump_output=True)
+
+    print "Computed Algebras: checking for cross-compatability now"
 
     # Now, check for cross compatability:
     cross_compilations = 0
@@ -251,4 +271,5 @@ def compile_statistics(connected_components):
                     cross_compilations += 1
 
     print "Total cross compilations is ", cross_compilations
+    print "Total successes is ", compile_statistics.single_state_unification_success
     print "Of those, there were ", compile_statistics.exact_same_compilations, " exact duplicates"
