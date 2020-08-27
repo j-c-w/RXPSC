@@ -3,13 +3,20 @@ import sjss
 import algebra
 import time
 import generate_fst
+import compilation_statistics
 import FST
 
 def compile(from_atma, to_atma, options):
     # Compare the shape of the autmata.  If the aren't roughly
     # the same shape, compiling won't work very well.
-    depth_eqn_from = compute_depth_equation(from_atma)
-    depth_eqn_to = compute_depth_equation(to_atma)
+    depth_eqn_from = compute_depth_equation(from_atma, options)
+    depth_eqn_to = compute_depth_equation(to_atma, options)
+
+    if not depth_eqn_from:
+        return None
+
+    if not depth_eqn_to:
+        return None
 
     if options.print_algebras:
         print "Compiling from ", depth_eqn_from
@@ -34,7 +41,8 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
             return generate_fst.generate(unification, automata_to, automata_from)
 
 
-def compute_depth_equation(atma, dump_output=False):
+depth_equation_computation_index = 0
+def compute_depth_equation(atma, options, dump_output=False):
     # Get the nodes, edges, starting and accepting states.
     # Convert them to straight up integers to make everything
     # else faster.
@@ -47,9 +55,30 @@ def compute_depth_equation(atma, dump_output=False):
         print "and: " + str(edges)
         print "with start: " + str(start)
         print "and end: " + str(accepting_states)
+    if options.dump_nodes_and_edges:
+        global depth_equation_computation_index
+
+        with open(options.dump_nodes_and_edges, 'a') as f:
+            f.write("nodes" + str(depth_equation_computation_index) + " = " + str(nodes) + "\n")
+            f.write("edges" + str(depth_equation_computation_index) + " = " + str(edges) + "\n")
+
+        depth_equation_computation_index += 1
+
+    if len(nodes) > options.graph_size_threshold:
+        print "Graph is too large for current implementation --- skipping"
+        print "Graph is ", len(nodes), "and limit is ", options.graph_size_threshold, "nodes"
+        print "Increase with --graph-size-limit <N>"
+        compilation_statistics.graph_too_big += 1
+        return None
  
     start_time = time.time()
-    alg =  algebra.generate(nodes, edges, start, accepting_states)
+    try:
+        alg =  algebra.generate(nodes, edges, start, accepting_states)
+    except Exception as e:
+        print "Compilation of algebra failed!"
+        print "Error was:"
+        print e
+        return None
     end = time.time()
     if dump_output:
         print "Time taken is " + str(end - start_time)
