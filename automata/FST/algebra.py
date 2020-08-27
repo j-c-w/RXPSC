@@ -581,7 +581,7 @@ def leq_internal(A, B, options, use_leq_on_constants=False):
         # We don't always need to unify anything from this --- it
         # could be, e.g. that B is also end
         if first_edges is not None:
-            unifier.add_edges(first_edges, [NoMatchSymbol] * len(first_edges))
+            unifier.add_disabled_edges(first_edges)
     elif A.isaccept() and B.isaccept():
         if LEQ_DEBUG:
             print "Both Accept"
@@ -806,4 +806,4 @@ def leq_internal(A, B, options, use_leq_on_constants=False):
 
 # Yield every cpermustations of i numbers up to j.
 def permutations(i, j):
-    return itertools.product(j, i)
+    return itertools.product(j, repeat=i)
