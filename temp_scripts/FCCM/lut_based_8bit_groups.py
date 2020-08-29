@@ -3,12 +3,15 @@ import csv
 import logging
 import math
 import shutil
+import sys
 import os
 import automata as atma
 import automata.FST.options as options
 import automata.HDL.hdl_generator as hd_gen
 import automata.FST.group_compiler as gc
 import automata.FST.compilation_statistics as compilation_statistics
+
+sys.setrecursionlimit(25000)
 
 def process(file_groups, name, print_compression_stats=False, options=None):
     file_groups = [os.path.join(file_groups, f) for f in os.listdir(file_groups) if os.path.isfile(os.path.join(file_groups, f))]
