@@ -1,5 +1,6 @@
 import single_compiler as sc
 import compilation_statistics
+from multiprocessing import Pool
 
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = False
@@ -69,56 +70,86 @@ def compute_cross_compatibility_matrix_for(group, options):
             contents[j] = []
         compilation_list[i] = contents
 
-    for i in range(len(group)):
-        if DEBUG_COMPUTE_COMPAT_MATRIX:
-            print "Starting a new group index (", i, ")"
+    # This flattens the tasks so that they can be
+    # executed by a thread pool.
+    tasks = []
 
-        row_results = [0] * len(group[i])
+    for i in range(len(group)):
         for j in range(len(group[i])):
             # Now, compile everything that is /not/ in this
             # group to this.
-            successful_compiles = []
-            source_automata = group[i][j]
-            if DEBUG_COMPUTE_COMPAT_MATRIX:
-                print "Comparing to automata: ", source_automata.algebra
+            tasks.append((group, i, j, options))
 
-            for i2 in range(len(group)):
-                if i2 == i:
-                    # Don't want to count cross compilations
-                    # within the same group.
-                    continue
 
-                for j2 in range(len(group[i2])):
-                    if DEBUG_COMPUTE_COMPAT_MATRIX:
-                        print "Pair is ", i2, j2
-                        print "Comparied to ", i, j
-                    target_automata = group[i2][j2]
+    # Compute all the results:
+    flat_results = []
+    if options.cross_compilation_threading == 0:
+        # Compute traditionally:
+        for (group_ref, i, j, options_ref) in tasks:
+            flat_results.append(compute_compiles_for((group_ref, i, j, options_ref)))
+    else:
+        pool = Pool(options.cross_compilation_threading)
+        flat_results = pool.map(compute_compiles_for, tasks)
 
-                    # We could make this faster by not generating
-                    # the conversion machine here --- it could
-                    # use just the depth equation equality
-                    # here and only generate the conversion
-                    # machine where needed (i.e. later when
-                    # things are actually assigned).
-                    if DEBUG_COMPUTE_COMPAT_MATRIX:
-                        print "Comparing ", str(source_automata.algebra)
-                        print "(Hash)", str(source_automata.algebra.structural_hash())
-                        print " and, ", str(target_automata.algebra)
-                        print "(Hash)", str(target_automata.algebra.structural_hash())
-                    conversion_machine = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata, options)
+    # Now, expand the flat results back out:
+    for i in range(len(group)):
+        results[i] = [0] * len(group[i])
 
-                    if conversion_machine:
-                        if DEBUG_COMPUTE_COMPAT_MATRIX:
-                            print "Successfully found a conversion between ", i2, j2
-                        successful_compiles.append(CompilationIndex(i2, j2, conversion_machine))
-                        compilation_list[i2][j2].append(CompilationIndex(i, j, conversion_machine))
+    for task_i in range(len(tasks)):
+        (_, i, j, _) = tasks[task_i]
+        res = flat_results[task_i]
 
-            row_results[j] = successful_compiles
-        results[i] = row_results
+        results[i][j] = res
 
     if DEBUG_COMPUTE_COMPAT_MATRIX:
         print results
     return results, compilation_list
+
+# This function compues the compatability of a single
+# expression to every other expression --- it is designed
+# to support multithreaded behaviour to help speed up this
+# slow-ass python code.
+def compute_compiles_for(args):
+    # Expand the args, which are compressed to be passable
+    # by the pool.map.
+    group, i, j, options = args
+    successful_compiles = []
+    source_automata = group[i][j]
+    if DEBUG_COMPUTE_COMPAT_MATRIX:
+        print "Comparing to automata: ", source_automata.algebra
+
+    for i2 in range(len(group)):
+        if i2 == i:
+            # Don't want to count cross compilations
+            # within the same group.
+            continue
+
+        for j2 in range(len(group[i2])):
+            if DEBUG_COMPUTE_COMPAT_MATRIX:
+                print "Pair is ", i2, j2
+                print "Comparied to ", i, j
+            target_automata = group[i2][j2]
+
+            # We could make this faster by not generating
+            # the conversion machine here --- it could
+            # use just the depth equation equality
+            # here and only generate the conversion
+            # machine where needed (i.e. later when
+            # things are actually assigned).
+            if DEBUG_COMPUTE_COMPAT_MATRIX:
+                print "Comparing ", str(source_automata.algebra)
+                print "(Hash)", str(source_automata.algebra.structural_hash())
+                print " and, ", str(target_automata.algebra)
+                print "(Hash)", str(target_automata.algebra.structural_hash())
+            conversion_machine = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata, options)
+
+            if conversion_machine:
+                if DEBUG_COMPUTE_COMPAT_MATRIX:
+                    print "Successfully found a conversion between ", i2, j2
+                successful_compiles.append(CompilationIndex(i2, j2, conversion_machine))
+                compilation_list[i2][j2].append(CompilationIndex(i, j, conversion_machine))
+
+    return successful_compiles
 
 
 # Given a list of CompiledOjectGroup objects,

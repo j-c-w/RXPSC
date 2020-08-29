@@ -17,6 +17,9 @@ CACHE_ENABLED = True
 # find branch equality?
 PERMUTATION_THRESHOLD = 10000
 
+class AlgebraGenerationException(Exception):
+    pass
+
 def generate(nodes, edges, start, accept_states):
     # Clear the results cache for 'generate_internal'
     clean_caches()
@@ -108,6 +111,19 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
         nodes_list = nodes_list[1:]
         try_to_compress = False
 
+        occurances = 0
+        for future_node in nodes_list:
+            if node == future_node:
+                occurances += 1
+        if occurances > 10:
+            # We are looping somehow --- I think this is a problem
+            # if the graph has not been fully SJSS-ified.
+            # Not really sure how this happens --- or why it
+            # seems to sometimes happen on valid graphs.
+            # It could be that this is exponential, and does
+            # actually resolve.
+            raise AlgebraGenerationException("Graph is not properly preprocessed --- Algebra generation in a loop.")
+
         if CACHE_ENABLED and node in computed_algebras:
             # Set the top of stack to this node
             # and try to compress
@@ -128,7 +144,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             if ALG_DEBUG:
                 print("For node " + str(node))
                 print("Algebra stack is: ")
-                print([[str(i) for i in x] for x in algebra_stack])
+                # This is too big to print for some things.
+                # print([[str(i) for i in x] for x in algebra_stack])
                 print("Algebra stack indexes are:")
                 print(algebra_stack_counts)
                 print("Node stack is: ")
@@ -329,7 +346,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     node_we_finished = algebra_stack_nodes[-1]
                     if ALG_DEBUG:
                         print "Node finished :", node_we_finished
-                        print "Has algebra", str(algebra)
+                        # print "Has algebra", str(algebra)
                     computed_algebras[node_we_finished] = algebra
                 del algebra_stack_nodes[-1]
                 # We have 'completed' a branch here.
@@ -439,369 +456,382 @@ def linear_algebra_for(branch, accept_states):
 # The problem is that some of these things are massive,
 # so a recursive implementation would exceed stack limits
 # in python.
-comparison_cache = {}
 def leq(A, B, options):
     unifier = leq_unify(A, B, options)
     return unifier is not None
 
 
+# This MUST support multithreaded operation.
 def leq_unify(A, B, options):
-    global comparison_cache
-    global leq_calls
-    leq_calls = 0
-    comparison_cache = {}
-    print "Comparing ", str(A), " and ", str(B)
+    print "Starting new unification...."
+    if LEQ_DEBUG:
+        print "Comparing ", str(A), " and ", str(B)
 
-    unifier = leq_internal(A, B, options)
-    print "Calls", leq_calls
-    if unifier is None:
-        compilation_statistics.leq_unifier_failures_calls.append(leq_calls)
-    else:
-        compilation_statistics.leq_unifier_successes_calls.append(leq_calls)
+    unifier = leq_internal_wrapper(A, B, options)
     return unifier
 
-# This is a counter to help distinguish between calls.
-leq_internal_id = 0
-# Keeps track of the depth of the calls
-leq_calls = 0
+# This MUST support multithreaded operation.
+def leq_internal_wrapper(A, B, options):
+    global_variables = {
+            'comparison_cache': {},
+            # This is a counter to help distinguish between calls.
+            'leq_internal_id': 0,
+            # Keeps track of the depth of the calls
+            'leq_calls': 0,
+            # Keep track of the depth --- some of the equations are too big
+            # for python to handle.
+            'leq_depth': 0
+    }
 
-# Computes if A <= B, where A <= B means that we can
-# run A using automata B.
-def leq_internal(A, B, options, use_leq_on_constants=False):
-    global leq_calls
-    leq_calls += 1
-    if leq_calls > options.leq_calls_threshold:
-        return None
-    if LEQ_DEBUG:
-        print "Entering a new comparison"
-        print "Types are ", A.type(), " and ", B.type()
-        global leq_internal_id
-        this_call_id = leq_internal_id
-        leq_internal_id += 1
-        print "Entering call ID: " + str(this_call_id)
-    cache_pointer = (A.id, B.id)
+    # Computes if A <= B, where A <= B means that we can
+    # run A using automata B.
+    def leq_internal(A, B, options, use_leq_on_constants=False):
+        global_variables['leq_depth'] += 1
+        global_variables['leq_calls'] += 1
+        if global_variables['leq_calls'] > options.leq_calls_threshold:
+            global_variables['leq_depth'] -= 1
+            return None
 
-    # See if we have a cached comparison for these.
-    if CACHE_ENABLED and cache_pointer in comparison_cache:
-        return comparison_cache[cache_pointer]
+        if global_variables['leq_depth'] > 1000:
+            # Recursion depth exceeded.
+            global_variables['leq_depth'] -= 1
+            print "Warning: LEQ Recursion depth exceeded"
+            return None
 
-    unifier = None
-    result = None
-    if B.isbranch() and not A.isbranch():
         if LEQ_DEBUG:
-            print "B is a branch, trying to find a branch that unifies with A"
-        # In this case, we assume that A is not a branch.
-        # So, we can check whether we can compile every
-        # individual branch, and if it does, then we can
-        # disable the other options.
-        opt_unifier = None
-        selected_unifier = None
-        for opt in B.options:
-            sub_unifier = leq_internal(A, opt, options)
-            if sub_unifier is not None:
-                opt_unifier = opt
-                selected_unifier = sub_unifier
-                break
+            print "Entering a new comparison"
+            print "Types are ", A.type(), " and ", B.type()
+            this_call_id = global_variables['leq_internal_id']
+            global_variables['leq_internal_id'] += 1
+            print "Entering call ID: " + str(this_call_id)
+        cache_pointer = (A.id, B.id)
 
-        # Note that there is some possibility for more
-        # generality here, because one of these branch
-        # options might be unifiable, while the others
-        # may not be.  We've just picked the first, but
-        # a simple heuristic may be more than possible.
-        if opt_unifier is not None:
-            # Create the unifier.
-            unifier = selected_unifier
+        # See if we have a cached comparison for these.
+        if CACHE_ENABLED and cache_pointer in global_variables['comparison_cache']:
+            global_variables['leq_depth'] -= 1
+            return global_variables['comparison_cache'][cache_pointer]
+
+        unifier = None
+        result = None
+        if B.isbranch() and not A.isbranch():
+            if LEQ_DEBUG:
+                print "B is a branch, trying to find a branch that unifies with A"
+            # In this case, we assume that A is not a branch.
+            # So, we can check whether we can compile every
+            # individual branch, and if it does, then we can
+            # disable the other options.
+            opt_unifier = None
+            selected_unifier = None
             for opt in B.options:
-                if opt != opt_unifier:
-                    # Unify the first edge with None.
-                    # Note that there is also scope here for
-                    # more flexibility, because we are really
-                    # interested in ensuring that it doesn't
-                    # get to an unwanted accepting state.
-                    first_edges = opt.first_edge()
-                    if first_edges:
-                        unifier.add_disabled_edges(first_edges)
-            result = True
-        else:
-            # No branch unified.
-            unifier = None
-            result = False
-    elif A.isbranch() and not B.isbranch():
-        if LEQ_DEBUG:
-            print "A is a branch and B is not a branch -- trying"
-            print "to create structural equality between the two."
-        # We can compile this, but require that every branch
-        # of A compiles to B.
-        unifier = Unifier()
-        result = True
-        for opt in A.options:
-            sub_unifier = leq_internal(opt, B, options)
-            if sub_unifier is None:
-                result = False
-            else:
-                unifier.unify_with(sub_unifier)
-        if not result:
-            # Need to clear the unifier:
-            unifier = None
-    elif A.isconst():
-        if LEQ_DEBUG:
-            print "A is const:"
-        if B.isconst():
-            if LEQ_DEBUG:
-                print "B also const, checking equality of:"
-                print A.val
-                print B.val
-            if A.val == B.val:
-                result = True
-                unifier = Unifier()
-                unifier.add_edges(B.edges, A.edges)
-            elif use_leq_on_constants and B.val < A.val:
-                result = True
-                unifier = Unifier(cost=A.val - B.val)
-                unifier.add_edges(B.edges, A.edges[:len(B.edges)])
-            else:
-                result = False
-        elif B.isproduct():
-            if LEQ_DEBUG:
-                print "B product"
-            # This was true, not sure why.
-            result = False # True
-        else:
-            if LEQ_DEBUG:
-                print "B other"
-            result = False
-    elif A.isend():
-        if LEQ_DEBUG:
-            print "A is end: unifying the first edge of B to NoMatch"
-        result = True
-        # We can unify this, but we need to make sure that
-        # we can 'disable' that edge.
-        unifier = Unifier()
-        first_edges = B.first_edge()
-        # We don't always need to unify anything from this --- it
-        # could be, e.g. that B is also end
-        if first_edges is not None:
-            unifier.add_disabled_edges(first_edges)
-    elif A.isaccept() and B.isaccept():
-        if LEQ_DEBUG:
-            print "Both Accept"
-        result = True
-        unifier = Unifier()
-    elif A.isproduct() and B.isproduct():
-        if LEQ_DEBUG:
-            print "Both are products: Unifying subcomponents"
-        unifier = leq_internal(A.e1, B.e1, options)
-        if unifier is None:
-            result = False
-        else:
-            result = True
-    elif A.issum() and B.issum():
-        if LEQ_DEBUG:
-            print "Both are sums: unifying subsums"
-            print "Lenths are ", len(A.e1),  "and", len(B.e1)
-
-        still_equal = True
-        unifier = Unifier()
-
-        a_index = 0
-        b_index = 0
-        # We don't need equality up to the end here, due
-        # the the (trim) rule (i.e. e <= x (provided x != a))
-        while still_equal and a_index < len(A.e1) and b_index < len(B.e1):
-            # The algorithm here is to progressively increase
-            # the range of terms over which we unify in A to the
-            # first element in B.  If that doesn't work, then
-            # we progressively unify larger terms of B to the
-            # first element of A.
-            # We want to match the biggest section possible ---
-            # e.g. if there is a branch {1, 1 + 1}, we heuristically
-            # want to take the longer branch.
-            # That said, it shouldn't be too hard to extend
-            # this to try all branches --- it might give more coverage.
-            # Unfortunately, the algoritm to unify the biggest
-            # section possible was really quite slow, especially
-            # when considering very long 1 + 1 + 1...
-            # I think it's possible to get away with an heuristic
-            # here that just looks to see if the first two terms
-            # are consts of the same size, and if they are
-            # just bumps forward on the equality.
-            if LEQ_DEBUG:
-                print "Call ID ", this_call_id
-                print "Staritng a new iteration of the sum checker"
-                print "The indexes are:"
-                print a_index, b_index
-
-            if A.e1[a_index].isconst() and B.e1[b_index].isconst():
-                # Unify and continue:
-                sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
+                sub_unifier = leq_internal(A, opt, options)
                 if sub_unifier is not None:
-                    # We can just go back around the loop:
-                    unifier.unify_with(sub_unifier)
-                    a_index += 1
-                    b_index += 1
-                    continue
+                    opt_unifier = opt
+                    selected_unifier = sub_unifier
+                    break
 
-            last_element_of_a = len(A.e1)
-            found_match_expanding_a = False
-            while not found_match_expanding_a and last_element_of_a > a_index:
-                smaller_elements = Sum(A.e1[a_index:last_element_of_a]).normalize(flatten=False)
-                # Now, try to compile:
-                sub_unifier = leq_internal(smaller_elements, B.e1[b_index], options)
-                if sub_unifier is not None:
-                    # Eat all the matched elements and continue:
-                    found_match_expanding_a = True
-                    if LEQ_DEBUG:
-                        print "Found match expanding A"
-                else:
-                    last_element_of_a -= 1
-
-            if found_match_expanding_a:
-                # Shrink things and move onward :)
-                unifier.unify_with(sub_unifier)
-
-                a_index = last_element_of_a
-                b_index += 1
+            # Note that there is some possibility for more
+            # generality here, because one of these branch
+            # options might be unifiable, while the others
+            # may not be.  We've just picked the first, but
+            # a simple heuristic may be more than possible.
+            if opt_unifier is not None:
+                # Create the unifier.
+                unifier = selected_unifier
+                for opt in B.options:
+                    if opt != opt_unifier:
+                        # Unify the first edge with None.
+                        # Note that there is also scope here for
+                        # more flexibility, because we are really
+                        # interested in ensuring that it doesn't
+                        # get to an unwanted accepting state.
+                        first_edges = opt.first_edge()
+                        if first_edges:
+                            unifier.add_disabled_edges(first_edges)
+                result = True
             else:
-                # Otherwise, try matching more things of B to
-                # the first element of A.
-                last_element_of_b = len(B.e1)
-                found_match_expanding_b = False
-
-                while not found_match_expanding_b and last_element_of_b > b_index:
-                    smaller_elements = Sum(B.e1[b_index:last_element_of_b]).normalize(flatten=False)
-                    sub_unifier = leq_internal(A.e1[a_index], smaller_elements, options)
-
-                    if sub_unifier is not None:
-                        if LEQ_DEBUG:
-                            print "Found match expanding B"
-                        found_match_expanding_b = True
-                    else:
-                        last_element_of_b -= 1
-
-                if found_match_expanding_b:
-                    unifier.unify_with(unifier)
-                    b_index = last_element_of_b - 1
-                    a_index += 1
-                else:
-                    # No matches found, so termiate
-                    if LEQ_DEBUG:
-                        print "Unifying sums failed at indexes", a_index, b_index
-                    still_equal = False
-
-        # TODO -- Do the tail approximation check.
-
-        # If A is completely used, then we are done.  We might
-        # have to disable the first edge out of as far as we got into B.
-        if LEQ_DEBUG:
-            print "Exited the sum comparison loop --- managed "
-            print "to unify up to index ", a_index, b_index
-            print "out of ", len(A.e1), len(B.e1)
-        if a_index == len(A.e1):
-            if b_index != len(B.e1):
-                sum_tail = Sum(B.e1[b_index:]).normalize()
-                # Need to disable the first edge.
-                first_edges = sum_tail.first_edge()
-
-                # And if there is an accept before the first
-                # edge, then we need to fail.
-                if sum_tail.has_accept_before_first_edge():
+                # No branch unified.
+                unifier = None
+                result = False
+        elif A.isbranch() and not B.isbranch():
+            if LEQ_DEBUG:
+                print "A is a branch and B is not a branch -- trying"
+                print "to create structural equality between the two."
+            # We can compile this, but require that every branch
+            # of A compiles to B.
+            unifier = Unifier()
+            result = True
+            for opt in A.options:
+                sub_unifier = leq_internal(opt, B, options)
+                if sub_unifier is None:
                     result = False
-                    unifier = None
                 else:
-                    if first_edges:
-                        unifier.add_disabled_edges(first_edges)
-            else: # We used up all of B, so do not
-                # need to add any disabled edges.
-                result = True
-        else:
-            # TODO -- Apply the tail approximation. For now,
-            # we makr this as a fail.
-            result = False
-            unifier = None
-    elif A.isbranch() and B.isbranch():
-        if LEQ_DEBUG:
-            print "Both are branches, trying all combinations to find a unifying pair"
-        elements_A = A.options
-        elements_B = B.options
-
-        if len(elements_A) > len(elements_B):
-            # No way to map these things.
-            result = False
-        else:
-            # Try all matches --- likely need some kind
-            # of cutoff here.
-            matches = [None] * len(elements_A)
-            for i in range(len(elements_A)):
-                matches[i] = [None] * len(elements_B)
-
-                for j in range(len(elements_B)):
-                    if LEQ_DEBUG:
-                        print "Performing initial checks to build matrix for branch at call " + str(this_call_id) + ":"
-                        print "Checking ", elements_A[i]
-                        print "Checking ", elements_B[j]
-                    matches[i][j] = leq_internal(elements_A[i], elements_B[j], options)
-
-            result = False
-            # Now, try and find some match for each i element in A.
-            perm_count = 0
-
-            # This could be made smarter, by making some sensible guesses
-            # about which permutations might work --- there are definitely
-            # constraints here, e.g. we expect the matches matrix
-            # to be quite sparse.
+                    unifier.unify_with(sub_unifier)
+            if not result:
+                # Need to clear the unifier:
+                unifier = None
+        elif A.isconst():
             if LEQ_DEBUG:
-                print "Unification matrix is: (call " + str(this_call_id) + ")"
-                for row in matches:
-                    print row
-
-            for combination in permutations(len(elements_A), range(len(elements_B))):
-                perm_count += 1
-                if perm_count > PERMUTATION_THRESHOLD:
-                    print "Warning: Permutation fail due to excessive numbers"
-                    break
-                # check if the combination is good.
-                is_match = True
-                for i in range(len(combination)):
-                    if not matches[i][combination[i]]:
-                        is_match = False
-
-                if is_match:
-                    # Create the unifier with this sequence of
-                    # assignments:
-                    unifier = Unifier()
-                    used_branches = []
-                    for i in range(len(combination)):
-                        used_branches.append(combination[i])
-                        unifier.unify_with(matches[i][combination[i]])
-
-                    # Disable the other edges:
-                    for i in range(len(elements_B)):
-                        if i not in used_branches:
-                            unifier.add_disabled_edges(elements_B[i].first_edge())
-
+                print "A is const:"
+            if B.isconst():
+                if LEQ_DEBUG:
+                    print "B also const, checking equality of:"
+                    print A.val
+                    print B.val
+                if A.val == B.val:
                     result = True
-                    break
-    else:
+                    unifier = Unifier()
+                    unifier.add_edges(B.edges, A.edges)
+                elif use_leq_on_constants and B.val < A.val:
+                    result = True
+                    unifier = Unifier(cost=A.val - B.val)
+                    unifier.add_edges(B.edges, A.edges[:len(B.edges)])
+                else:
+                    result = False
+            elif B.isproduct():
+                if LEQ_DEBUG:
+                    print "B product"
+                # This was true, not sure why.
+                result = False # True
+            else:
+                if LEQ_DEBUG:
+                    print "B other"
+                result = False
+        elif A.isend():
+            if LEQ_DEBUG:
+                print "A is end: unifying the first edge of B to NoMatch"
+            result = True
+            # We can unify this, but we need to make sure that
+            # we can 'disable' that edge.
+            unifier = Unifier()
+            first_edges = B.first_edge()
+            # We don't always need to unify anything from this --- it
+            # could be, e.g. that B is also end
+            if first_edges is not None:
+                unifier.add_disabled_edges(first_edges)
+        elif A.isaccept() and B.isaccept():
+            if LEQ_DEBUG:
+                print "Both Accept"
+            result = True
+            unifier = Unifier()
+        elif A.isproduct() and B.isproduct():
+            if LEQ_DEBUG:
+                print "Both are products: Unifying subcomponents"
+            unifier = leq_internal(A.e1, B.e1, options)
+            if unifier is None:
+                result = False
+            else:
+                result = True
+        elif A.issum() and B.issum():
+            if LEQ_DEBUG:
+                print "Both are sums: unifying subsums"
+                print "Lenths are ", len(A.e1),  "and", len(B.e1)
+
+            still_equal = True
+            unifier = Unifier()
+
+            a_index = 0
+            b_index = 0
+            # We don't need equality up to the end here, due
+            # the the (trim) rule (i.e. e <= x (provided x != a))
+            while still_equal and a_index < len(A.e1) and b_index < len(B.e1):
+                # The algorithm here is to progressively increase
+                # the range of terms over which we unify in A to the
+                # first element in B.  If that doesn't work, then
+                # we progressively unify larger terms of B to the
+                # first element of A.
+                # We want to match the biggest section possible ---
+                # e.g. if there is a branch {1, 1 + 1}, we heuristically
+                # want to take the longer branch.
+                # That said, it shouldn't be too hard to extend
+                # this to try all branches --- it might give more coverage.
+                # Unfortunately, the algoritm to unify the biggest
+                # section possible was really quite slow, especially
+                # when considering very long 1 + 1 + 1...
+                # I think it's possible to get away with an heuristic
+                # here that just looks to see if the first two terms
+                # are consts of the same size, and if they are
+                # just bumps forward on the equality.
+                if LEQ_DEBUG:
+                    print "Call ID ", this_call_id
+                    print "Staritng a new iteration of the sum checker"
+                    print "The indexes are:"
+                    print a_index, b_index
+
+                if A.e1[a_index].isconst() and B.e1[b_index].isconst():
+                    # Unify and continue:
+                    sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
+                    if sub_unifier is not None:
+                        # We can just go back around the loop:
+                        unifier.unify_with(sub_unifier)
+                        a_index += 1
+                        b_index += 1
+                        continue
+
+                last_element_of_a = len(A.e1)
+                found_match_expanding_a = False
+                while not found_match_expanding_a and last_element_of_a > a_index:
+                    smaller_elements = Sum(A.e1[a_index:last_element_of_a]).normalize(flatten=False)
+                    # Now, try to compile:
+                    sub_unifier = leq_internal(smaller_elements, B.e1[b_index], options)
+                    if sub_unifier is not None:
+                        # Eat all the matched elements and continue:
+                        found_match_expanding_a = True
+                        if LEQ_DEBUG:
+                            print "Found match expanding A"
+                    else:
+                        last_element_of_a -= 1
+
+                if found_match_expanding_a:
+                    # Shrink things and move onward :)
+                    unifier.unify_with(sub_unifier)
+
+                    a_index = last_element_of_a
+                    b_index += 1
+                else:
+                    # Otherwise, try matching more things of B to
+                    # the first element of A.
+                    last_element_of_b = len(B.e1)
+                    found_match_expanding_b = False
+
+                    while not found_match_expanding_b and last_element_of_b > b_index:
+                        smaller_elements = Sum(B.e1[b_index:last_element_of_b]).normalize(flatten=False)
+                        sub_unifier = leq_internal(A.e1[a_index], smaller_elements, options)
+
+                        if sub_unifier is not None:
+                            if LEQ_DEBUG:
+                                print "Found match expanding B"
+                            found_match_expanding_b = True
+                        else:
+                            last_element_of_b -= 1
+
+                    if found_match_expanding_b:
+                        unifier.unify_with(unifier)
+                        b_index = last_element_of_b - 1
+                        a_index += 1
+                    else:
+                        # No matches found, so termiate
+                        if LEQ_DEBUG:
+                            print "Unifying sums failed at indexes", a_index, b_index
+                        still_equal = False
+
+            # TODO -- Do the tail approximation check.
+
+            # If A is completely used, then we are done.  We might
+            # have to disable the first edge out of as far as we got into B.
+            if LEQ_DEBUG:
+                print "Exited the sum comparison loop --- managed "
+                print "to unify up to index ", a_index, b_index
+                print "out of ", len(A.e1), len(B.e1)
+            if a_index == len(A.e1):
+                if b_index != len(B.e1):
+                    sum_tail = Sum(B.e1[b_index:]).normalize()
+                    # Need to disable the first edge.
+                    first_edges = sum_tail.first_edge()
+
+                    # And if there is an accept before the first
+                    # edge, then we need to fail.
+                    if sum_tail.has_accept_before_first_edge():
+                        result = False
+                        unifier = None
+                    else:
+                        if first_edges:
+                            unifier.add_disabled_edges(first_edges)
+                else: # We used up all of B, so do not
+                    # need to add any disabled edges.
+                    result = True
+            else:
+                # TODO -- Apply the tail approximation. For now,
+                # we makr this as a fail.
+                result = False
+                unifier = None
+        elif A.isbranch() and B.isbranch():
+            if LEQ_DEBUG:
+                print "Both are branches, trying all combinations to find a unifying pair"
+            elements_A = A.options
+            elements_B = B.options
+
+            if len(elements_A) > len(elements_B):
+                # No way to map these things.
+                result = False
+            else:
+                # Try all matches --- likely need some kind
+                # of cutoff here.
+                matches = [None] * len(elements_A)
+                for i in range(len(elements_A)):
+                    matches[i] = [None] * len(elements_B)
+
+                    for j in range(len(elements_B)):
+                        if LEQ_DEBUG:
+                            print "Performing initial checks to build matrix for branch at call " + str(this_call_id) + ":"
+                            print "Checking ", elements_A[i]
+                            print "Checking ", elements_B[j]
+                        matches[i][j] = leq_internal(elements_A[i], elements_B[j], options)
+
+                result = False
+                # Now, try and find some match for each i element in A.
+                perm_count = 0
+
+                # This could be made smarter, by making some sensible guesses
+                # about which permutations might work --- there are definitely
+                # constraints here, e.g. we expect the matches matrix
+                # to be quite sparse.
+                if LEQ_DEBUG:
+                    print "Unification matrix is: (call " + str(this_call_id) + ")"
+                    for row in matches:
+                        print row
+
+                for combination in permutations(len(elements_A), range(len(elements_B))):
+                    perm_count += 1
+                    if perm_count > PERMUTATION_THRESHOLD:
+                        print "Warning: Permutation fail due to excessive numbers"
+                        break
+                    # check if the combination is good.
+                    is_match = True
+                    for i in range(len(combination)):
+                        if not matches[i][combination[i]]:
+                            is_match = False
+
+                    if is_match:
+                        # Create the unifier with this sequence of
+                        # assignments:
+                        unifier = Unifier()
+                        used_branches = []
+                        for i in range(len(combination)):
+                            used_branches.append(combination[i])
+                            unifier.unify_with(matches[i][combination[i]])
+
+                        # Disable the other edges:
+                        for i in range(len(elements_B)):
+                            if i not in used_branches:
+                                unifier.add_disabled_edges(elements_B[i].first_edge())
+
+                        result = True
+                        break
+        else:
+            if LEQ_DEBUG:
+                print "Types differ: unification failed"
+                print "Types were", A.type(), B.type()
+            result = False
+
+        global_variables['comparison_cache'][cache_pointer] = unifier
+        if result is None:
+            if LEQ_DEBUG:
+                print "Failed to produce a comparison for:"
+                print A
+                print B
+
         if LEQ_DEBUG:
-            print "Types differ: unification failed"
-            print "Types were", A.type(), B.type()
-        result = False
+            print "Exiting call ", this_call_id
+            print "Result is ", unifier
 
-    comparison_cache[cache_pointer] = unifier
-    if result is None:
-        if LEQ_DEBUG:
-            print "Failed to produce a comparison for:"
-            print A
-            print B
+        if unifier:
+            unifier.algebra_from = A
+            unifier.algebra_to = B
 
-    if LEQ_DEBUG:
-        print "Exiting call ", this_call_id
-        print "Result is ", unifier
+        global_variables['leq_depth'] -= 1
+        return unifier
 
-    if unifier:
-        unifier.algebra_from = A
-        unifier.algebra_to = B
-    return unifier
+    leq_internal(A, B, options)
 
 
 # Yield every cpermustations of i numbers up to j.
