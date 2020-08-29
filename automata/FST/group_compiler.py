@@ -127,6 +127,7 @@ def compute_cross_compatibility_matrix_for(group, options):
 # and conversion machines.
 def compute_hardware_assignments_for(groups, options):
     compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options)
+    print "Generated cross-compilation list"
     return assign_hardware(compiles_from, compiles_to, options)
 
 def assign_hardware(compiles_from, compiles_to, options):
@@ -221,9 +222,11 @@ def compile(automata_components, options):
         group_sizes = []
     for cc_list in automata_components:
         group = []
+        equation_index = 0
         for cc in cc_list:
             if options.print_file_info:
                 print "Compiling equation from group ", group_index
+                print "Equation index", equation_index
             depth_eqn = sc.compute_depth_equation(cc, options)
             if not depth_eqn:
                 # Means that the graph was too big for the current
@@ -233,6 +236,7 @@ def compile(automata_components, options):
                 print depth_eqn
                 print "Hash: ", depth_eqn.structural_hash()
             group.append(AutomataContainer(cc, depth_eqn))
+            equation_index += 1
 
         if options.group_size_distribution:
             group_sizes.append(str(len(group)))
