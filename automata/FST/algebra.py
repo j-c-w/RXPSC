@@ -1,7 +1,6 @@
 # Get the algebtra terms
 from terms import *
 import sjss
-from repoze.lru import lru_cache
 import itertools
 from unifier import *
 import compilation_statistics
