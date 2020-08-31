@@ -15,7 +15,7 @@ let
 			tqdm
 			jinja2
 			pygraphviz
-			repoze_lru
+			memory_profiler
 		];
 		ignoreCollisions = true;
 	};
