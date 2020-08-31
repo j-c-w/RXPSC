@@ -462,9 +462,17 @@ def leq(A, B, options):
 
 # This MUST support multithreaded operation.
 def leq_unify(A, B, options):
-    print "Starting new unification...."
     if LEQ_DEBUG:
+        print "Starting new unification...."
         print "Comparing ", str(A), " and ", str(B)
+
+    if A.size() > options.size_difference_cutoff_factor * B.size():
+        compilation_statistics.cutoff_comparisons += 1
+        if LEQ_DEBUG:
+            print "Skipping due to size difference"
+        return None
+
+    compilation_statistics.executed_comparisons += 1
 
     unifier = leq_internal_wrapper(A, B, options)
     return unifier

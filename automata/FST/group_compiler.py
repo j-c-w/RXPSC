@@ -1,6 +1,8 @@
 import single_compiler as sc
 import compilation_statistics
 from multiprocessing import Pool
+from memory_profiler import profile
+import tqdm
 
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = False
@@ -84,12 +86,19 @@ def compute_cross_compatibility_matrix_for(group, options):
     # Compute all the results:
     flat_results = []
     if options.cross_compilation_threading == 0:
+        progress = tqdm(total=(len(tasks)))
         # Compute traditionally:
         for (group_ref, i, j, options_ref) in tasks:
             flat_results.append(compute_compiles_for((group_ref, i, j, options_ref)))
+            progress.update(1)
+        progress.close()
     else:
         pool = Pool(options.cross_compilation_threading)
-        flat_results = pool.map(compute_compiles_for, tasks)
+        flat_results = [None] * len(tasks)
+        index = 0
+        for res in tqdm.tqdm(pool.imap_unordered(compute_compiles_for, tasks), total=len(tasks)):
+            flat_results[index] = res
+            index += 1
 
     # Now, expand the flat results back out:
     for i in range(len(group)):

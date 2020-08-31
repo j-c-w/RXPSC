@@ -18,6 +18,8 @@ class Options(object):
         self.graph_size_threshold = 2000
         self.cross_compilation_threading = 0
 
+        self.size_difference_cutoff_factor = 2.0
+
 def create_from_args(args):
     opts = Options()
     opts.tail_approximation = args.tail_approximation
@@ -34,6 +36,7 @@ def create_from_args(args):
 
     opts.graph_size_threshold = args.graph_size_threshold
     opts.cross_compilation_threading = args.cross_compilation_threading
+    opts.size_difference_cutoff_factor = args.size_difference_cutoff
 
     if opts.dump_nodes_and_edges:
         # Clear the file:
@@ -56,6 +59,7 @@ def add_to_parser(parser):
     parser.add_argument('--dump-nodes-and-edges', default=None, dest='dump_nodes_and_edges', help='Dump nodes and edges for each CC into a file')
     parser.add_argument('--graph-size-threshold', default=2000, dest='graph_size_threshold', help="Exclude graphs larger than this value (deal with python recursion limit)")
     parser.add_argument('--cross-compilation-threading', default=0,dest='cross_compilation_threading', help='How many threads should be used for genreating comparisons. 0 disables the thread pool entirely.', type=int)
+    parser.add_argument('--size-difference-cutoff-factor', default=2.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
 
 EmptyOptions = Options()
 

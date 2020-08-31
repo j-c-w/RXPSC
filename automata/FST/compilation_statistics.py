@@ -8,8 +8,8 @@ single_state_unification_success = 0
 exact_same_compilations = 0
 
 # LEQ
-leq_unifier_failures_calls = []
-leq_unifier_successes_calls = []
+executed_comparisons = 0
+cutoff_comparisons = 0
 
 
 # Size limit counters
