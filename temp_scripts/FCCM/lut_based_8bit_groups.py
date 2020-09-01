@@ -59,6 +59,8 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         print "COMPILATION STATISTICS: other compiles = ", other_compiles
         print "COMPILATION STATISTICS: unifications = ", compilation_statistics.single_state_unification_success
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
+        print "Tried to cross compile ", compilation_statistics.executed_comparisons, "regexes to each other"
+        print "Avoided ", compilation_statistics.cutoff_comparisons, "detailed comparison attempts with heuristics"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
