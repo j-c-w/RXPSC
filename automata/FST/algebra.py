@@ -466,16 +466,43 @@ def leq_unify(A, B, options):
         print "Starting new unification...."
         print "Comparing ", str(A), " and ", str(B)
 
-    if A.size() > options.size_difference_cutoff_factor * B.size():
+    if options.use_leq_heuristics and leq_fails_on_heuristics(A, B, options):
         compilation_statistics.cutoff_comparisons += 1
-        if LEQ_DEBUG:
-            print "Skipping due to size difference"
         return None
 
     compilation_statistics.executed_comparisons += 1
 
     unifier = leq_internal_wrapper(A, B, options)
     return unifier
+
+def leq_fails_on_heuristics(A, B, options):
+    if A.size() > options.size_difference_cutoff_factor * B.size():
+        if LEQ_DEBUG:
+            print "Skipping due to size difference"
+        return True
+
+    # Check for overlap in the distances to accept states ---
+    # no overlap suggests(?) no hope.
+    a_accepting_distances = A.accepting_distances_approximation()
+    b_accepting_distances = B.accepting_distances_approximation()
+    hits = 0
+    misses = 0
+
+    for distance in a_accepting_distances:
+        if distance in b_accepting_distances:
+            hits += 1
+        else:
+            misses += 1
+    # A random equation that is aimed at being
+    # very generous and not excluding things that
+    # have some chance.  Not sure if it achieves that.
+    print "Hits", hits
+    print "Misses", misses
+    if hits < misses / 2:
+        return True
+
+    return False
+
 
 # This MUST support multithreaded operation.
 def leq_internal_wrapper(A, B, options):
@@ -496,13 +523,16 @@ def leq_internal_wrapper(A, B, options):
         global_variables['leq_depth'] += 1
         global_variables['leq_calls'] += 1
         if global_variables['leq_calls'] > options.leq_calls_threshold:
+            if LEQ_DEBUG:
+                print "Failing due to too many calls"
             global_variables['leq_depth'] -= 1
             return None
 
         if global_variables['leq_depth'] > 1000:
             # Recursion depth exceeded.
             global_variables['leq_depth'] -= 1
-            print "Warning: LEQ Recursion depth exceeded"
+            if LEQ_DEBUG:
+                print "Warning: LEQ Recursion depth exceeded"
             return None
 
         if LEQ_DEBUG:
@@ -838,7 +868,7 @@ def leq_internal_wrapper(A, B, options):
         global_variables['leq_depth'] -= 1
         return unifier
 
-    leq_internal(A, B, options)
+    return leq_internal(A, B, options)
 
 
 # Yield every cpermustations of i numbers up to j.
