@@ -13,6 +13,7 @@ class DepthEquation(object):
         self._cached_first_edge = None
         self._cached_has_accept = None
         self._cached_has_accept_before_first_edge = None
+        self._cached_accepting_distances_approximation = None
 
     def isproduct(self):
         return False
@@ -36,13 +37,17 @@ class DepthEquation(object):
         if self._cached_has_accept:
             return self._cached_has_accept
         else:
-            return self._has_accept()
+            result = self._has_accept()
+            self._cached_has_accept = result
+            return result
 
     def has_accept_before_first_edge(self):
         if self._cached_has_accept_before_first_edge:
             return self._cached_has_accept_before_first_edge
         else:
-            return self._has_accept_before_first_edge()
+            result = self._has_accept_before_first_edge()
+            self._cached_has_accept_before_first_edge = result
+            return result
 
     def _has_accept(self):
         assert False
@@ -51,6 +56,22 @@ class DepthEquation(object):
         assert False
 
     def equals(self, other, selflookup=None, otherlookup=None):
+        assert False
+
+    # The idea of this is an approximation of the lengths
+    # of strings that the regex accepts.  We anticipate
+    # that the approximation for the Product case
+    # is the most interseting (as that is the only non-trivial
+    # case).
+    def accepting_distances_approximation(self):
+        if self._cached_accepting_distances_approximation:
+            return self._cached_accepting_distances_approximation
+        else:
+            result = self._accepting_distances_approximation()
+            self._cached_accepting_distances_approximation = result
+            return result
+
+    def _accepting_distances_approximation(self):
         assert False
 
     # The concept here is to return the N last
@@ -94,6 +115,11 @@ class Product(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    # Approximate this as just the length of the
+    # subexpression.
+    def _accepting_distances_approximation(self):
+        return self.e1.accepting_distances_approximation().append(0)
 
     def type(self):
         return "Product"
@@ -177,6 +203,19 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _accepting_distances_approximation(self):
+        set = self.e1[0].accepting_distances_approximation()
+        for elem in self.e1[1:]:
+            if len(set) > 100:
+                # Abort the approximation if it is too big.
+                return set
+            accepting_distances = elem.accepting_distances_approximation()
+            new_set = []
+            for elem in set:
+                for elem2 in accepting_distances:
+                    new_set.append(elem + elem2)
+        return new_set
 
     def type(self):
         return "Sum"
@@ -353,6 +392,10 @@ class Const(DepthEquation):
         self.edges = edges
         self._size = None
 
+    def _accepting_distances_approximation(self):
+        # Assume there is an accept at the end...
+        return [self.val]
+
     def type(self):
         return "Const"
 
@@ -436,6 +479,12 @@ class Branch(DepthEquation):
         self.options = [opt for opt in options if opt]
         self.isnormal = False
         self._size = None
+
+    def _accepting_distances_approximation(self):
+        results = []
+        for opt in self.options:
+            results += opt.accepting_distances_approximation()
+        return results
 
     def type(self):
         return "Branch"
@@ -617,6 +666,9 @@ class Accept(DepthEquation):
     def __init__(self):
         super(Accept, self).__init__()
 
+    def _accepting_distances_approximation(self):
+        return [0]
+
     def split_last(self):
         # Not 100% sure what to do in this case.  Pretty
         # sure this shouldn't get called.
@@ -671,6 +723,9 @@ class End(DepthEquation):
         # Not 100% sure what to do in this case.  Pretty
         # sure this shouldn't get called.
         assert False
+
+    def _accepting_distances_approximation(self):
+        return [0]
 
     def equals(self, other, selflookup=None, otherlookup=None):
         return other.isend()
