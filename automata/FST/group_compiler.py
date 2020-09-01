@@ -5,7 +5,7 @@ from memory_profiler import profile
 import tqdm
 
 DEBUG_COMPUTE_HARDWARE = False
-DEBUG_COMPUTE_COMPAT_MATRIX = False
+DEBUG_COMPUTE_COMPAT_MATRIX = True
 
 # This is a class that contains a set of accelerated
 # regular expressions.  We can use it to find which
@@ -86,7 +86,8 @@ def compute_cross_compatibility_matrix_for(group, options):
     # Compute all the results:
     flat_results = []
     if options.cross_compilation_threading == 0:
-        progress = tqdm(total=(len(tasks)))
+        print "Executing single threaded"
+        progress = tqdm.tqdm(total=(len(tasks)))
         # Compute traditionally:
         for (group_ref, i, j, options_ref) in tasks:
             flat_results.append(compute_compiles_for((group_ref, i, j, options_ref)))
@@ -96,22 +97,26 @@ def compute_cross_compatibility_matrix_for(group, options):
         pool = Pool(options.cross_compilation_threading)
         flat_results = [None] * len(tasks)
         index = 0
-        for res in tqdm.tqdm(pool.imap_unordered(compute_compiles_for, tasks), total=len(tasks)):
-            flat_results[index] = res
+        for i, j, res, compilation_list_res in tqdm.tqdm(pool.imap_unordered(compute_compiles_for, tasks), total=len(tasks)):
+            flat_results[index] = (i, j, res, compilation_list_res)
             index += 1
 
     # Now, expand the flat results back out:
     for i in range(len(group)):
         results[i] = [0] * len(group[i])
 
-    for task_i in range(len(tasks)):
-        (_, i, j, _) = tasks[task_i]
-        res = flat_results[task_i]
-
+    for i, j, res, compilation_list_results in flat_results:
         results[i][j] = res
 
+        # And also get the compilation_list setup:
+        for i2, j2, comp_item in compilation_list_results:
+            compilation_list[i2][j2].append(comp_item)
+
     if DEBUG_COMPUTE_COMPAT_MATRIX:
+        print "Results of cross compatability"
         print results
+        print "Compile from list is "
+        print compilation_list
     return results, compilation_list
 
 # This function compues the compatability of a single
@@ -123,6 +128,7 @@ def compute_compiles_for(args):
     # by the pool.map.
     group, i, j, options = args
     successful_compiles = []
+    compilation_list = []
     source_automata = group[i][j]
     if DEBUG_COMPUTE_COMPAT_MATRIX:
         print "Comparing to automata: ", source_automata.algebra
@@ -156,9 +162,9 @@ def compute_compiles_for(args):
                 if DEBUG_COMPUTE_COMPAT_MATRIX:
                     print "Successfully found a conversion between ", i2, j2
                 successful_compiles.append(CompilationIndex(i2, j2, conversion_machine))
-                compilation_list[i2][j2].append(CompilationIndex(i, j, conversion_machine))
+                compilation_list.append((i2, j2, CompilationIndex(i, j, conversion_machine)))
 
-    return successful_compiles
+    return i, j, successful_compiles, compilation_list
 
 
 # Given a list of CompiledOjectGroup objects,
@@ -216,12 +222,12 @@ def assign_hardware(compiles_from, compiles_to, options):
         # assign other automata that are part of different
         # groups to it.  Greedy step 2: pick the automata
         # with the fewest other options first.
-        for i in range(len(compiles_from)):
+        for i in range(len(compiles_to)):
             min_assigns = 100000000
             min_assigns_index = None
             min_assings_object = None
             # find the min and min index.
-            for j in range(len(compiles_from[i])):
+            for j in range(len(compiles_to[i])):
                 if assigned_hardware[i][j] is not None:
                     # this has already been assigned a thing,
                     # so doesnt need another one.
