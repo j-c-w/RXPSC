@@ -466,7 +466,7 @@ def leq_unify(A, B, options):
         print "Starting new unification...."
         print "Comparing ", str(A), " and ", str(B)
 
-    if options.use_leq_heuristics and leq_fails_on_heuristics(A, B, options):
+    if not options.no_leq_heuristics and leq_fails_on_heuristics(A, B, options):
         compilation_statistics.cutoff_comparisons += 1
         return None
 
