@@ -161,6 +161,9 @@ def compute_compiles_for(args):
             if conversion_machine:
                 if DEBUG_COMPUTE_COMPAT_MATRIX:
                     print "Successfully found a conversion between ", i2, j2
+                # Do not store the conversion machines --- recompte
+                # the ones we pick.
+                conversion_machine = None
                 successful_compiles.append(CompilationIndex(i2, j2, conversion_machine))
                 compilation_list.append((i2, j2, CompilationIndex(i, j, conversion_machine)))
 
