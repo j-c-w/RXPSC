@@ -64,7 +64,7 @@ class DepthEquation(object):
     # is the most interseting (as that is the only non-trivial
     # case).
     def accepting_distances_approximation(self):
-        if self._cached_accepting_distances_approximation:
+        if self._cached_accepting_distances_approximation is not None:
             return self._cached_accepting_distances_approximation
         else:
             result = self._accepting_distances_approximation()
@@ -119,7 +119,9 @@ class Product(DepthEquation):
     # Approximate this as just the length of the
     # subexpression.
     def _accepting_distances_approximation(self):
-        return self.e1.accepting_distances_approximation().append(0)
+        result = self.e1.accepting_distances_approximation()
+        result.append(0)
+        return result
 
     def type(self):
         return "Product"
@@ -215,7 +217,8 @@ class Sum(DepthEquation):
             for elem in set:
                 for elem2 in accepting_distances:
                     new_set.append(elem + elem2)
-        return new_set
+            set = new_set
+        return set
 
     def type(self):
         return "Sum"
