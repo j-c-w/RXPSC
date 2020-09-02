@@ -496,8 +496,6 @@ def leq_fails_on_heuristics(A, B, options):
     # A random equation that is aimed at being
     # very generous and not excluding things that
     # have some chance.  Not sure if it achieves that.
-    print "Hits", hits
-    print "Misses", misses
     if hits < misses / 2:
         return True
 
