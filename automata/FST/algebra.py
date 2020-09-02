@@ -512,7 +512,8 @@ def leq_internal_wrapper(A, B, options):
             'leq_calls': 0,
             # Keep track of the depth --- some of the equations are too big
             # for python to handle.
-            'leq_depth': 0
+            'leq_depth': 0,
+            'solution_ID': hash(A) + hash(B)
     }
 
     # Computes if A <= B, where A <= B means that we can

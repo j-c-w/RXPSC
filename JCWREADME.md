@@ -17,3 +17,12 @@ per line, e.g. '/<pattern>/'
 2. Turn the pattern into a MNRL file: `pcre2mnrl <inputfile> <outputfile (.mnrl)>`
 
 3. Turn MNRL into ANML: `vasim <mnrl file> -a`
+
+#Running
+The run script is in temp_scripts/FCCM/lut_based_8bit_groups.py, run
+that with --help to see the options.
+
+#On the Eddie Cluster
+Eddie sadly does not support nix super well.  There is a script to
+setup a partial environment --- not good enough to do the whole
+setup, but good enough to run the python.  Try eddie_setup.sh
