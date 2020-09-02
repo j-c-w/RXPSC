@@ -6,6 +6,7 @@ let
 	pythonenv = pkgs.python27.buildEnv.override {
 		extraLibs = with pkgs.python27Packages; [ 
 			enum
+			tqdm
 			sortedcontainers
 			numpy
 			matplotlib
