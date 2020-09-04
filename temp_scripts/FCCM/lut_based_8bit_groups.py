@@ -38,7 +38,6 @@ def process(file_groups, name, print_compression_stats=False, options=None):
 
     if print_compression_stats:
         self_compiles = 0
-        equality = 0
         other_compiles = 0
         for i in range(len(assignments)):
             for j in range(len(assignments[i])):
@@ -52,10 +51,7 @@ def process(file_groups, name, print_compression_stats=False, options=None):
                     print "Achieved compilation from ", str(groups[i][j].algebra)
                     print " to ", str(groups[compilation_index.i][compilation_index.j].algebra)
 
-                    if compilation_index.conversion_machine.isempty():
-                        equality += 1
         print "COMPILATION STATISTICS: self compiles = ", self_compiles
-        print "COMPILATION STATISTICS: Of those, ", equality, " were equal"
         print "COMPILATION STATISTICS: other compiles = ", other_compiles
         print "COMPILATION STATISTICS: unifications = ", compilation_statistics.single_state_unification_success
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
