@@ -29,6 +29,7 @@ pkgs.mkShell {
 	buildInputs = [ pythonenv swig
 	# Get VASim tools
 	(callPackage ~/.scripts/Nix/CustomPackages/AutomataTools/vasim/default.nix {})  
+	(callPackage ~/.scripts/Nix/CustomPackages/PythonTools/Guppy/default.nix {buildPythonPackage = python2.pkgs.buildPythonPackage; pythonPkgs = python2.pkgs; pkgs = pkgs;} )
 	verilog
 	hscompile
 	ctags
