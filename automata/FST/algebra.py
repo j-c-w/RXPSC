@@ -4,6 +4,7 @@ import sjss
 import itertools
 from unifier import *
 import compilation_statistics
+from guppy import hpy
 
 ALG_DEBUG = False
 LEQ_DEBUG = False
@@ -465,6 +466,7 @@ def leq_unify(A, B, options):
     if LEQ_DEBUG:
         print "Starting new unification...."
         print "Comparing ", str(A), " and ", str(B)
+        print "(Sizes ", A.size(), B.size(), ")"
 
     if not options.no_leq_heuristics and leq_fails_on_heuristics(A, B, options):
         compilation_statistics.cutoff_comparisons += 1
@@ -487,6 +489,15 @@ def leq_fails_on_heuristics(A, B, options):
     b_accepting_distances = B.accepting_distances_approximation()
     hits = 0
     misses = 0
+
+    # Trim the list sizes if they happen to be really big:
+    if len(a_accepting_distances) > 100:
+        a_accepting_distances = a_accepting_distances[:100]
+    if len(b_accepting_distances) > 1000:
+        b_accepting_distances = b_accepting_distances[:1000]
+
+    # turn b_accepting distances into a set so we can use binary search.
+    b_accepting_distances = set(b_accepting_distances)
 
     for distance in a_accepting_distances:
         if distance in b_accepting_distances:
@@ -519,6 +530,10 @@ def leq_internal_wrapper(A, B, options):
     # Computes if A <= B, where A <= B means that we can
     # run A using automata B.
     def leq_internal(A, B, options, use_leq_on_constants=False):
+        if options.memory_debug:
+            print "Heap in LEQ Internal"
+            h = hpy()
+            print(h.heap())
         global_variables['leq_depth'] += 1
         global_variables['leq_calls'] += 1
         if global_variables['leq_calls'] > options.leq_calls_threshold:
@@ -786,63 +801,62 @@ def leq_internal_wrapper(A, B, options):
             elements_A = A.options
             elements_B = B.options
 
-            if len(elements_A) > len(elements_B):
-                # No way to map these things.
-                result = False
-            else:
-                # Try all matches --- likely need some kind
-                # of cutoff here.
-                matches = [None] * len(elements_A)
-                for i in range(len(elements_A)):
-                    matches[i] = [None] * len(elements_B)
+            # Try all matches --- likely need some kind
+            # of cutoff here.
+            matches = [None] * len(elements_A)
+            for i in range(len(elements_A)):
+                matches[i] = [None] * len(elements_B)
 
-                    for j in range(len(elements_B)):
-                        if LEQ_DEBUG:
-                            print "Performing initial checks to build matrix for branch at call " + str(this_call_id) + ":"
-                            print "Checking ", elements_A[i]
-                            print "Checking ", elements_B[j]
-                        matches[i][j] = leq_internal(elements_A[i], elements_B[j], options)
+                for j in range(len(elements_B)):
+                    if LEQ_DEBUG:
+                        print "Performing initial checks to build matrix for branch at call " + str(this_call_id) + ":"
+                        print "Checking ", elements_A[i]
+                        print "Checking ", elements_B[j]
+                    matches[i][j] = leq_internal(elements_A[i], elements_B[j], options)
 
-                result = False
-                # Now, try and find some match for each i element in A.
-                perm_count = 0
+            result = False
+            # Now, try and find some match for each i element in A.
+            perm_count = 0
 
-                # This could be made smarter, by making some sensible guesses
-                # about which permutations might work --- there are definitely
-                # constraints here, e.g. we expect the matches matrix
-                # to be quite sparse.
-                if LEQ_DEBUG:
-                    print "Unification matrix is: (call " + str(this_call_id) + ")"
-                    for row in matches:
-                        print row
+            # This could be made smarter, by making some sensible guesses
+            # about which permutations might work --- there are definitely
+            # constraints here, e.g. we expect the matches matrix
+            # to be quite sparse.
+            if LEQ_DEBUG:
+                print "Unification matrix is: (call " + str(this_call_id) + ")"
+                for row in matches:
+                    print row
 
-                for combination in permutations(len(elements_A), range(len(elements_B))):
-                    perm_count += 1
-                    if perm_count > PERMUTATION_THRESHOLD:
-                        print "Warning: Permutation fail due to excessive numbers"
-                        break
-                    # check if the combination is good.
-                    is_match = True
+            mcount = 0
+            for combination in permutations(len(elements_A), range(len(elements_B))):
+                perm_count += 1
+                if perm_count > PERMUTATION_THRESHOLD:
+                    print "Warning: Permutation fail due to excessive numbers"
+                    break
+                # check if the combination is good.
+                is_match = True
+                for i in range(len(combination)):
+                    if not matches[i][combination[i]]:
+                        is_match = False
+
+                if is_match:
+                    mcount += 1
+                    if mcount > 0:
+                        print "Branch unification: More than one match!"
+                    # Create the unifier with this sequence of
+                    # assignments:
+                    unifier = Unifier()
+                    used_branches = []
                     for i in range(len(combination)):
-                        if not matches[i][combination[i]]:
-                            is_match = False
+                        used_branches.append(combination[i])
+                        unifier.unify_with(matches[i][combination[i]])
 
-                    if is_match:
-                        # Create the unifier with this sequence of
-                        # assignments:
-                        unifier = Unifier()
-                        used_branches = []
-                        for i in range(len(combination)):
-                            used_branches.append(combination[i])
-                            unifier.unify_with(matches[i][combination[i]])
+                    # Disable the other edges:
+                    for i in range(len(elements_B)):
+                        if i not in used_branches:
+                            unifier.add_disabled_edges(elements_B[i].first_edge())
 
-                        # Disable the other edges:
-                        for i in range(len(elements_B)):
-                            if i not in used_branches:
-                                unifier.add_disabled_edges(elements_B[i].first_edge())
-
-                        result = True
-                        break
+                    result = True
         else:
             if LEQ_DEBUG:
                 print "Types differ: unification failed"
