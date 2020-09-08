@@ -52,12 +52,16 @@ class Unifier(object):
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Starting new unification between "
-            print self.algebra_from
-            print self.algebra_to
+            print self.algebra_from.str_with_lookup(symbol_lookup_2)
+            print self.algebra_to.str_with_lookup(symbol_lookup_1)
 
         if self.algebra_from.equals(self.algebra_to, symbol_lookup_2, symbol_lookup_1):
             if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                 print "Algebras are actually exactly the same..."
+            for i in range(len(self.from_edges)):
+                if symbol_lookup_1[self.from_edges[i]] != symbol_lookup_2[self.to_edges[i]]:
+                    print "But edges are not the same..."
+
             compilation_statistics.exact_same_compilations += 1
 
         for i in range(len(self.from_edges)):
@@ -71,19 +75,14 @@ class Unifier(object):
                 print symbol_lookup_1[self.from_edges[i]]
                 print symbol_lookup_2[self.to_edges[i]]
             from_chars = symbol_lookup_1[self.from_edges[i]]
-            if self.to_edges[i]:
-                to_chars = symbol_lookup_2[self.to_edges[i]]
-            else:
-                if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
-                    print "Found an edge with disabling required"
-                to_chars = None
+            to_chars = symbol_lookup_2[self.to_edges[i]]
 
             for from_char in from_chars:
                 if from_char in state_lookup:
-                    overlap_set = []
+                    overlap_set = set()
                     for character in state_lookup[from_char]:
                         if character in to_chars:
-                            overlap_set.append(character)
+                            overlap_set.add(character)
 
                     if len(overlap_set) == 0:
                         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
@@ -96,11 +95,7 @@ class Unifier(object):
                         # still be smaller than it was before.
                         state_lookup[from_char] = overlap_set
                 else: # Fromchar not in state lookup.
-                    if to_chars:
-                        state_lookup[from_char] = to_chars
-                    else:
-                        assert False # I'm pretty sure that this
-                        # should never happen...
+                    state_lookup[from_char] = to_chars
 
             if to_chars:
                 for char in to_chars:
@@ -130,7 +125,7 @@ class Unifier(object):
         for i in range(0, 256):
             if i in state_lookup:
                 # Pick the first available option arbitrarily.
-                state_lookup[i] = state_lookup[i][0]
+                state_lookup[i] = list(state_lookup[i])[0]
             else:
                 state_lookup[i] = i
 
