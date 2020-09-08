@@ -21,8 +21,11 @@ class Options(object):
 
         self.graph_size_threshold = 2000
         self.cross_compilation_threading = 0
+        self.algebra_size_threshold = None
 
         self.size_difference_cutoff_factor = 2.0
+        self.memory_debug = False
+        self.size_limit = None
 
 def create_from_args(args):
     algebra.LEQ_DEBUG = args.debug_leq
@@ -46,6 +49,8 @@ def create_from_args(args):
     opts.cross_compilation_threading = args.cross_compilation_threading
     opts.size_difference_cutoff_factor = args.size_difference_cutoff
     opts.no_leq_heuristics = args.no_leq_heuristics
+    opts.memory_debug = args.memory_debug
+    opts.algebra_size_threshold = args.algebra_size_threshold
 
     if opts.dump_nodes_and_edges:
         # Clear the file:
@@ -67,6 +72,7 @@ def add_to_parser(parser):
     parser.add_argument('--group-size-distribution', default=None, dest='group_size_distribution', help='Dump the group size distribution to this file')
     parser.add_argument('--dump-nodes-and-edges', default=None, dest='dump_nodes_and_edges', help='Dump nodes and edges for each CC into a file')
     parser.add_argument('--graph-size-threshold', default=2000, dest='graph_size_threshold', help="Exclude graphs larger than this value (deal with python recursion limit)")
+    parser.add_argument('--algebra-size-threshold', default=None, dest='algebra_size_threshold', type=int)
     parser.add_argument('--cross-compilation-threading', default=0,dest='cross_compilation_threading', help='How many threads should be used for genreating comparisons. 0 disables the thread pool entirely.', type=int)
     parser.add_argument('--size-difference-cutoff-factor', default=2.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
     parser.add_argument('--no-leq-heuristics', default=False, dest='no_leq_heuristics', action='store_true', help='Use heuristics to skip some of the comparisons that seem likely to fail anyway')
@@ -75,6 +81,7 @@ def add_to_parser(parser):
     parser.add_argument('--debug-leq', default=False, dest='debug_leq', action='store_true')
     parser.add_argument('--debug-unification', default=False, dest='debug_unification', action='store_true')
     parser.add_argument('--debug-compute-compat-matrix', default=False, dest='debug_compute_compat_matrix', action='store_true')
+    parser.add_argument('--memory-debug', default=False, dest='memory_debug', action='store_true')
 
 EmptyOptions = Options()
 
