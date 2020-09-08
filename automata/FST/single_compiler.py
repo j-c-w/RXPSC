@@ -5,6 +5,7 @@ import time
 import generate_fst
 import compilation_statistics
 import FST
+from guppy import hpy
 
 def compile(from_atma, to_atma, options):
     # Compare the shape of the autmata.  If the aren't roughly

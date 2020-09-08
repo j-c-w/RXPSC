@@ -1,4 +1,5 @@
 import single_compiler as sc
+from guppy import hpy
 import compilation_statistics
 from multiprocessing import Pool
 from memory_profiler import profile
@@ -90,6 +91,10 @@ def compute_cross_compatibility_matrix_for(group, options):
         progress = tqdm.tqdm(total=(len(tasks)))
         # Compute traditionally:
         for (group_ref, i, j, options_ref) in tasks:
+            if options.memory_debug:
+                print "Memory Usage before during cross compat"
+                h = hpy()
+                print(h.heap())
             flat_results.append(compute_compiles_for((group_ref, i, j, options_ref)))
             progress.update(1)
         progress.close()
@@ -175,9 +180,20 @@ def compute_compiles_for(args):
 # put on hardware, assignments for everything,
 # and conversion machines.
 def compute_hardware_assignments_for(groups, options):
+    if options.memory_debug:
+        print "Memory Usage before cross compat matrix"
+        h = hpy()
+        print(h.heap())
+
     compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options)
+    if options.memory_debug:
+        print "Memory Usage after cross compat matrix"
+        h = hpy()
+        print(h.heap())
+
     print "Generated cross-compilation list"
-    return assign_hardware(compiles_from, compiles_to, options)
+    result =  assign_hardware(compiles_from, compiles_to, options)
+    return result
 
 def assign_hardware(compiles_from, compiles_to, options):
     # Greedy algorithm is to find the regex with the
@@ -269,6 +285,12 @@ def compile(automata_components, options):
     group_index = 0
     if options.group_size_distribution:
         group_sizes = []
+
+    if options.memory_debug:
+        print "Memory Usage before computing depth equations"
+        h = hpy()
+        print(h.heap())
+
     for cc_list in automata_components:
         group = []
         equation_index = 0
@@ -284,14 +306,22 @@ def compile(automata_components, options):
             if options.print_algebras:
                 print depth_eqn
                 print "Hash: ", depth_eqn.structural_hash()
-            group.append(AutomataContainer(cc, depth_eqn))
-            equation_index += 1
+            if options.algebra_size_threshold and depth_eqn.size() > options.algebra_size_threshold:
+                print "Omitting equation due to size"
+            else:
+                group.append(AutomataContainer(cc, depth_eqn))
+                equation_index += 1
 
         if options.group_size_distribution:
             group_sizes.append(str(len(group)))
 
         groups.append(group)
         group_index += 1
+
+    if options.memory_debug:
+        print "Memory Usage after computing depth equations"
+        h = hpy()
+        print(h.heap())
 
     if options.group_size_distribution:
         print "Dumping group size distributions to file ", options.group_size_distribution
@@ -306,9 +336,19 @@ def compile(automata_components, options):
 def compile_statistics(connected_components, options):
     algebras = [None] * len(connected_components)
 
+    if options.memory_debug:
+        print "Memory Usage before computing depth equations"
+        h = hpy()
+        print(h.heap())
+
     print "Starting Compilation"
     for i in range(len(connected_components)):
         algebras[i] = sc.compute_depth_equation(connected_components[i], options, dump_output=True)
+
+    if options.memory_debug:
+        print "Memory usage after computed depth equations"
+        h = hpy()
+        print(h.heap())
 
     print "Computed Algebras: checking for cross-compatability now"
 
