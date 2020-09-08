@@ -106,6 +106,9 @@ class DepthEquation(object):
     def structural_hash(self):
         assert False
 
+    def str_with_lookup(self, lookup):
+        assert False
+
 
 class Product(DepthEquation):
     def __init__(self, e1):
@@ -171,6 +174,9 @@ class Product(DepthEquation):
 
     def __str__(self):
         return "(" + str(self.e1) + ")*"
+
+    def str_with_lookup(self, lookup):
+        return "(" + str(self.e1.str_with_lookup(lookup)) + ")"
 
     def normalize(self):
         # We do not want to normalize things
@@ -322,6 +328,9 @@ class Sum(DepthEquation):
     def issum(self):
         return True
 
+    def str_with_lookup(self, lookup):
+        return " + ".join([x.str_with_lookup(lookup) for x in self.e1])
+
     def __str__(self):
         return " + ".join([str(x) for x in self.e1])
 
@@ -456,6 +465,10 @@ class Const(DepthEquation):
         else:
             return None
 
+    def str_with_lookup(self, lookup):
+        edges_val = [[chr(y) for y in lookup[x]] for x in self.edges if x in lookup]
+        return str(self.val) + " " + str(edges_val)
+
     def __str__(self):
         if TERMS_DEBUG:
             return str(self.val) + " " + str(self.edges) + ""
@@ -554,6 +567,9 @@ class Branch(DepthEquation):
 
     def get_last_node(self):
         return None
+
+    def str_with_lookup(self, lookup):
+        return "{" + ", ".join([opt.str_with_lookup(lookup) for opt in self.options]) + "}"
 
     def __str__(self):
         return "{" + ", ".join([str(opt) for opt in self.options]) + "}"
@@ -703,6 +719,9 @@ class Accept(DepthEquation):
     def overlap_distance(self, other):
         return 0
 
+    def str_with_lookup(self, lookup):
+        return "a"
+
     def __str__(self):
         return "a"
 
@@ -753,6 +772,9 @@ class End(DepthEquation):
 
     def get_last_node(self):
         return None
+
+    def str_with_lookup(self, lookup):
+        return "e"
 
     def __str__(self):
         return "e"
