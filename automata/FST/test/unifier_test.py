@@ -1,4 +1,5 @@
 import unittest
+from automata.FST.options import EmptyOptions
 import automata.FST.unifier as unifier
 
 simple_unifier = unifier.Unifier()
@@ -15,7 +16,7 @@ class UnifierTest(unittest.TestCase):
                 (1, 2): ["d"]
                 }
 
-        state = simple_unifier.unify_single_state(lookup_1, lookup_2)
+        state = simple_unifier.unify_single_state(lookup_1, lookup_2, EmptyOptions)
 
         self.assertEqual(state["a"], "c")
 
@@ -30,7 +31,7 @@ class UnifierTest(unittest.TestCase):
                 (1, 2): ["d"]
                 }
 
-        state = simple_unifier.unify_single_state(lookup_1, lookup_2)
+        state = simple_unifier.unify_single_state(lookup_1, lookup_2, EmptyOptions)
         self.assertEqual(state, None)
 
     def test_none_unification(self):
@@ -44,7 +45,7 @@ class UnifierTest(unittest.TestCase):
                 (1, 2): ["d"]
                 }
 
-        state = simple_unifier.unify_single_state(lookup_1, lookup_2)
+        state = simple_unifier.unify_single_state(lookup_1, lookup_2, EmptyOptions)
         print (state["a"])
         self.assertNotEqual(state["a"], "d")
 

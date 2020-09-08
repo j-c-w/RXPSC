@@ -39,7 +39,7 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
         if options.assume_perfect_unification:
             return FST.AllPowerfulUnifier()
         else:
-            return generate_fst.generate(unification, automata_to, automata_from)
+            return generate_fst.generate(unification, automata_to, automata_from, options)
 
 
 depth_equation_computation_index = 0

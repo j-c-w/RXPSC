@@ -20,11 +20,11 @@ def edge_label_lookup_generate(atma):
         lookup[(to, from_ind)] = expand_ranges(data['symbol_set'])
     return lookup
 
-def generate(unification, to_atma, from_atma):
+def generate(unification, to_atma, from_atma, options):
     assert unification is not None
     # Get the lookup tables.
 
     to_edge_lookup = edge_label_lookup_generate(to_atma)
     from_edge_lookup = edge_label_lookup_generate(from_atma)
 
-    return unification.unify_single_state(to_edge_lookup, from_edge_lookup)
+    return unification.unify_single_state(to_edge_lookup, from_edge_lookup, options)

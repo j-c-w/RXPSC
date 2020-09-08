@@ -45,7 +45,7 @@ class Unifier(object):
     # of what is 'from' and what is 'to' in this function (and
     # elsewhere tbh). Anyway, any issues with that should be aparent
     # even if a pain.
-    def unify_single_state(self, symbol_lookup_1, symbol_lookup_2):
+    def unify_single_state(self, symbol_lookup_1, symbol_lookup_2, options):
         # This unifies into a single state.
         state_lookup = {}
         matching_symbol = {}
@@ -114,7 +114,7 @@ class Unifier(object):
         if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation:
             if DEBUG_UNIFICATION:
                 print "Unification failed due to required edge disabling that cannot be achieved"
-            compilation_statistics.single_state_unification_non_matching ++ 1
+            compilation_statistics.single_state_unification_non_matching += 1
             return None
         elif non_matching is not None:
             for disable in disabled_edges:
