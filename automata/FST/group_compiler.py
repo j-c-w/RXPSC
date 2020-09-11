@@ -4,6 +4,7 @@ import compilation_statistics
 from multiprocessing import Pool
 from memory_profiler import profile
 import tqdm
+import time
 
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = True
@@ -279,6 +280,9 @@ def compile(automata_components, options):
     # Takes a list of lists of CCs, and computes a
     # set of CCs that should go in hardware, and a list
     # that can be translated.
+
+    if options.print_compile_time:
+        start_time = time.time()
     
     # Generate the group.
     groups = []
@@ -327,6 +331,10 @@ def compile(automata_components, options):
         print "Dumping group size distributions to file ", options.group_size_distribution
         with open(options.group_size_distribution, 'w') as f:
             f.write(",".join(group_sizes))
+
+    if options.print_compile_time:
+        total_time = time.time() - start_time
+        print "Total taken is:", total_time, "seconds"
 
     return groups, compute_hardware_assignments_for(groups, options)
 

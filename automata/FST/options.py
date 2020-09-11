@@ -10,6 +10,7 @@ class Options(object):
         self.disabled_edges_approximation = False
         self.print_algebras = False
         self.profile = False
+        self.print_compile_time = False
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -53,6 +54,7 @@ def create_from_args(args):
     opts.memory_debug = args.memory_debug
     opts.algebra_size_threshold = args.algebra_size_threshold
     opts.target = args.target
+    opts.print_compile_time = args.print_compile_time
 
     if opts.dump_nodes_and_edges:
         # Clear the file:
@@ -84,6 +86,7 @@ def add_to_parser(parser):
     parser.add_argument('--debug-unification', default=False, dest='debug_unification', action='store_true')
     parser.add_argument('--debug-compute-compat-matrix', default=False, dest='debug_compute_compat_matrix', action='store_true')
     parser.add_argument('--memory-debug', default=False, dest='memory_debug', action='store_true')
+    parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration'], default='single-state')
