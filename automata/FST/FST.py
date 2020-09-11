@@ -34,6 +34,9 @@ class SingleStateTranslator(object):
                 return False
         return True
 
+class SymbolReconfiguration(object):
+    def __init__(self, lookup):
+        self.lookup = lookup
 
 # This is an empty unifier for statistics gathering under
 # the assumption that our unifier is all-powerful.

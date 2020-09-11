@@ -41,6 +41,35 @@ class Unifier(object):
         self.cost += other.cost
         self.ununified_terms.append(other.ununified_terms)
 
+    def unify_symbol_only_reconfigutaion(self, symbol_lookup_1, symbol_lookup_2, options):
+        # In this unification method, we can unify each state individually ---
+        # giving us much better compression.
+        state_lookup = {}
+        if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+            print "Starting new unification between"
+            print self.algebra_from.str_with_lookup(symbol_lookup_1)
+            print self.algebra_to.str_with_lookup(symbol_lookup_2)
+
+        for i in range(len(self.from_edges)):
+            # Try and unify the individual edges  --- This should almost always
+            # work.
+            from_edge = self.from_edges[i]
+            to_edge = self.to_edges[i]
+
+            # since each state is homogeneous, the question is "does this
+            # state get enabled on this particular input character?"
+            # and we aim to change the answer from the one in 'from_edge'
+            # to the one in to_edge.
+            _, dest_state = from_edge
+            if dest_state in state_lookup:
+                lookup = state_lookup[dest_state]
+            else:
+                lookup = {}
+            lookup[from_edge] = True
+
+            state_lookup[dest_state] = lookup
+        return FST.SymbolReconfiguration(state_lookup)
+
     # There may be some issues surrounding the naming convention
     # of what is 'from' and what is 'to' in this function (and
     # elsewhere tbh). Anyway, any issues with that should be aparent

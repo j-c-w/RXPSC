@@ -1,3 +1,5 @@
+import sys
+
 def expand_ranges(ranges):
     ranges = list(ranges)
     result = []
@@ -27,4 +29,10 @@ def generate(unification, to_atma, from_atma, options):
     to_edge_lookup = edge_label_lookup_generate(to_atma)
     from_edge_lookup = edge_label_lookup_generate(from_atma)
 
-    return unification.unify_single_state(to_edge_lookup, from_edge_lookup, options)
+    if options.target == 'single-state':
+        return unification.unify_single_state(to_edge_lookup, from_edge_lookup, options)
+    elif options.target == 'symbol-only-reconfiguration':
+        return unification.unify_symbol_only_reconfigutaion(to_edge_lookup, from_edge_lookup, options)
+    else:
+        print "Unkown target " + options.target
+        sys.exit(1)
