@@ -14,3 +14,4 @@ cutoff_comparisons = 0
 
 # Size limit counters
 graph_too_big = 0
+failed_algebra_computations = 0
