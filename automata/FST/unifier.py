@@ -3,7 +3,7 @@ import compilation_statistics
 # We need a value to indicate that an edges should not match
 # anything.
 DEBUG_UNIFICATION = False
-PRINT_UNIFICATION_FAILURE_REASONS = True
+PRINT_UNIFICATION_FAILURE_REASONS = False
 
 class Unifier(object):
     def __init__(self, algebra_from=None, algebra_to=None, cost=0):
@@ -109,12 +109,12 @@ class Unifier(object):
             print self.algebra_from.str_with_lookup(symbol_lookup_2)
             print self.algebra_to.str_with_lookup(symbol_lookup_1)
 
-        if self.algebra_from.equals(self.algebra_to, symbol_lookup_2, symbol_lookup_1):
-            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+        if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+            if self.algebra_from.equals(self.algebra_to, symbol_lookup_2, symbol_lookup_1):
                 print "Algebras are actually exactly the same..."
-            for i in range(len(self.from_edges)):
-                if symbol_lookup_1[self.from_edges[i]] != symbol_lookup_2[self.to_edges[i]]:
-                    print "But edges are not the same..."
+                for i in range(len(self.from_edges)):
+                    if symbol_lookup_1[self.from_edges[i]] != symbol_lookup_2[self.to_edges[i]]:
+                        print "But edges are not the same..."
 
             compilation_statistics.exact_same_compilations += 1
 
@@ -177,11 +177,11 @@ class Unifier(object):
         # Translate everything else to itself.  This is an
         # relatively arbitrary decision I'm pretty sure.
         for i in range(0, 256):
-            if i in state_lookup:
+            if chr(i) in state_lookup:
                 # Pick the first available option arbitrarily.
-                state_lookup[i] = list(state_lookup[i])[0]
+                state_lookup[chr(i)] = list(state_lookup[chr(i)])[0]
             else:
-                state_lookup[i] = i
+                state_lookup[chr(i)] = chr(i)
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Returning a real result"
