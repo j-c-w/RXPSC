@@ -12,7 +12,7 @@ except:
     # footprint debugging anyway
     pass
 
-ALG_DEBUG = False
+ALG_DEBUG = True
 LEQ_DEBUG = False
 # This should probably be enabled for most things, it
 # drastically helps avoid exponential blowup for non-SJSS
@@ -111,6 +111,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
     # This keeps track of the node that each stack element represents.
     algebra_stack_nodes = [None]
     algebra_stack_counts = [1]
+    seen = None
 
     while len(nodes_list) != 0:
         node = nodes_list[0]
@@ -128,7 +129,19 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             # seems to sometimes happen on valid graphs.
             # It could be that this is exponential, and does
             # actually resolve.
-            raise AlgebraGenerationException("Graph is not properly preprocessed --- Algebra generation in a loop.")
+            raise AlgebraGenerationException("Graph is not properly preprocessed (or there was a bug) --- Algebra generation in a loop. (detected based on future node-visiting instructions)")
+        occurances = 0
+        for past_node in algebra_stack_nodes:
+            if node == past_node:
+                occurances += 1
+        if occurances > 20:
+            raise AlgebraGenerationException("Graphs is not properly preprocessed (or there was a bug) ---  Algebra generation in a loop (detected based on stack history)")
+            # Note:  We now have a case where it is not
+            # exponential -- in this case, it is clear
+            # that the graph was not SJSS-ified.  Implementing
+            # a pass to solve that should solve the problem,
+            # although it is not a priority, as a small minority
+            # of graphs are not SJSS.
 
         if CACHE_ENABLED and node in computed_algebras:
             # Set the top of stack to this node
@@ -178,7 +191,6 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     ends.append(end)
                     non_loops_from_this_node.append(branch)
             nodes_list = ends[::-1] + nodes_list
-
             # If this node has loops, then we need to deal with those.
             if len(loops_from_this_node) > 0:
                 # This is a loop.  We only handle loops that
