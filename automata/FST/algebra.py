@@ -13,7 +13,7 @@ except:
     pass
 
 ALG_DEBUG = False
-LEQ_DEBUG = False
+LEQ_DEBUG = True
 # This should probably be enabled for most things, it
 # drastically helps avoid exponential blowup for non-SJSS
 # graphs.
@@ -781,13 +781,18 @@ def leq_internal_wrapper(A, B, options):
                 print "out of ", len(A.e1), len(B.e1)
             if a_index == len(A.e1):
                 if b_index != len(B.e1):
-                    sum_tail = Sum(B.e1[b_index:]).normalize()
+                    if LEQ_DEBUG:
+                        print "Attempting to apply trim property..."
+                    sum_tail = Sum(B.e1[b_index - 1:]).normalize()
                     # Need to disable the first edge.
                     first_edges = sum_tail.first_edge()
 
                     # And if there is an accept before the first
                     # edge, then we need to fail.
                     if sum_tail.has_accept_before_first_edge():
+                        if LEQ_DEBUG:
+                            print sum_tail
+                            print "Trim property failed because tail has accept before first edge"
                         result = False
                         unifier = None
                     else:
