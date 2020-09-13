@@ -5,7 +5,14 @@ import time
 import generate_fst
 import compilation_statistics
 import FST
-from guppy import hpy
+try:
+    from guppy import hpy
+except:
+    # Fails using pypy because the module
+    # is not supported --- only used for memory
+    # footprint debugging anyway
+    pass
+
 
 def compile(from_atma, to_atma, options):
     # Compare the shape of the autmata.  If the aren't roughly

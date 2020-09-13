@@ -4,7 +4,13 @@ import sjss
 import itertools
 from unifier import *
 import compilation_statistics
-from guppy import hpy
+try:
+    from guppy import hpy
+except:
+    # Fails using pypy because the module
+    # is not supported --- only used for memory
+    # footprint debugging anyway
+    pass
 
 ALG_DEBUG = False
 LEQ_DEBUG = False

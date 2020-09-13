@@ -1,10 +1,18 @@
 import single_compiler as sc
-from guppy import hpy
 import compilation_statistics
 from multiprocessing import Pool
 from memory_profiler import profile
 import tqdm
 import time
+
+try:
+    from guppy import hpy
+except:
+    # Fails using pypy because the module
+    # is not supported --- only used for memory
+    # footprint debugging anyway
+    pass
+
 
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = True
