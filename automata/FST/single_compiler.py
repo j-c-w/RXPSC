@@ -88,12 +88,16 @@ def draw_{num}(fname):
  
     start_time = time.time()
     try:
-        alg =  algebra.generate(nodes, edges, start, accepting_states)
+        alg = algebra.generate(nodes, edges, start, accepting_states)
     except Exception as e:
-        print "Compilation of algebra failed!"
-        print "Error was:"
-        print e
-        return None
+        compilation_statistics.failed_algebra_computations += 1
+        if options.skip_on_fail:
+            print "Compilation of algebra failed!"
+            print "Error was:"
+            print e
+            return None
+        else:
+            raise e
     end = time.time()
     if dump_output:
         print "Time taken is " + str(end - start_time)
