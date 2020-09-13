@@ -69,6 +69,13 @@ def compute_depth_equation(atma, options, dump_output=False):
         with open(options.dump_nodes_and_edges, 'a') as f:
             f.write("nodes" + str(depth_equation_computation_index) + " = " + str(nodes) + "\n")
             f.write("edges" + str(depth_equation_computation_index) + " = " + str(edges) + "\n")
+            f.write("""
+def draw_{num}(fname):
+    import automata.FST.debug as debug
+    res = debug.to_graphviz(nodes{num}, edges{num})
+    with open(fname, 'w') as f:
+        f.write(res)
+""".format(num=depth_equation_computation_index))
 
         depth_equation_computation_index += 1
 
