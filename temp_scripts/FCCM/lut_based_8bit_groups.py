@@ -57,6 +57,7 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
         print "Tried to cross compile ", compilation_statistics.executed_comparisons, "regexes to each other"
         print "Avoided ", compilation_statistics.cutoff_comparisons, "detailed comparison attempts with heuristics"
+        print "Of the algebras ", compilation_statistics.failed_algebra_computations, " failed (likely) due to incompleteness of current implementation"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
