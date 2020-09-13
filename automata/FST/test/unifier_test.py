@@ -41,7 +41,7 @@ class UnifierTest(unittest.TestCase):
                 }
 
         lookup_2 = {
-                (0, 1): None,
+                (0, 1): ['a', 'd'],
                 (1, 2): ["d"]
                 }
 

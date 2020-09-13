@@ -10,6 +10,12 @@ class AlgebraTest(unittest.TestCase):
         simple = alg.generate([0, 1, 2, 3], [(0, 1), (1, 2), (2, 3)], 0, [3])
         self.assertEquals("1 + 1 + 1 + a + e", str(simple))
 
+    # Generated from a failing exmapl
+    def test_cross_loop(self):
+        nodes = [0, 1, 2, 3, 4, 5]
+        edges = [(0, 1), (0, 2), (2, 3), (3, 4), (4, 2), (1, 5), (1, 3), (2, 5)]
+        print alg.generate(nodes,edges, 0, [5])
+
     def test_branch(self):
         simple_branches = alg.generate([0, 1, 2], [(0, 1), (0, 2)], 0, [1, 2])
         self.assertEquals("{1 + a + e, 1 + a + e}", str(simple_branches))
@@ -58,11 +64,11 @@ class AlgebraTest(unittest.TestCase):
 
     def test_double_branch(self):
         res = alg.generate([0, 1, 2, 3, 4, 5], [(0, 1), (0, 2), (2, 3), (1, 3), (3, 4), (3, 5)], 0, [])
-        self.assertEqual(str(res), "{{1 + 1, 1 + 1} + {1 + e, 1 + e}}")
+        self.assertEqual(str(res), "{1 + 1, 1 + 1} + {1 + e, 1 + e}")
 
     def test_double_branch_2(self):
         res = alg.generate([0, 1, 2, 3, 4, 5, 6], [(0, 1), (0, 2), (2, 3), (1, 3), (3, 4), (4, 5), (4, 6)], 0, [])
-        self.assertEqual(str(res), "{{1 + 1, 1 + 1} + 1 + {1 + e, 1 + e}}")
+        self.assertEqual(str(res), "{1 + 1, 1 + 1} + 1 + {1 + e, 1 + e}")
 
 class UnificationTest(unittest.TestCase):
     def test_simple_unifier(self):

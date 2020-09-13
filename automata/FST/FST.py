@@ -34,6 +34,9 @@ class SingleStateTranslator(object):
                 return False
         return True
 
+    def __getitem__(self, idx):
+        return self.lookup[idx]
+
 class SymbolReconfiguration(object):
     def __init__(self, lookup):
         self.lookup = lookup

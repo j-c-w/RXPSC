@@ -15,10 +15,10 @@ class ComparisonTest(unittest.TestCase):
 
         # Test the trim property.
         self.assertTrue(algebra.leq(Sum([Const(1, [(0, 1)]), Accept(), End()]),
-                                    Sum([Const(1, [(0, 1)]), Accept(), Const(2, [(1, 2), (2, 3)]), End(), Accept()]), EmptyOptions))
+                                    Sum([Const(1, [(0, 1)]), Accept(), Const(1, [(1, 2)]), End(), Accept()]).normalize(), EmptyOptions))
 
         self.assertFalse(algebra.leq(Sum([Const(1, [(0, 1)]), End()]),
-                                    Sum([Const(1, [(0, 1)]), Accept(), Const(2, [(1, 2), (2, 3)]), End(), Accept()]), EmptyOptions))
+                                    Sum([Const(1, [(0, 1)]), Accept(), Const(1, [(1, 2)]), End(), Accept()]), EmptyOptions))
 
 
 if __name__ == "__main__":
