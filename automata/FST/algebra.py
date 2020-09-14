@@ -531,6 +531,20 @@ def leq_fails_on_heuristics(A, B, options):
     return False
 
 
+def leq_internal_fails_on_heuristics(A, B, options):
+    # Size threshold, unlikely to be able to compile something
+    # big to something small.
+    if A.size() > options.size_difference_cutoff_factor * B.size():
+        return True
+
+    if A.branches_count() > 1.5 * B.branches_count():
+        return True
+
+    if A.loops_count() > 1.5 * B.loops_count():
+        return True
+
+    return False
+
 # This MUST support multithreaded operation.
 def leq_internal_wrapper(A, B, options):
     global_variables = {
@@ -560,6 +574,8 @@ def leq_internal_wrapper(A, B, options):
             global_variables['leq_depth'] -= 1
             return None
 
+        # Want to avoid massive comparisons: (a) crash (b) slow
+        # (c) unlikely to succeed anyway.
         if global_variables['leq_depth'] > 1000:
             # Recursion depth exceeded.
             global_variables['leq_depth'] -= 1
@@ -579,6 +595,21 @@ def leq_internal_wrapper(A, B, options):
         if CACHE_ENABLED and cache_pointer in global_variables['comparison_cache']:
             global_variables['leq_depth'] -= 1
             return global_variables['comparison_cache'][cache_pointer]
+
+        if not options.no_leq_heuristics:
+            if LEQ_DEBUG:
+                print "Checking for heuristic fails within an individual comparison..."
+
+            if leq_internal_fails_on_heuristics(A, B, options):
+                if LEQ_DEBUG:
+                    print "Comparison failed on Heuristics! Returning None"
+
+                # Setup the cache and decrement the stack depth counter.
+                global_variables['comparison_cache'][cache_pointer] = None
+                global_variables['leq_depth'] -= 1
+                return None
+            elif LEQ_DEBUG:
+                print "Comparison passed :)"
 
         unifier = None
         result = None
