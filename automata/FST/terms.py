@@ -5,6 +5,8 @@
 TERMS_DEBUG = False
 terms_id_counter = 0
 
+hits = 0
+misses = 0
 class DepthEquation(object):
     def __init__(self):
         global terms_id_counter
@@ -14,6 +16,8 @@ class DepthEquation(object):
         self._cached_has_accept = None
         self._cached_has_accept_before_first_edge = None
         self._cached_accepting_distances_approximation = None
+        self._cached_branches_count = None
+        self._cached_loop_count = None
 
     def isproduct(self):
         return False
@@ -109,6 +113,24 @@ class DepthEquation(object):
     def str_with_lookup(self, lookup):
         assert False
 
+    def _branches_count(self):
+        assert False
+
+    def branches_count(self):
+        if self._cached_branches_count is None:
+            self.cached_branches_count = self._branches_count()
+        return self.cached_branches_count
+
+    def _loops_count(self):
+        assert False
+
+    def loops_count(self):
+        if self._cached_loop_count is not None:
+            return self._cached_loop_count
+        else:
+            self._cached_loop_count = self._loops_count()
+            return self._cached_loop_count
+
 
 class Product(DepthEquation):
     def __init__(self, e1):
@@ -118,6 +140,12 @@ class Product(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _loops_count(self):
+        return 1 + self.e1.loops_count()
+
+    def _branches_count(self):
+        return self.e1.branches_count()
 
     # Approximate this as just the length of the
     # subexpression.
@@ -211,6 +239,18 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _loops_count(self):
+        s = 0
+        for x in self.e1:
+            s += x.loops_count() 
+        return s
+
+    def _branches_count(self):
+        s = 0
+        for x in self.e1:
+            s += x.branches_count() 
+        return s
 
     def _accepting_distances_approximation(self):
         set = self.e1[0].accepting_distances_approximation()
@@ -378,8 +418,10 @@ class Sum(DepthEquation):
 
         # self.e1 = new_values
         if len(self.e1) == 1:
-            return self.e1[0]
+            return self.e1[0].normalize()
 
+        for e in self.e1:
+            assert e.isnormal
         return self
 
     def size(self):
@@ -403,6 +445,12 @@ class Const(DepthEquation):
         # represents coverage over.
         self.edges = edges
         self._size = None
+
+    def _loops_count(self):
+        return 0
+
+    def _branches_count(self):
+        return 0
 
     def _accepting_distances_approximation(self):
         # Assume there is an accept at the end...
@@ -477,9 +525,10 @@ class Const(DepthEquation):
 
     def normalize(self):
         if self.val <= 1:
+            self.isnormal = True
             return self
         else:
-            return Sum([Const(1, [self.edges[i]]) for i in range(self.val)])
+            return Sum([Const(1, [self.edges[i]]) for i in range(self.val)]).normalize()
 
     def size(self):
         return self.val
@@ -495,6 +544,13 @@ class Branch(DepthEquation):
         self.options = [opt for opt in options if opt]
         self.isnormal = False
         self._size = None
+        self.iscompressed = False
+
+    def _loops_count(self):
+        return sum([opt.loops_count() for opt in self.options])
+
+    def _branches_count(self):
+        return 1 + sum([opt.branches_count() for opt in self.options])
 
     def _accepting_distances_approximation(self):
         results = []
@@ -581,19 +637,30 @@ class Branch(DepthEquation):
         if len(self.options) == 1:
             return self.options[0].normalize()
         self.options = [opt.normalize() for opt in self.options if opt]
+        for opt in self.options:
+            assert opt.isnormal
         # Compression is not required if the sum was constructed
         # with a number of assumptions, e.g. that it has
         # already been partially compressed at some point in the
         # past.
-        if compress:
+        if not self.iscompressed and compress:
             self.compress()
-        if len(self.options) == 1:
-            return self.options[0]
+            # Compression results in the need for more normailzation.
+            result = self.normalize()
+            return result
         else:
-            assert len(self.options) != 1
-            return self
+            result = self
+
+            if len(result.options) == 1:
+                return result.options[0].normalize()
+            else:
+                assert len(result.options) != 1
+                return result
 
     def compress(self):
+        if self.iscompressed:
+            return
+        self.iscompressed = True
         # The results of generate_internal duplicate every branch tail.
         # Excessive compilation time etc. are avoided because of the
         # caching system.  However, having the algebra in that
@@ -669,7 +736,7 @@ class Branch(DepthEquation):
         # Finally, set the elements to the ones we computed.
         self.options = branch_sets
         self._size = None
-
+        self.isnormal = False
 
     def size(self):
         if self._size:
@@ -684,6 +751,12 @@ class Branch(DepthEquation):
 class Accept(DepthEquation):
     def __init__(self):
         super(Accept, self).__init__()
+
+    def _loops_count(self):
+        return 0
+    
+    def _branches_count(self):
+        return 0
 
     def _accepting_distances_approximation(self):
         return [0]
@@ -729,6 +802,7 @@ class Accept(DepthEquation):
         return None
 
     def normalize(self):
+        self.isnormal = True
         return self
 
     def size(self):
@@ -740,6 +814,12 @@ class Accept(DepthEquation):
 class End(DepthEquation):
     def __init__(self):
         super(End, self).__init__()
+
+    def _loops_count(self):
+        return 0
+
+    def _branches_count(self):
+        return 0
 
     def split_last(self):
         # Not 100% sure what to do in this case.  Pretty
@@ -780,6 +860,7 @@ class End(DepthEquation):
         return "e"
 
     def normalize(self):
+        self.isnormal = True
         return self
 
     def size(self):
