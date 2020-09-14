@@ -118,8 +118,8 @@ class DepthEquation(object):
 
     def branches_count(self):
         if self._cached_branches_count is None:
-            self.cached_branches_count = self._branches_count()
-        return self.cached_branches_count
+            self._cached_branches_count = self._branches_count()
+        return self._cached_branches_count
 
     def _loops_count(self):
         assert False
