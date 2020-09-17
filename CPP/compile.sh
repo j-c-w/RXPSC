@@ -3,6 +3,7 @@ set -eu
 
 echo "Compiling"
 Python_Path="$(dirname $(which python))/../include/python2.7"
+Pypy_Path="$(dirname $(which pypy))/../pypy-c/include/"
 echo $Python_Path
 
 unameOut="$(uname -s)"
@@ -20,11 +21,22 @@ then
     exit 1 # die with error code 1
 fi
 
+if [[ $# -ne 1 ]]; then
+	echo "Usage: $0 [pypy|cpython]"
+	exit 1
+fi
+
 rm -f *.so *.o *.cxx *.pyc *.py
 touch __init__.py
 g++ -c -fPIC -fPIC -std=c++11  VASim.cpp
 swig -c++ -python VASim.i
-g++ -c -fPIC -std=c++11 VASim_wrap.cxx  -I $Python_Path
+if [[ $1 == cpython ]]; then
+	echo Using $Python_Path
+	g++ -c -fPIC -std=c++11 VASim_wrap.cxx  -I $Python_Path
+else
+	echo Using $Pypy_Path
+	g++ -c -fPIC -std=c++11 VASim_wrap.cxx  -I $Pypy_Path
+fi
 
 if [ $machine = Linux ]
 then
