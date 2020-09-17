@@ -1,4 +1,4 @@
-import CPP.VASim as VASim
+# import CPP.VASim as VASim # Replaced by python version internal_vasim
 from .element import BaseElement, StartType
 from . import ElementsType
 from itertools import chain, product, izip
@@ -6,6 +6,7 @@ from heapq import heappush, heappop
 #import point_comperator
 import bisect
 from sortedcontainers import SortedSet
+import internal_vasim
 
 #CYTHON_CAN_ACCEPT_FUNC =  point_comperator.cython_can_accept
 
@@ -699,7 +700,9 @@ class S_T_E(BaseElement):
         # find symbol set
         assert 'symbol-set' in xml_node.attrib  # all STEs should have symbol set
         symbol_str = str(xml_node.attrib['symbol-set'])
-        symbol_list = VASim.parseSymbolSet(symbol_str)
+        # Want to remove dependency on the C code.
+        # symbol_list = VASim.parseSymbolSet(symbol_str)
+        symbol_list = internal_vasim.parseSymbolSet(symbol_str)
         symbol_list=symbol_list[::-1]
 
         symbol_set = PackedIntervalSet([])
