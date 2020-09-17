@@ -1,12 +1,12 @@
 import single_compiler as sc
 import compilation_statistics
 from multiprocessing import Pool
-from memory_profiler import profile
 import tqdm
 import time
 
 try:
     from guppy import hpy
+    from memory_profiler import profile
 except:
     # Fails using pypy because the module
     # is not supported --- only used for memory
