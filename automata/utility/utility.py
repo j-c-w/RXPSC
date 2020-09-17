@@ -3,10 +3,7 @@ import math
 import random
 import operator
 from itertools import product
-from matplotlib import colors
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib
 import networkx as nx
 from deap import algorithms, base, creator, tools
 from automata.elemnts import ElementsType
@@ -51,26 +48,13 @@ def draw_matrix(file_to_save, matrix, boundries, **kwargs):
     :param boundries:
     :return:
     """
-    matplotlib.rcParams.update({'font.size': 7})
-    plt.rcParams['axes.labelweight'] = 'bold'
-    fig, ax = plt.subplots()
-    draw_matrix_on_ax(ax,matrix, boundries)
-    plt.savefig(file_to_save,**kwargs)
-    plt.close()
+    pass
 
 
 def draw_matrix_on_ax(ax, matrix, boundries):
     color_boundries = boundries[::-1]
     colors_map = np.array(color_boundries, ndmin=2).transpose()
     colors_map = colors_map.repeat(3, axis=1) # make RGB gray scale
-    cmap = colors.ListedColormap(colors_map)
-    norm = colors.BoundaryNorm(boundries, cmap.N)
-    ax.imshow(matrix, cmap=cmap, norm=norm)
-    ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=0)
-    ax.set_xticks(range(0, len(matrix), 64))
-    ax.set_yticks(range(0, len(matrix[0]), 64))
-    ax.invert_yaxis()
-
 
 def generate_diagonal_route(size, diagonal_width):
     routing_matrix = [[0 for _ in range(size)] for _ in range(size)]
@@ -196,18 +180,7 @@ def generate_squared_routing(size, basic_block_WH, overlap):
 
     def draw_pattern():
 
-        cmap = colors.ListedColormap(['white', 'black'])
-        bounds = [0, 0.5, 1]
-        norm = colors.BoundaryNorm(bounds, cmap.N)
-        fig, ax = plt.subplots()
-        ax.imshow(routing_matrix, cmap=cmap, norm=norm)
-        ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=0)
-        ax.set_xticks(range(0, size, 15))
-        ax.set_yticks(range(0, size, 15))
-
-        plt.gca().invert_yaxis()
-        plt.savefig("pattern.png")
-        plt.clf()
+        pass
 
     draw_pattern()
     return routing_matrix
@@ -348,7 +321,6 @@ def draw_symbols_len_histogram(atm):
     all_nodes = filter( lambda n : n.id != FakeRoot.fake_root_id, atm.nodes) # filter fake root
     all_nodes_symbols_len_count = [len(n.symbols) for n in all_nodes]
 
-    fig = plt.figure(figsize=plt.figaspect(0.5))
     #fig, ax = plt.subplots(2, 3)
 
     ax_symbol = fig.add_subplot(231)
@@ -423,8 +395,6 @@ def draw_symbols_len_histogram(atm):
     fan_in_fan_out_ax.set_xlabel('fan in')
     fan_in_fan_out_ax.set_ylabel('fan out')
 
-
-    plt.show()
 
 def _replace_equivalent_symbols(symbol_dictionary_list, atms_list, max_val):
     '''
@@ -1156,15 +1126,10 @@ def ga_routing(atms_list, routing_template, available_rows,
     print('Fitness of the best individual: ', evaluation(best_individual)[0])
 
     if draw_file:
-        plt.figure()
         color_boundries = [i/256.0 for i in range(256)]
         gray_switch_map = routing_template * 0.5
         colors_map = np.array(list(reversed(color_boundries)), ndmin=2).transpose()
         colors_map = colors_map.repeat(3, axis=1)  # make RGB gray scale
-        cmap = colors.ListedColormap(colors_map)
-        norm = colors.BoundaryNorm(color_boundries, cmap.N)
-        plt.imshow(gray_switch_map, cmap=cmap, norm=norm)
-        plt.gca().invert_yaxis()
 
         x_points, y_points = [], []
         for atm, node in nodes_list:
@@ -1173,7 +1138,6 @@ def ga_routing(atms_list, routing_template, available_rows,
                 dst_idx = node_dic[(atm, neighb)]
                 x_points.append(src_idx)
                 y_points.append(dst_idx)
-        plt.scatter(x_points, y_points, c='r', s=1, alpha=0.3)
 
         x_points, y_points = [], []
         for atm, node in nodes_list:
@@ -1183,18 +1147,7 @@ def ga_routing(atms_list, routing_template, available_rows,
                 x_points.append(best_individual[src_idx])
                 y_points.append(best_individual[dst_idx])
 
-        plt.scatter(x_points, y_points, c='b', s=1, alpha=0.3)
-        plt.savefig(draw_file, dpi=500)
-        plt.close()
 
-
-    if draw_plot:
-        plt.figure(figsize=(11, 4))
-        plots = plt.plot(log.select('min'), 'c-', log.select('mean'), 'b-')
-        plt.legend(plots, ('Minimum fitness', 'Mean fitness'), frameon=True)
-        plt.ylabel('Fitness')
-        plt.xlabel('Iterations')
-        plt.show()
 
     return sum(evaluation(best_individual))
 

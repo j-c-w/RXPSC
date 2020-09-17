@@ -5,7 +5,6 @@ from automata.elemnts.element import StartType, FakeRoot
 from automata.elemnts.or_elemnt import OrElement
 from automata.elemnts import ElementsType
 import networkx as nx
-import matplotlib.pyplot as plt
 from collections import  deque
 from tqdm import tqdm
 import os
@@ -764,11 +763,6 @@ class Automatanetwork(object):
                 edge_key = self._my_graph.add_edge(s, d, style='dashed', color='red', dir='none', label='')
                 match_edge_keys.append(edge_key)
 
-        if use_dot is False: # use pyplot
-            ax = plt.subplot()
-            self.darw_graph_on_ax(draw_edge_label , ax)
-            plt.savefig(file_name, dpi=500)
-            plt.close()
         else: # use dot and graphviz
             #TODO draw edge label does not work
 
