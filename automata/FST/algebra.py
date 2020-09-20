@@ -882,6 +882,7 @@ def leq_internal_wrapper(A, B, options):
                     print row
 
             mcount = 0
+            found_match = None
             for combination in permutations(len(elements_A), range(len(elements_B))):
                 perm_count += 1
                 if perm_count > PERMUTATION_THRESHOLD:
@@ -908,9 +909,28 @@ def leq_internal_wrapper(A, B, options):
                     # Disable the other edges:
                     for i in range(len(elements_B)):
                         if i not in used_branches:
-                            unifier.add_disabled_edges(elements_B[i].first_edge())
+                            B_first_edges = elements_B[i].first_edge()
+                            if B_first_edges:
+                                unifier.add_disabled_edges(elements_B[i].first_edge())
+                            else:
+                                # If the first edge isn't set,
+                                # then I think we can assume that an accept is somehow happening right away?
+                                # like this: 1 + {a, 1 + a}?
+                                # TBH not too sure why this case
+                                # came up, but a safe thing to do
+                                # is reject this match.
+                                is_match = False
+                                unifier = None
 
-                    result = True
+                    # This is just a stupid hack because I wanted to 
+                    # count the number of possible permutations that branches match on.
+                    # TBH, eventually I'd like this to return a list
+                    # with all the generated unifiers.
+                    if unifier:
+                        found_match = unifier
+
+                    if found_match:
+                        result = True
         else:
             if LEQ_DEBUG:
                 print "Types differ: unification failed"
