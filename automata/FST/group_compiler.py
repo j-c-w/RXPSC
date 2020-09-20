@@ -3,6 +3,7 @@ import compilation_statistics
 from multiprocessing import Pool
 import tqdm
 import time
+from cache import ComparisonCache
 
 try:
     from guppy import hpy
@@ -86,12 +87,22 @@ def compute_cross_compatibility_matrix_for(group, options):
     # executed by a thread pool.
     tasks = []
 
+    if options.comparison_cache:
+        read_comparison_cache = ComparisonCache(options.target)
+        read_comparison_cache.from_file(options.comparison_cache)
+    else:
+        read_comparison_cache = None
+
+    if options.dump_comparison_cache:
+        dump_comparison_cache = ComparisonCache(options.target)
+    else:
+        dump_comparison_cache = None
+
     for i in range(len(group)):
         for j in range(len(group[i])):
             # Now, compile everything that is /not/ in this
             # group to this.
-            tasks.append((group, i, j, options))
-
+            tasks.append((group, i, j, options, read_comparison_cache, dump_comparison_cache))
 
     # Compute all the results:
     flat_results = []
@@ -99,12 +110,12 @@ def compute_cross_compatibility_matrix_for(group, options):
         print "Executing single threaded"
         progress = tqdm.tqdm(total=(len(tasks)))
         # Compute traditionally:
-        for (group_ref, i, j, options_ref) in tasks:
+        for (group_ref, i, j, options_ref, rcomparison_cache, wcomparison_cache) in tasks:
             if options.memory_debug:
                 print "Memory Usage before during cross compat"
                 h = hpy()
                 print(h.heap())
-            flat_results.append(compute_compiles_for((group_ref, i, j, options_ref)))
+            flat_results.append(compute_compiles_for((group_ref, i, j, options_ref, rcomparison_cache, wcomparison_cache)))
             progress.update(1)
         progress.close()
     else:
@@ -114,6 +125,10 @@ def compute_cross_compatibility_matrix_for(group, options):
         for i, j, res, compilation_list_res in tqdm.tqdm(pool.imap_unordered(compute_compiles_for, tasks), total=len(tasks)):
             flat_results[index] = (i, j, res, compilation_list_res)
             index += 1
+
+    # Dump the write comparison cache if it exists:
+    if options.dump_comparison_cache:
+        dump_comparison_cache.dump_to_file(options.dump_comparison_cache)
 
     # Now, expand the flat results back out:
     for i in range(len(group)):
@@ -140,7 +155,7 @@ def compute_cross_compatibility_matrix_for(group, options):
 def compute_compiles_for(args):
     # Expand the args, which are compressed to be passable
     # by the pool.map.
-    group, i, j, options = args
+    group, i, j, options, rcomparison_cache, wcomparison_cache = args
     successful_compiles = []
     compilation_list = []
     source_automata = group[i][j]
@@ -159,6 +174,20 @@ def compute_compiles_for(args):
                 print "Comparied to ", i, j
             target_automata = group[i2][j2]
 
+            # We can skip the comparison if it's not
+            # in the comparison cache --- we wanted
+            # to make a negative comparison cache to make
+            # it a bit more flexible, but the problem is that
+            # the size of that comparison cache would be too big.
+            # We have a positive comparison cache instead, so we
+            # skip if there is no entry in the cache.
+            if options.comparison_cache:
+                source_hash = source_automata.algebra.structural_hash()
+                dest_hash = target_automata.algebra.structural_hash()
+
+                if not rcomparison_cache.compilesto(source_hash, dest_hash):
+                    continue
+
             # We could make this faster by not generating
             # the conversion machine here --- it could
             # use just the depth equation equality
@@ -173,6 +202,8 @@ def compute_compiles_for(args):
             conversion_machine = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata, options)
 
             if conversion_machine:
+                if options.dump_comparison_cache:
+                    wcomparison_cache.add_compiles_to(source_automata.algebra.structural_hash(), target_automata.algebra.structural_hash())
                 if DEBUG_COMPUTE_COMPAT_MATRIX:
                     print "Successfully found a conversion between ", i2, j2
                 # Do not store the conversion machines --- recompte
