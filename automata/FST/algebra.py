@@ -237,7 +237,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 # of each algebra.
 
                 if loop_algebra.isbranch():
-                    branch_elems = loop_algebra.e1
+                    branch_elems = loop_algebra.options
                 else:
                     branch_elems = [loop_algebra]
 
@@ -249,7 +249,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
 
                     last_edge = elemn.get_last_node()
                     if last_edge:
-                        branch_elems[i] = Sum([branch_elems[i], Const(1, [(last_edge, node)])])
+                        branch_elems[i] = Sum([branch_elems[i], Const(1, [(last_edge, node)])]).normalize()
                     else:
                         # This is likely due to a branch within
                         # the branch --- we really need some
@@ -266,13 +266,13 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                         # analysis, so add it back in.
                         branch_elems.append(Const(1, [(src, dst)]))
 
-                loop_algebra = Sum([loop_algebra, Const(1, [removed_edges[0]])])
+                loop_algebra = Sum([loop_algebra, Const(1, [removed_edges[0]])]).normalize()
                 if ALG_DEBUG:
                     print "Generated loop algebra is:"
                     print(loop_algebra)
 
                 algebra = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-                algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([algebra, Product(loop_algebra)])
+                algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([algebra, Product(loop_algebra)]).normalize()
 
             # If this branch is a dead-end, add that
             # to the result equation:
@@ -281,7 +281,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 if node in end_states:
                     # Save an end state onto the stack.
                     algebra = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-                    algebra = Sum([algebra, End()]) if algebra else End()
+                    algebra = Sum([algebra, End()]).normalize() if algebra else End()
                     algebra_stack[-1][algebra_stack_counts[-1] - 1] = algebra
                 else:
                     pass
@@ -296,7 +296,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 new_linalg = linear_algebra_for(non_loops_from_this_node[0], accept_states)
                 # Persist that algebra into the stack.
                 current_stack = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-                new_alg = new_linalg if current_stack is None else Sum([current_stack, new_linalg])
+                new_alg = new_linalg if current_stack is None else Sum([current_stack, new_linalg]).normalize()
                 algebra_stack[-1][algebra_stack_counts[-1] - 1] = new_alg
 
             # If this is a branch, go deeper in the algebra stack.
@@ -355,7 +355,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 if len(algebra) == 1:
                     algebra = algebra[0]
                 else:
-                    algebra = Branch(algebra)
+                    algebra = Branch(algebra).normalize()
                 del algebra_stack[-1]
 
                 if len(algebra_stack_counts) == 0:
@@ -387,7 +387,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     # at the start of the algebra stack.
                     new_head_of_stack = algebra
                 else:
-                    new_head_of_stack = Sum([new_head_of_stack, algebra])
+                    new_head_of_stack = Sum([new_head_of_stack, algebra]).normalize()
                 algebra_stack[-1][algebra_stack_counts[-1] - 1] = new_head_of_stack
 
 
@@ -471,7 +471,7 @@ def linear_algebra_for(branch, accept_states):
     if ALG_DEBUG:
         print "Computed Algebra is " + str(sum_elt)
 
-    return sum_elt
+    return sum_elt.normalize()
 
 
 # This is an implementation of the comparison operator ---
