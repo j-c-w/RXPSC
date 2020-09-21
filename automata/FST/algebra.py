@@ -376,6 +376,9 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                         print "Node finished :", node_we_finished
                         # print "Has algebra", str(algebra)
                     computed_algebras[node_we_finished] = algebra
+                    if options.algebra_size_threshold and algebra.size():
+                        if options.algebra_size_threshold < algebra.size():
+                            raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
                 del algebra_stack_nodes[-1]
                 # We have 'completed' a branch here.
                 # Combine the algebra we computed with the last algebra
