@@ -26,7 +26,7 @@ PERMUTATION_THRESHOLD = 10000
 class AlgebraGenerationException(Exception):
     pass
 
-def generate(nodes, edges, start, accept_states):
+def generate(nodes, edges, start, accept_states, options):
     # Clear the results cache for 'generate_internal'
     clean_caches()
 
@@ -34,7 +34,7 @@ def generate(nodes, edges, start, accept_states):
     loops = sjss.compute_loops(nodes, edges, start)
     end_states = sjss.compute_end_states(nodes, edges)
 
-    result = generate_internal(nodes, edges, start, accept_states, end_states, branches, loops)
+    result = generate_internal(nodes, edges, start, accept_states, end_states, branches, loops, options)
     result = result.normalize()
 
     return result
@@ -76,7 +76,7 @@ results_cache = {}
 hits = 0
 node_cache_hits = 0
 recursions = 0
-def generate_internal(nodes, edges, start, accept_states, end_states, branches_analysis, loops_analysis):
+def generate_internal(nodes, edges, start, accept_states, end_states, branches_analysis, loops_analysis, options):
     global computed_algebras
     global node_cache_hits
 
@@ -219,7 +219,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 # how deep will this stack really go? i.e. for real
                 # automata, how many nested loops will there be?
                 # I figure not many.
-                loop_algebra = generate_internal(sub_nodes, sub_edges, branch[0], accept_states, end_states, sub_branches_analysis, sub_loops_analysis)
+                loop_algebra = generate_internal(sub_nodes, sub_edges, branch[0], accept_states, end_states, sub_branches_analysis, sub_loops_analysis, options)
 
                 if ALG_DEBUG:
                     print "Recursion done"
@@ -320,6 +320,16 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     alg = linear_algebra_for(branch, accept_states)
                     branch_algebras.append(alg)
                     added_count += 1
+
+                if added_count > options.max_branching_factor:
+                    # Basically, this was causing exponential blowup in memory usage that was leading to OOM errors.
+                    # I think that these errors aren't inherint
+                    # to the algebra, but rather to the delayed normalization process.
+                    # i.e. I think that some calls to normalize() within this function could
+                    # mean leaving this failure counter out.
+                    print "Algebra failed due to too many edges in graph --- skipping"
+                    compilation_statistics.failed_algebra_computations += 1
+                    raise AlgebraGenerationException("Algebra failed to too too many edges")
 
                 algebra_stack_counts.append(added_count)
                 algebra_stack.append(branch_algebras)

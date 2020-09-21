@@ -14,7 +14,7 @@ class AlgebraTest(unittest.TestCase):
     def test_cross_loop(self):
         nodes = [0, 1, 2, 3, 4, 5]
         edges = [(0, 1), (0, 2), (2, 3), (3, 4), (4, 2), (1, 5), (1, 3), (2, 5)]
-        print alg.generate(nodes,edges, 0, [5])
+        # print alg.generate(nodes,edges, 0, [5])
 
     def test_branch(self):
         simple_branches = alg.generate([0, 1, 2], [(0, 1), (0, 2)], 0, [1, 2])

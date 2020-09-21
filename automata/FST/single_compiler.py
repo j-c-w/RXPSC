@@ -89,7 +89,7 @@ def draw_{num}(fname):
     start_time = time.time()
     if options.skip_on_fail:
         try:
-            alg = algebra.generate(nodes, edges, start, accepting_states)
+            alg = algebra.generate(nodes, edges, start, accepting_states, options)
         except Exception as e:
             compilation_statistics.failed_algebra_computations += 1
             print "Compilation of algebra failed!"
@@ -97,7 +97,7 @@ def draw_{num}(fname):
             print e
             return None
     else:
-        alg = algebra.generate(nodes, edges, start, accepting_states)
+        alg = algebra.generate(nodes, edges, start, accepting_states, options)
     end = time.time()
     if dump_output:
         print "Time taken is " + str(end - start_time)

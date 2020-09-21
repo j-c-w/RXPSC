@@ -39,20 +39,22 @@ def process(file_groups, name, print_compression_stats=False, options=None):
     if print_compression_stats:
         self_compiles = 0
         other_compiles = 0
-        for i in range(len(assignments)):
-            for j in range(len(assignments[i])):
-                compilation_index = assignments[i][j]
-                if compilation_index.i == i and compilation_index.j == j:
-                    self_compiles += 1
-                else:
-                    # Compiled to something else
-                    other_compiles += 1
+        # Don't print the results of the comparison if we are doing --compile-only (which skips the comparisons)
+        if not options.compile_only:
+            for i in range(len(assignments)):
+                for j in range(len(assignments[i])):
+                    compilation_index = assignments[i][j]
+                    if compilation_index.i == i and compilation_index.j == j:
+                        self_compiles += 1
+                    else:
+                        # Compiled to something else
+                        other_compiles += 1
 
-                    print "Achieved compilation from ", str(groups[i][j].algebra)
-                    print " to ", str(groups[compilation_index.i][compilation_index.j].algebra)
+                        print "Achieved compilation from ", str(groups[i][j].algebra)
+                        print " to ", str(groups[compilation_index.i][compilation_index.j].algebra)
 
-        print "COMPILATION STATISTICS: self compiles = ", self_compiles
-        print "COMPILATION STATISTICS: other compiles = ", other_compiles
+            print "COMPILATION STATISTICS: self compiles = ", self_compiles
+            print "COMPILATION STATISTICS: other compiles = ", other_compiles
         print "COMPILATION STATISTICS: unifications = ", compilation_statistics.single_state_unification_success
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
         print "Tried to cross compile ", compilation_statistics.executed_comparisons, "regexes to each other"

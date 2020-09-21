@@ -375,7 +375,10 @@ def compile(automata_components, options):
         total_time = time.time() - start_time
         print "Total taken is:", total_time, "seconds"
 
-    return groups, compute_hardware_assignments_for(groups, options)
+    if options.compile_only:
+        return groups, None
+    else:
+        return groups, compute_hardware_assignments_for(groups, options)
 
 
 # Estimate the amount of cross-compatability within

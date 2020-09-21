@@ -23,6 +23,7 @@ class Options(object):
         self.graph_size_threshold = 2000
         self.cross_compilation_threading = 0
         self.algebra_size_threshold = 2000
+        self.max_branching_factor = 150
 
         self.size_difference_cutoff_factor = 2.0
         self.memory_debug = False
@@ -32,6 +33,7 @@ class Options(object):
 
         self.comparison_cache = None
         self.dump_comparison_cache = None
+        self.compile_ony = False
 
 def create_from_args(args):
     algebra.LEQ_DEBUG = args.debug_leq
@@ -64,6 +66,7 @@ def create_from_args(args):
 
     opts.comparison_cache = args.comparison_cache
     opts.dump_comparison_cache = args. dump_comparison_cache
+    opts.compile_only = args.compile_only
 
     if opts.dump_nodes_and_edges:
         # Clear the file:
@@ -85,10 +88,12 @@ def add_to_parser(parser):
     parser.add_argument('--group-size-distribution', default=None, dest='group_size_distribution', help='Dump the group size distribution to this file')
     parser.add_argument('--dump-nodes-and-edges', default=None, dest='dump_nodes_and_edges', help='Dump nodes and edges for each CC into a file')
     parser.add_argument('--graph-size-threshold', default=2000, dest='graph_size_threshold', help="Exclude graphs larger than this value (deal with python recursion limit)")
+    parser.add_argument('--max-branching-factor', default=150, dest='max_branching_factor', type=int, help='Maximum branching factor for graphs before omitting.')
     parser.add_argument('--algebra-size-threshold', default=2000, dest='algebra_size_threshold', type=int)
     parser.add_argument('--cross-compilation-threading', default=0,dest='cross_compilation_threading', help='How many threads should be used for genreating comparisons. 0 disables the thread pool entirely.', type=int)
     parser.add_argument('--size-difference-cutoff-factor', default=2.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
     parser.add_argument('--no-leq-heuristics', default=False, dest='no_leq_heuristics', action='store_true', help='Use heuristics to skip some of the comparisons that seem likely to fail anyway')
+    parser.add_argument('--compile-only', default=False, dest='compile_only', action='store_true', help="Don't  run any cross-compilation commands, just compile the algebras")
     
     # Debug flags.
     parser.add_argument('--debug-leq', default=False, dest='debug_leq', action='store_true')
