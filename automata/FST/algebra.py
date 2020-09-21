@@ -148,7 +148,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             # and try to compress
             algebra = computed_algebras[node]
             current_tail = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-            algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([current_tail, algebra])
+            algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([current_tail, algebra]).normalize()
 
             try_to_compress = True
 
@@ -220,6 +220,9 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 # automata, how many nested loops will there be?
                 # I figure not many.
                 loop_algebra = generate_internal(sub_nodes, sub_edges, branch[0], accept_states, end_states, sub_branches_analysis, sub_loops_analysis, options)
+                if options.algebra_size_threshold and loop_algebra.size():
+                    if options.algebra_size_threshold < loop_algebra.size():
+                        raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
 
                 if ALG_DEBUG:
                     print "Recursion done"
@@ -351,6 +354,9 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
 
                 # The tail of the algebra stack becomes a branch.
                 algebra = algebra_stack[-1]
+                if options.algebra_size_threshold and algebra.size():
+                    if options.algebra_size_threshold < algebra.size():
+                        raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
 
                 if len(algebra) == 1:
                     algebra = algebra[0]
@@ -376,9 +382,6 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                         print "Node finished :", node_we_finished
                         # print "Has algebra", str(algebra)
                     computed_algebras[node_we_finished] = algebra
-                    if options.algebra_size_threshold and algebra.size():
-                        if options.algebra_size_threshold < algebra.size():
-                            raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
                 del algebra_stack_nodes[-1]
                 # We have 'completed' a branch here.
                 # Combine the algebra we computed with the last algebra
