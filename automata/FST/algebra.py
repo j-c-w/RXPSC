@@ -147,6 +147,9 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             # Set the top of stack to this node
             # and try to compress
             algebra = computed_algebras[node]
+            if options.algebra_size_threshold and algebra.size() > options.algebra_size_threshold:
+                raise AlgebraGenerationException("The algebra we returned from the cache was too big (see --algebra-size-threshold flag)")
+
             current_tail = algebra_stack[-1][algebra_stack_counts[-1] - 1]
             algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([current_tail, algebra]).normalize()
 
@@ -382,7 +385,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     if ALG_DEBUG:
                         print "Node finished :", node_we_finished
                         # print "Has algebra", str(algebra)
-                    computed_algebras[node_we_finished] = algebra
+                    computed_algebras[node_we_finished] = algebra.normalize()
                 del algebra_stack_nodes[-1]
                 # We have 'completed' a branch here.
                 # Combine the algebra we computed with the last algebra
