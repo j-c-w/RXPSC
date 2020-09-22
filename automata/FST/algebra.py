@@ -354,15 +354,16 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
 
                 # The tail of the algebra stack becomes a branch.
                 algebra = algebra_stack[-1]
-                if options.algebra_size_threshold and algebra.size():
-                    if options.algebra_size_threshold < algebra.size():
-                        raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
-
                 if len(algebra) == 1:
                     algebra = algebra[0]
                 else:
                     algebra = Branch(algebra).normalize()
                 del algebra_stack[-1]
+
+                if options.algebra_size_threshold and algebra.size():
+                    if options.algebra_size_threshold < algebra.size():
+                        raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
+
 
                 if len(algebra_stack_counts) == 0:
                     # we are done :)
