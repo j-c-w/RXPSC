@@ -303,6 +303,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 # Persist that algebra into the stack.
                 current_stack = algebra_stack[-1][algebra_stack_counts[-1] - 1]
                 new_alg = new_linalg if current_stack is None else Sum([current_stack, new_linalg]).normalize()
+                if options.algebra_size_threshold and new_alg.size() > options.algebra_size_threshold:
+                    raise AlgebraGenerationException("Algebra was too big (nonloops is 1 case)")
                 algebra_stack[-1][algebra_stack_counts[-1] - 1] = new_alg
 
             # If this is a branch, go deeper in the algebra stack.
