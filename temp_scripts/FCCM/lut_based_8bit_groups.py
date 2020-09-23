@@ -58,6 +58,7 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         print "COMPILATION STATISTICS: unifications = ", compilation_statistics.single_state_unification_success
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
         print "Tried to cross compile ", compilation_statistics.executed_comparisons, "regexes to each other"
+        print "Successfully  compiled", compilation_statistics.algebras_compiled, "algebras"
         print "Avoided ", compilation_statistics.cutoff_comparisons, "detailed comparison attempts with heuristics"
         print "Of the algebras ", compilation_statistics.failed_algebra_computations, " failed (likely) due to incompleteness of current implementation"
 

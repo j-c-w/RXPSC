@@ -37,6 +37,8 @@ def generate(nodes, edges, start, accept_states, options):
     result = generate_internal(nodes, edges, start, accept_states, end_states, branches, loops, options)
     result = result.normalize()
 
+    compilation_statistics.algebras_compiled += 1
+
     return result
 
 

@@ -1,4 +1,5 @@
 # This is a module with some stats.
+algebras_compiled = 0
 
 # Unifier
 single_state_unification_double_map_fails = 0
