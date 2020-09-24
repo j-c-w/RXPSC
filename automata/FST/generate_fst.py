@@ -20,7 +20,8 @@ def edge_label_lookup_generate(atma):
     edges = list(atma.get_edges(data=True))
     lookup = {}
     for (to, from_ind, data) in edges:
-        lookup[(to, from_ind)] = expand_ranges(data['symbol_set'])
+        symbols = expand_ranges(data['symbol_set'])
+        lookup[(to, from_ind)] = symbols
     return lookup
 
 def generate(unification, to_atma, from_atma, options):

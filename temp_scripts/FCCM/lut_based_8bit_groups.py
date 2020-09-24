@@ -55,12 +55,17 @@ def process(file_groups, name, print_compression_stats=False, options=None):
 
             print "COMPILATION STATISTICS: self compiles = ", self_compiles
             print "COMPILATION STATISTICS: other compiles = ", other_compiles
-        print "COMPILATION STATISTICS: unifications = ", compilation_statistics.single_state_unification_success
+
+        print "COMPILATION STATISTICS: unifications = ", compilation_statistics.unification_successes
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
         print "Tried to cross compile ", compilation_statistics.executed_comparisons, "regexes to each other"
         print "Successfully  compiled", compilation_statistics.algebras_compiled, "algebras"
         print "Avoided ", compilation_statistics.cutoff_comparisons, "detailed comparison attempts with heuristics"
         print "Of the algebras ", compilation_statistics.failed_algebra_computations, " failed (likely) due to incompleteness of current implementation"
+    if options.print_unification_statistics:
+        print "Single state unification fails due to double mapping", compilation_statistics.single_state_unification_double_map_fails
+        print "Single state unification non matching fails", compilation_statistics.single_state_unification_non_matching
+        print "Single State unification successes", compilation_statistics.single_state_unification_success
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

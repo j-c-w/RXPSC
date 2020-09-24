@@ -17,6 +17,7 @@ class Options(object):
 
         self.group_size_distribution = None
         self.print_file_info = False
+        self.print_unification_statistics = False
         self.dump_nodes_and_edges = None
 
         self.graph_size_threshold = 2000
@@ -50,6 +51,7 @@ def create_from_args(args):
 
     opts.group_size_distribution = args.group_size_distribution
     opts.print_file_info = args.print_file_info
+    opts.print_unification_statistics = args.print_unification_statistics
     opts.dump_nodes_and_edges = args.dump_nodes_and_edges
 
     opts.graph_size_threshold = args.graph_size_threshold
@@ -100,6 +102,7 @@ def add_to_parser(parser):
     parser.add_argument('--debug-compute-compat-matrix', default=False, dest='debug_compute_compat_matrix', action='store_true')
     parser.add_argument('--memory-debug', default=False, dest='memory_debug', action='store_true')
     parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
+    parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')
