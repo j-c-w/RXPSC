@@ -15,6 +15,7 @@ let
 			memory_profiler
 			deap
 			matplotlib 
+			setuptools
 		];
 		# pypy also needs some extra stuff
 		pypyPkgsList = ppkgs: with ppkgs; [
@@ -47,7 +48,7 @@ pkgs.mkShell {
 	# (callPackage ~/.scripts/Nix/CustomPackages/PythonTools/Guppy/default.nix {buildPythonPackage = pythonpkgs.buildPythonPackage; pythonPkgs = pythonpkgs; pkgs = pkgs;} )
 	# Guppy only supports cpython, pypy isn't supported.
 	# (callPackage ~/.scripts/Nix/CustomPackages/PythonTools/Guppy/default.nix {buildPythonPackage = pypy2.pkgs.buildPythonPackage; ppythonPkgs = pypy2.pkgs; pkgs = pkgs; })
-	verilog
+	# verilog
 	hscompile
 	ctags
 	];
@@ -56,7 +57,7 @@ pkgs.mkShell {
 		if [[ ! -f CPP/_VASim.so ]]; then
 			cd CPP
 			# Build whatever thing the README told us to.
-			./compile.sh cpython
+			./compile.sh pypy
 			cd ..
 		else
 		  echo "It seems that _VASim.so is already built, skipping"
