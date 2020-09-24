@@ -517,7 +517,10 @@ def leq_unify(A, B, options):
     compilation_statistics.executed_comparisons += 1
 
     unifier = leq_internal_wrapper(A, B, options)
-    return unifier
+    if unifier is not None and unifier.isunifierlist:
+        return unifier.as_list()
+    else:
+        return [unifier]
 
 def leq_fails_on_heuristics(A, B, options):
     if A.size() > options.size_difference_cutoff_factor * B.size():
@@ -682,7 +685,7 @@ def leq_internal_wrapper(A, B, options):
                 print "to create structural equality between the two."
             # We can compile this, but require that every branch
             # of A compiles to B.
-            unifier = Unifier()
+            unifier = UnifierList([Unifier()])
             result = True
             for opt in A.options:
                 sub_unifier = leq_internal(opt, B, options)
@@ -751,7 +754,7 @@ def leq_internal_wrapper(A, B, options):
                 print "Lenths are ", len(A.e1),  "and", len(B.e1)
 
             still_equal = True
-            unifier = Unifier()
+            unifier = UnifierList([Unifier()])
 
             a_index = 0
             b_index = 0
@@ -907,6 +910,7 @@ def leq_internal_wrapper(A, B, options):
 
             mcount = 0
             found_match = None
+            unifier = UnifierList([Unifier()])
             for combination in permutations(len(elements_A), range(len(elements_B))):
                 perm_count += 1
                 if perm_count > PERMUTATION_THRESHOLD:
@@ -919,23 +923,20 @@ def leq_internal_wrapper(A, B, options):
                         is_match = False
 
                 if is_match:
-                    mcount += 1
-                    if mcount > 0:
-                        print "Branch unification: More than one match!"
                     # Create the unifier with this sequence of
                     # assignments:
-                    unifier = Unifier()
+                    this_branch_unifier = UnifierList([Unifier()])
                     used_branches = []
                     for i in range(len(combination)):
                         used_branches.append(combination[i])
-                        unifier.unify_with(matches[i][combination[i]])
+                        this_branch_unifier.unify_with(matches[i][combination[i]])
 
                     # Disable the other edges:
                     for i in range(len(elements_B)):
                         if i not in used_branches:
                             B_first_edges = elements_B[i].first_edge()
                             if B_first_edges:
-                                unifier.add_disabled_edges(elements_B[i].first_edge())
+                                this_branch_unifier.add_disabled_edges(elements_B[i].first_edge())
                             else:
                                 # If the first edge isn't set,
                                 # then I think we can assume that an accept is somehow happening right away?
@@ -944,17 +945,17 @@ def leq_internal_wrapper(A, B, options):
                                 # came up, but a safe thing to do
                                 # is reject this match.
                                 is_match = False
-                                unifier = None
+                                this_branch_unifier = None
 
-                    # This is just a stupid hack because I wanted to 
-                    # count the number of possible permutations that branches match on.
-                    # TBH, eventually I'd like this to return a list
-                    # with all the generated unifiers.
-                    if unifier:
-                        found_match = unifier
+                    if this_branch_unifier:
+                        mcount += 1
+                        # If the unifier still exists, then add it to the overall
+                        # unifiers list.
+                        unifier.append_unifiers(this_branch_unifier)
+            if mcount == 0 or unifier.length() == 0:
+                # Clear the unifier.
+                unifier = None
 
-                    if found_match:
-                        result = True
         else:
             if LEQ_DEBUG:
                 print "Types differ: unification failed"
@@ -973,8 +974,8 @@ def leq_internal_wrapper(A, B, options):
             print "Result is ", unifier
 
         if unifier:
-            unifier.algebra_from = A
-            unifier.algebra_to = B
+            unifier.set_algebra_from(A)
+            unifier.set_algebra_to(B)
 
         global_variables['leq_depth'] -= 1
         return unifier

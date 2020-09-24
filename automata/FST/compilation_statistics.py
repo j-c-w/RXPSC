@@ -6,6 +6,9 @@ single_state_unification_double_map_fails = 0
 single_state_unification_non_matching = 0
 single_state_unification_success = 0
 
+unifier_trimming_events = 0
+unifiers_returned = 0
+
 unification_successes = 0
 
 exact_same_compilations = 0

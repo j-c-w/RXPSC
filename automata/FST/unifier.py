@@ -5,8 +5,99 @@ import compilation_statistics
 DEBUG_UNIFICATION = False
 PRINT_UNIFICATION_FAILURE_REASONS = False
 
+# The maximum number of unifiers to keep in the unifier lists.
+MAX_UNIFIERS = 100
+
+# This class is a stupid abstrction that we need because I designed
+# the algebra.leq functions around a single unifier, then I realized
+# that the abstraction where we separate structural equality and
+# character equality creates problems when it comes to branches,
+# where multiple arms may share structural equality, but only a single
+# grouping might have character set compatability.  This class
+# aims to address that by providing a transparent list-based wrapper
+# around the unifiers --- the aim is to keep the leq functions roughly
+# as they are.
+# So, this has a wrapper function around everything that the Unifier
+# provides.
+class UnifierList(object):
+    def __init__(self, unifiers):
+        self.unifiers = [u for u in unifiers if u is not None]
+        self.isunifierlist = True
+        self.trim_unifier_list()
+
+    def append_unifiers(self, unifiers):
+        if unifiers.isunifierlist:
+            for other_unifier in unifiers.unifiers:
+                if other_unifier is not None:
+                    self.unifiers.append(other_unifier)
+        else:
+            if unifiers is not None:
+                self.unifiers.append(unifiers)
+
+        self.trim_unifier_list()
+
+    def trim_unifier_list(self):
+        if len(self.unifiers) > MAX_UNIFIERS:
+            compilation_statistics.unifier_trimming_events += 1
+            self.unifiers = self.unifiers[:MAX_UNIFIERS]
+
+    def as_list(self):
+        compilation_statistics.unifiers_returned += len(self.unifiers)
+        return self.unifiers
+
+    def length(self):
+        return len(self.unifiers)
+
+    def set_algebra_to(self, A):
+        for unifier in self.unifiers:
+            unifier.algebra_to = A
+
+    def set_algebra_from(self, B):
+        for unifier in self.unifiers:
+            unifier.algebra_from = B
+
+    def add_edges(self, from_edges, to_edges):
+        for unifier in self.unifiers:
+            unifier.add_edges(from_edges, to_edges)
+
+    def set_ununified_terms(self, terms):
+        for unifier in self.unifiers:
+            unifier.set_ununified_terms(terms)
+
+    def add_disabled_edges(self, edges):
+        for unifier in self.unifiers:
+            unifier.add_disabled_edges(edges)
+
+    def add_cost(self, cost):
+        for unifier in self.unifiers:
+            unifier.add_cost(cost)
+
+    def get_disabled_edges(self):
+        assert False # You have to call this on the individual unifiers.
+
+    def unify_with(self, other):
+        if other.isunifierlist:
+            # We want to return the cross-product of unifiers if these are both lists.
+            new_unifiers = []
+            for unifier in self.unifiers:
+                for other_unifier in other.unifiers:
+                    cloned_unifier = unifier.deep_clone()
+                    cloned_unifier.unify_with(other_unifier)
+                    new_unifiers.append(cloned_unifier)
+            self.unifiers = new_unifiers
+            self.trim_unifier_list()
+        else:
+            # The other is a single unifier, so unify with every element of the list.
+            for unifier in self.unifiers:
+                if unifier is not None:
+                    unifier.unify_with(other)
+
+    def __str__(self):
+        return "[" + ", ".join([str(u) for u in self.unifiers]) + "]"
+
 class Unifier(object):
     def __init__(self, algebra_from=None, algebra_to=None, cost=0):
+        self.isunifierlist = False
         self.from_edges = []
         self.to_edges = []
         self.disabled_edges = []
@@ -14,6 +105,27 @@ class Unifier(object):
         self.algebra_to = algebra_to
         self.cost = cost
         self.ununified_terms = []
+
+    def deep_clone(self):
+        result = Unifier()
+        result.isunifierlist = self.isunifierlist
+        result.from_edges = self.from_edges[:]
+        result.to_edges = self.to_edges[:]
+        result.disabled_edges = self.disabled_edges[:]
+        result.cost = self.cost
+        result.ununified_terms = self.ununified_terms[:]
+        # We don't deep clone this because it's immutable from
+        # the perspective of a unifier.
+        result.algebra_from = self.algebra_from
+        result.algebra_from = self.algebra_to
+
+        return result
+
+    def set_algebra_from(self, A):
+        self.algebra_from = A
+
+    def set_algebra_to(self, A):
+        self.algebra_to = A
 
     def add_edges(self, from_edges, to_edges):
         assert len(from_edges) == len(to_edges)
@@ -23,7 +135,7 @@ class Unifier(object):
 
     def set_ununified_terms(self, terms):
         assert self.ununified_terms == []
-        self.ununified_terms.appen(terms)
+        self.ununified_terms.append(terms)
 
     # Add some edges to make sure are never active.
     def add_disabled_edges(self, edges):
