@@ -703,27 +703,26 @@ class S_T_E(BaseElement):
         # Want to remove dependency on the C code.
         # symbol_list = VASim.parseSymbolSet(symbol_str)
         symbol_list = internal_vasim.parseSymbolSet(symbol_str)
-        symbol_list=symbol_list[::-1]
 
         symbol_set = PackedIntervalSet([])
 
         start = False
         start_idx = -1
-        for idx_b, ch in enumerate(symbol_list):
-            if ch == "1" and start == False:
+        for ch in range(256):
+            if chr(ch) in symbol_list and start == False:
                 start = True
-                start_idx = idx_b
-            elif ch == "0" and start == True:
+                start_idx = ch
+            elif chr(ch) not in symbol_list and start == True:
                 start = False
                 left_pt = PackedInput((start_idx,))
-                right_pt = PackedInput((idx_b-1,))
+                right_pt = PackedInput((ch - 1,))
                 interval = PackedInterval(left_pt, right_pt)
                 symbol_set.add_interval(interval)
                 start_idx = -1
 
         if start == True:  # this is necessary if the last iteration was 1
             left_pt = PackedInput((start_idx,))
-            right_pt = PackedInput((idx_b,))
+            right_pt = PackedInput((ch,))
             interval = PackedInterval(left_pt, right_pt)
             symbol_set.add_interval(interval)
 

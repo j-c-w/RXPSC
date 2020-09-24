@@ -292,7 +292,7 @@ def parseSymbolSet(symbol_set):
 
                 # 
                 index  += 1;
-                bitset.add(number)
+                bitset.add(chr(number))
                 if(range_set):
                     setRange(bitset,range_start,number);
                     range_set = False;
