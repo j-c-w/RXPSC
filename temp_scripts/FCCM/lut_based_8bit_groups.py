@@ -66,6 +66,8 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         print "Single state unification fails due to double mapping", compilation_statistics.single_state_unification_double_map_fails
         print "Single state unification non matching fails", compilation_statistics.single_state_unification_non_matching
         print "Single State unification successes", compilation_statistics.single_state_unification_success
+        print "Unifier cutoff events ", compilation_statistics.unifier_trimming_events
+        print "Unifiers returned ", compilation_statistics.unifiers_returned
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
