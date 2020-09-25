@@ -34,11 +34,13 @@ class Options(object):
         self.comparison_cache = None
         self.dump_comparison_cache = None
         self.compile_ony = False
+        self.print_leq_failure_reasons = False
 
 def create_from_args(args):
     algebra.LEQ_DEBUG = args.debug_leq
     algebra.ALG_DEBUG = args.debug_alg
     unifier.DEBUG_UNIFICATION = args.debug_unification
+    unifier.MAX_UNIFIERS = args.max_unifiers
     group_compiler.DEBUG_COMPUTE_COMPAT_MATRIX = args.debug_compute_compat_matrix
 
     opts = Options()
@@ -67,6 +69,7 @@ def create_from_args(args):
     opts.comparison_cache = args.comparison_cache
     opts.dump_comparison_cache = args. dump_comparison_cache
     opts.compile_only = args.compile_only
+    opts.print_leq_failure_reasons = args.print_leq_failure_reasons
 
     if opts.dump_nodes_and_edges:
         # Clear the file:
@@ -93,6 +96,7 @@ def add_to_parser(parser):
     parser.add_argument('--size-difference-cutoff-factor', default=2.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
     parser.add_argument('--no-leq-heuristics', default=False, dest='no_leq_heuristics', action='store_true', help='Use heuristics to skip some of the comparisons that seem likely to fail anyway')
     parser.add_argument('--compile-only', default=False, dest='compile_only', action='store_true', help="Don't  run any cross-compilation commands, just compile the algebras")
+    parser.add_argument('--max-unifiers', default=100, dest='max_unifiers', type=int, help='Maximum number of unifiers to consider for any particular pair of equations')
     
     # Debug flags.
     parser.add_argument('--debug-leq', default=False, dest='debug_leq', action='store_true')
@@ -103,6 +107,7 @@ def add_to_parser(parser):
     parser.add_argument('--memory-debug', default=False, dest='memory_debug', action='store_true')
     parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
+    parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')

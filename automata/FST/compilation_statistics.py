@@ -20,6 +20,17 @@ compilation_helper_additions = 0
 executed_comparisons = 0
 cutoff_comparisons = 0
 
+# LEQ failure reasons:
+recursion_depth_exceeded = 0
+single_arm_to_branch_not_found = 0
+branch_to_single_arm_not_possible = 0
+const_to_non_const = 0
+product_to_product_failed = 0
+sum_failure = 0
+branch_to_branch_failure = 0
+types_differ = 0
+accept_to_non_accept = 0
+
 
 # Size limit counters
 graph_too_big = 0

@@ -519,8 +519,10 @@ def leq_unify(A, B, options):
     unifier = leq_internal_wrapper(A, B, options)
     if unifier is not None and unifier.isunifierlist:
         return unifier.as_list()
-    else:
+    elif unifier is not None:
         return [unifier]
+    else:
+        return []
 
 def leq_fails_on_heuristics(A, B, options):
     if A.size() > options.size_difference_cutoff_factor * B.size():
@@ -542,10 +544,11 @@ def leq_fails_on_heuristics(A, B, options):
         b_accepting_distances = b_accepting_distances[:1000]
 
     # turn b_accepting distances into a set so we can use binary search.
-    b_accepting_distances = set(b_accepting_distances)
+    max_accepting_distance = max(b_accepting_distances)
 
     for distance in a_accepting_distances:
-        if distance in b_accepting_distances:
+        hit = False
+        if distance <= max_accepting_distance:
             hits += 1
         else:
             misses += 1
@@ -606,6 +609,7 @@ def leq_internal_wrapper(A, B, options):
         if global_variables['leq_depth'] > 1000:
             # Recursion depth exceeded.
             global_variables['leq_depth'] -= 1
+            compilation_statistics.recursion_depth_exceeded += 1
             if LEQ_DEBUG:
                 print "Warning: LEQ Recursion depth exceeded"
             return None
@@ -678,6 +682,7 @@ def leq_internal_wrapper(A, B, options):
             else:
                 # No branch unified.
                 unifier = None
+                compilation_statistics.single_arm_to_branch_not_found += 1
                 result = False
         elif A.isbranch() and not B.isbranch():
             if LEQ_DEBUG:
@@ -696,7 +701,9 @@ def leq_internal_wrapper(A, B, options):
             if not result:
                 # Need to clear the unifier:
                 unifier = None
-        elif A.isconst():
+                compilation_statistics.branch_to_single_arm_not_possible += 1
+        # If B is a sum, then we want to use the sum algorithm.
+        elif A.isconst() and not B.issum():
             if LEQ_DEBUG:
                 print "A is const:"
             if B.isconst():
@@ -720,6 +727,7 @@ def leq_internal_wrapper(A, B, options):
                 # This was true, not sure why.
                 result = False # True
             else:
+                compilation_statistics.const_to_non_const += 1
                 if LEQ_DEBUG:
                     print "B other"
                 result = False
@@ -746,8 +754,86 @@ def leq_internal_wrapper(A, B, options):
             unifier = leq_internal(A.e1, B.e1, options)
             if unifier is None:
                 result = False
+                compilation_statistics.product_to_product_failed += 1
             else:
                 result = True
+        # This case is a mess and basically a dirty hack that considers
+        # a single special case that requires a lot of fine-tuning.
+        # Sorry.
+        elif A.isconst() and B.issum():
+            # There are a few cases we consider here --- consider this as a
+            # base-case for A.issum and B.issum().
+            elts = B.e1
+            # This should be true because we should have normalized things.
+            assert len(elts) > 1
+            # Because we know that A won't have any products in it, we can delete those.
+            non_product_elements = []
+            product_elements_to_be_disabled = []
+            # However, we don't need to disable /all/ the product elements, just
+            # the ones that come before the first non_product_edge that is gong
+            # to be disabled, so we pretend only those exist.
+            const_edges_added = 0
+            for element in B.e1:
+                if element.isproduct():
+                    # After two const edges are added, we know we will (a)
+                    # have a match, and (b) be able to disable.
+                    # There are other cases that warrant disabling here, like
+                    # branches, but I'm not considering that for the moment.
+                    # I expect that to be too much of an edge case.
+                    if const_edges_added < 2:
+                        product_elements_to_be_disabled.append(element)
+                else:
+                    non_product_elements.append(element)
+
+                    if element.isconst():
+                        const_edges_added += 1
+
+            if LEQ_DEBUG:
+                print "Trying to unify a const to some of the elements in the list"
+                print "Found ", len(non_product_elements), "non product elements"
+                print "And ", len(product_elements_to_be_disabled), "product elements that will need to be disabled (omitting from comaprison)"
+
+            if len(non_product_elements) >= 1 and non_product_elements[0].isconst():
+                if LEQ_DEBUG:
+                    print "First element of the non-product elts is a const: unifying..."
+                unifier = leq_internal(A, non_product_elements[0], options)
+                if unifier:
+                    result = True
+
+                    # Need to disable the first ununsed non_product edge.
+                    for elt in product_elements_to_be_disabled:
+                        # We can't do anything with a loop if there is an accept.
+                        if elt.has_accept_before_first_edge():
+                            if LEQ_DEBUG:
+                                print "elt has accept before first edge"
+                            unifier = None
+
+                        if unifier and elt.first_edge():
+                            # disable the first edge.
+                            unifier.add_disabled_edges(elt.first_edge())
+
+                    if LEQ_DEBUG and unifier:
+                        print "Unifier survived disabling of product edges"
+
+                    # Only need to disable subsequent edges if they actually exist.
+                    if unifier and len(non_product_elements) > 1:
+                        # Disable the next edge if it is there:
+                        next_edges = Sum(B.e1[1:]).normalize()
+                        first_edge = next_edges.first_edge()
+                        if first_edge:
+                            unifier.add_disabled_edges(first_edge)
+
+                        if next_edges.has_accept_before_first_edge():
+                            # In this case, we can't actually do this unification.
+                            unifier = None
+                            result = False
+                    if LEQ_DEBUG and unifier:
+                        print "Unifier survived disabling of outgoing edges (trim property)"
+                else: # if unifier
+                    result = False
+        elif A.issum() and B.isconst():
+            # This is the equivalent base-case, but doesn't have anywhere near as many options in it.
+            result = False
         elif A.issum() and B.issum():
             if LEQ_DEBUG:
                 print "Both are sums: unifying subsums"
@@ -876,6 +962,7 @@ def leq_internal_wrapper(A, B, options):
                 # we makr this as a fail.
                 result = False
                 unifier = None
+                compilation_statistics.sum_failure += 1
         elif A.isbranch() and B.isbranch():
             if LEQ_DEBUG:
                 print "Both are branches, trying all combinations to find a unifying pair"
@@ -955,12 +1042,14 @@ def leq_internal_wrapper(A, B, options):
             if mcount == 0 or unifier.length() == 0:
                 # Clear the unifier.
                 unifier = None
+                compilation_statistics.branch_to_branch_failure += 1
 
         else:
+            compilation_statistics.types_differ += 1
+            result = False
             if LEQ_DEBUG:
                 print "Types differ: unification failed"
                 print "Types were", A.type(), B.type()
-            result = False
 
         global_variables['comparison_cache'][cache_pointer] = unifier
         if result is None:

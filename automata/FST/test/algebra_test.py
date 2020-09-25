@@ -72,7 +72,7 @@ class AlgebraTest(unittest.TestCase):
 
 class UnificationTest(unittest.TestCase):
     def test_simple_unifier(self):
-        res = alg.leq_unify(Const(1, [(1, 2)]), Const(1, [(2, 3)]), EmptyOptions)
+        res = alg.leq_unify(Const(1, [(1, 2)]), Const(1, [(2, 3)]), EmptyOptions)[0]
         self.assertEqual(res.to_edges, [(1, 2)])
         self.assertEqual(res.from_edges, [(2, 3)])
 
@@ -80,7 +80,7 @@ class UnificationTest(unittest.TestCase):
         t1 = Branch([Const(2, [(1, 2), (2, 3)]), Const(1, [(4, 5)])]).normalize()
         t2 = Const(2, [(-1, -2), (-2, -3)]).normalize()
 
-        res = alg.leq_unify(t2, t1, EmptyOptions)
+        res = alg.leq_unify(t2, t1, EmptyOptions)[0]
         self.assertEqual(res.from_edges, [(1, 2), (2, 3)])
         self.assertEqual(res.to_edges, [(-1, -2), (-2, -3)])
         self.assertEqual(res.disabled_edges, [(4, 5)])
@@ -89,7 +89,7 @@ class UnificationTest(unittest.TestCase):
         t1 = Branch([Sum([Const(1, [(0, 1)]), Accept()]), Sum([Const(2, [(1, 2), (2, 3)]), End()])]).normalize()
         t2 = Branch([Sum([Const(1, [(0, 5)]), End()]), Sum([Const(1, [(0, 1)]), Accept()]), Sum([Const(2, [(2, 3), (3, 4)]), End()])]).normalize()
         res = alg.leq_unify(t1, t2, EmptyOptions)
-        self.assertNotEqual(res, None)
+        self.assertNotEqual(res, [])
 
         # print(res.from_edges)
         # print(res.to_edges)
@@ -99,20 +99,20 @@ class UnificationTest(unittest.TestCase):
         t2 = Sum([Const(2, [(0, 1), (1, 2)])]).normalize()
         res = alg.leq_unify(t2, t1, EmptyOptions)
         print res
-        self.assertNotEqual(res, None)
+        self.assertNotEqual(res, [])
 
     def test_unifier_single_to_branch(self):
         t1 = End()
         t2 = Branch([End(), End()])
         res = alg.leq_unify(t2, t1, EmptyOptions)
 
-        self.assertNotEqual(res, None)
+        self.assertNotEqual(res, [])
 
     def test_unifier_deep_sum_selection(self):
         t1 = Sum([Const(3, [(1, 2), (2, 3), (3, 4)]), Accept()]).normalize()
         t2 = Sum([Const(1, [(0, 1)]), Branch([End(), Accept(), Const(1, [(1, 2)])]), Const(1, [(2, 3)]), Accept()]).normalize()
         res = alg.leq_unify(t1, t2, EmptyOptions)
-        self.assertNotEqual(res, None)
+        self.assertNotEqual(res, [])
         # TODO --- Need to consider a case where we have a branch that unifies with more than one term.
 
     def test_unifier_plus_plus(self):
@@ -120,7 +120,36 @@ class UnificationTest(unittest.TestCase):
         t2 = Sum([Const(30, [(0, 1)] * 30)]).normalize()
 
         res = alg.leq_unify(t1, t2, EmptyOptions)
-        self.assertNotEqual(res, None)
+        self.assertNotEqual(res, [])
+
+    def test_unifier_end(self):
+        t1 = End()
+        t2 = Sum([Const(1, [(0, 1)]), Const(1, [(1, 2)])]).normalize()
+
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        self.assertNotEqual(res, [])
+
+    def test_unifier_sum_const(self):
+        t1 = Const(1, [1])
+        t2 = Sum([Const(1, [1]), Const(1, [1])])
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        res = [x for x in res if x is not None]
+        self.assertNotEqual(res, [])
+
+    def test_unifier_sum_sum(self):
+        t1 = Sum([Const(1, [1]), Const(1, [2])])
+        t2 = Sum([Const(1, [1]), Product(Const(1, [2])), Const(1, [3])])
+
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        res = [x for x in res if x is not None]
+        self.assertNotEqual(res, [])
+
+    def test_unifier_sum_product_const(self):
+        t1 = Const(1, [1])
+        t2 = Sum([Const(1, [1]), Product(Const(1, [2])), Const(1, [1]), Accept(), End()])
+
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        self.assertNotEqual(res, [])
 
 if __name__ == "__main__":
     unittest.main()
