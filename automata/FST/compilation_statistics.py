@@ -30,6 +30,8 @@ sum_failure = 0
 branch_to_branch_failure = 0
 types_differ = 0
 accept_to_non_accept = 0
+const_to_sum_failed = 0
+sum_to_const_failed = 0
 
 
 # Size limit counters

@@ -372,7 +372,26 @@ class Sum(DepthEquation):
         return " + ".join([x.str_with_lookup(lookup) for x in self.e1])
 
     def __str__(self):
-        return " + ".join([str(x) for x in self.e1])
+        # Print all the consts as one if they are next to each other --- unary is a bit of
+        # a drag and hard to read in the output.
+        printable = []
+        sum_total = 0
+        edge_total = []
+        for x in self.e1:
+            if x.isconst():
+                sum_total += x.val
+                edge_total += x.edges
+            else:
+                if sum_total > 0:
+                    printable.append(Const(sum_total, edge_total))
+                    sum_total = 0
+                    edge_total = []
+                printable.append(x)
+
+        if sum_total > 0:
+            printable.append(Const(sum_total, edge_total))
+
+        return " + ".join([str(x) for x in printable])
 
     def normalize(self, flatten=True):
         if self.isnormal:
@@ -380,6 +399,15 @@ class Sum(DepthEquation):
         self.isnormal = True
         if len(self.e1) == 1:
             return self.e1[0].normalize()
+
+        all_normal = True
+        for elt in self.e1:
+            if not elt.isnormal:
+                all_normal = False
+        if all_normal and not flatten:
+            return self
+
+        # Don't have to reconstruct the list.
         self.e1 = [x.normalize() for x in self.e1]
         # We don't always have to flatten, e.g. if we know
         # that none of the subelements are sum elements.
@@ -445,6 +473,7 @@ class Const(DepthEquation):
         # represents coverage over.
         self.edges = edges
         self._size = None
+        self.isnormal = val <= 1
 
     def _loops_count(self):
         return 0
@@ -751,6 +780,7 @@ class Branch(DepthEquation):
 class Accept(DepthEquation):
     def __init__(self):
         super(Accept, self).__init__()
+        self.isnormal = True
 
     def _loops_count(self):
         return 0
@@ -814,6 +844,7 @@ class Accept(DepthEquation):
 class End(DepthEquation):
     def __init__(self):
         super(End, self).__init__()
+        self.isnormal = True
 
     def _loops_count(self):
         return 0

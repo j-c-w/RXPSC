@@ -5,6 +5,7 @@ import itertools
 from unifier import *
 import compilation_statistics
 try:
+    import line_profiler
     from guppy import hpy
 except:
     # Fails using pypy because the module
@@ -22,6 +23,8 @@ CACHE_ENABLED = True
 # How many permutations should we explore when trying to
 # find branch equality?
 PERMUTATION_THRESHOLD = 10000
+
+profiler = None
 
 class AlgebraGenerationException(Exception):
     pass
@@ -793,9 +796,9 @@ def leq_internal_wrapper(A, B, options):
                 print "Found ", len(non_product_elements), "non product elements"
                 print "And ", len(product_elements_to_be_disabled), "product elements that will need to be disabled (omitting from comaprison)"
 
-            if len(non_product_elements) >= 1 and non_product_elements[0].isconst():
+            if len(non_product_elements) >= 1:
                 if LEQ_DEBUG:
-                    print "First element of the non-product elts is a const: unifying..."
+                    print "There is at least one non-const object"
                 unifier = leq_internal(A, non_product_elements[0], options)
                 if unifier:
                     result = True
@@ -831,9 +834,14 @@ def leq_internal_wrapper(A, B, options):
                         print "Unifier survived disabling of outgoing edges (trim property)"
                 else: # if unifier
                     result = False
+            if not result:
+                compilation_statistics.const_to_sum_failed += 1
         elif A.issum() and B.isconst():
             # This is the equivalent base-case, but doesn't have anywhere near as many options in it.
+            if LEQ_DEBUG:
+                print "Hit a case converting a sum to a const, not implemented"
             result = False
+            compilation_statistics.sum_to_const_failed += 1
         elif A.issum() and B.issum():
             if LEQ_DEBUG:
                 print "Both are sums: unifying subsums"
@@ -870,6 +878,14 @@ def leq_internal_wrapper(A, B, options):
                     print "The indexes are:"
                     print a_index, b_index
 
+                # If we are structurally modifying the accelerators, then we can inject products into
+                # B.  Clearly if there was a product at the start of A, and there was not a product
+                # at the start of B, these were not going to unify.
+                if options.use_structural_change and A.e1[a_index].isproduct() and not B.e1[b_index].isproduct():
+                    # TODO -- actually do something.
+                    a_index += 1
+                    continue
+
                 if A.e1[a_index].isconst() and B.e1[b_index].isconst():
                     # Unify and continue:
                     sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
@@ -883,6 +899,9 @@ def leq_internal_wrapper(A, B, options):
                 last_element_of_a = len(A.e1)
                 found_match_expanding_a = False
                 while not found_match_expanding_a and last_element_of_a > a_index:
+                    # We can call simple_normalize here because (a) it is much faster, and (b)
+                    # we already know that all the sub-elements are normalized, and that
+                    # there is no inter-element normalization to do.
                     smaller_elements = Sum(A.e1[a_index:last_element_of_a]).normalize(flatten=False)
                     # Now, try to compile:
                     sub_unifier = leq_internal(smaller_elements, B.e1[b_index], options)
@@ -1045,11 +1064,18 @@ def leq_internal_wrapper(A, B, options):
                 compilation_statistics.branch_to_branch_failure += 1
 
         else:
-            compilation_statistics.types_differ += 1
-            result = False
-            if LEQ_DEBUG:
-                print "Types differ: unification failed"
-                print "Types were", A.type(), B.type()
+            if options.use_structural_change and A.isproduct():
+                result = True
+                unifier = Unifier()
+            elif options.use_structural_change and A.isaccept() and not B.isaccept():
+                result = True
+                unifier = Unifier()
+            else:
+                compilation_statistics.types_differ += 1
+                result = False
+                if LEQ_DEBUG:
+                    print "Types differ: unification failed"
+                    print "Types were", A.type(), B.type()
 
         global_variables['comparison_cache'][cache_pointer] = unifier
         if result is None:
@@ -1069,7 +1095,12 @@ def leq_internal_wrapper(A, B, options):
         global_variables['leq_depth'] -= 1
         return unifier
 
-    return leq_internal(A, B, options)
+    if options.line_profile:
+        global profiler
+        wrapper = profiler(leq_internal)
+        wrapper(A, B, options)
+    else:
+        return leq_internal(A, B, options)
 
 
 # Yield every cpermustations of i numbers up to j.

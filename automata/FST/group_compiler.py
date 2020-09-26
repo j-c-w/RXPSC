@@ -4,6 +4,8 @@ from multiprocessing import Pool
 import tqdm
 import time
 from cache import ComparisonCache
+import algebra as alg
+import line_profiler
 
 try:
     from guppy import hpy
@@ -104,6 +106,9 @@ def compute_cross_compatibility_matrix_for(group, options):
             # group to this.
             tasks.append((group, i, j, options, read_comparison_cache, dump_comparison_cache))
 
+    if options.line_profile:
+        alg.profiler = line_profiler.LineProfiler()
+
     # Compute all the results:
     flat_results = []
     if options.cross_compilation_threading == 0:
@@ -129,6 +134,9 @@ def compute_cross_compatibility_matrix_for(group, options):
     # Dump the write comparison cache if it exists:
     if options.dump_comparison_cache:
         dump_comparison_cache.dump_to_file(options.dump_comparison_cache)
+
+    if options.line_profile:
+        alg.profiler.print_stats()
 
     # Now, expand the flat results back out:
     for i in range(len(group)):

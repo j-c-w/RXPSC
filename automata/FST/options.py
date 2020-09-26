@@ -30,6 +30,9 @@ class Options(object):
         self.size_limit = None
         self.target = 'single-state'
         self.skip_on_fail = True
+        self.line_profile = False
+
+        self.use_structural_change = True
 
         self.comparison_cache = None
         self.dump_comparison_cache = None
@@ -50,6 +53,7 @@ def create_from_args(args):
     opts.profile = args.profile
     opts.leq_iterations_file = args.leq_iterations_file
     opts.leq_calls_threshold = args.leq_calls_threshold
+    opts.use_structural_change = not args.no_structural_change
 
     opts.group_size_distribution = args.group_size_distribution
     opts.print_file_info = args.print_file_info
@@ -70,6 +74,7 @@ def create_from_args(args):
     opts.dump_comparison_cache = args. dump_comparison_cache
     opts.compile_only = args.compile_only
     opts.print_leq_failure_reasons = args.print_leq_failure_reasons
+    opts.line_profile = args.line_profile
 
     if opts.dump_nodes_and_edges:
         # Clear the file:
@@ -86,6 +91,7 @@ def add_to_parser(parser):
     parser.add_argument('--leq-iterations-file', default=None, dest='leq_iterations_file', help='Dump file for the number of iterations of the LEQ operation')
     parser.add_argument('--leq-calls-threshold', default=100000, dest='leq_calls_threshold', help='Number of recursive calls to make before giving up in the LEQ computation')
     parser.add_argument('--print-file-info', default=False, dest='print_file_info', help='Print the file information', action='store_true')
+    parser.add_argument('--no-structural-change', default=False, dest='no_structural_change', help="Don't use structural change.")
 
     parser.add_argument('--group-size-distribution', default=None, dest='group_size_distribution', help='Dump the group size distribution to this file')
     parser.add_argument('--dump-nodes-and-edges', default=None, dest='dump_nodes_and_edges', help='Dump nodes and edges for each CC into a file')
@@ -108,6 +114,7 @@ def add_to_parser(parser):
     parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
+    parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')
