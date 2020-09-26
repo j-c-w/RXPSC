@@ -151,5 +151,21 @@ class UnificationTest(unittest.TestCase):
         res = alg.leq_unify(t1, t2, EmptyOptions)
         self.assertNotEqual(res, [])
 
+    def test_unifier_const_to_branch_in_sum(self):
+        t1 = Const(1, [1])
+        t2 = Sum([Product(Const(1, [1])), Branch([Const(1, [1]), Const(1, [1])])])
+
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        self.assertNotEqual(res, [])
+
+    def test_unifier_sum(self):
+        t1 = Sum([ Product(Const(1, [1])), Const(1, [1])])
+        t2 = Sum([ Const(1, [2])])
+
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        self.assertNotEqual(res, [])
+        res = alg.leq_unify(t2, t1, EmptyOptions)
+        self.assertNotEqual(res, [])
+
 if __name__ == "__main__":
     unittest.main()
