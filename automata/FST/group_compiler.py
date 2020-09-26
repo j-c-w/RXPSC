@@ -5,9 +5,9 @@ import tqdm
 import time
 from cache import ComparisonCache
 import algebra as alg
-import line_profiler
 
 try:
+    import line_profiler
     from guppy import hpy
     from memory_profiler import profile
 except:

@@ -91,7 +91,7 @@ def add_to_parser(parser):
     parser.add_argument('--leq-iterations-file', default=None, dest='leq_iterations_file', help='Dump file for the number of iterations of the LEQ operation')
     parser.add_argument('--leq-calls-threshold', default=100000, dest='leq_calls_threshold', help='Number of recursive calls to make before giving up in the LEQ computation')
     parser.add_argument('--print-file-info', default=False, dest='print_file_info', help='Print the file information', action='store_true')
-    parser.add_argument('--no-structural-change', default=False, dest='no_structural_change', help="Don't use structural change.")
+    parser.add_argument('--no-structural-change', default=False, dest='no_structural_change', help="Don't use structural change.", action='store_true')
 
     parser.add_argument('--group-size-distribution', default=None, dest='group_size_distribution', help='Dump the group size distribution to this file')
     parser.add_argument('--dump-nodes-and-edges', default=None, dest='dump_nodes_and_edges', help='Dump nodes and edges for each CC into a file')
