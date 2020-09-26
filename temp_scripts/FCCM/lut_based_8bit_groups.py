@@ -5,6 +5,7 @@ import math
 import shutil
 import sys
 import os
+import time
 import automata as atma
 import automata.FST.options as options
 import automata.HDL.hdl_generator as hd_gen
@@ -14,6 +15,7 @@ import automata.FST.compilation_statistics as compilation_statistics
 sys.setrecursionlimit(25000)
 
 def process(file_groups, name, print_compression_stats=False, options=None):
+    start_time = time.time()
     file_groups = [os.path.join(file_groups, f) for f in os.listdir(file_groups) if os.path.isfile(os.path.join(file_groups, f))]
     print "Extracting ", len(file_groups), " groups"
     # Output is: HDL file with the important automata
@@ -68,6 +70,24 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         print "Single State unification successes", compilation_statistics.single_state_unification_success
         print "Unifier cutoff events ", compilation_statistics.unifier_trimming_events
         print "Unifiers returned ", compilation_statistics.unifiers_returned
+
+    if options.print_leq_failure_reasons:
+        prefix = "LEQ Failure Reason:"
+        print prefix, "Recursion Depth Exceeded", compilation_statistics.recursion_depth_exceeded
+        print prefix, "Single Arm to Branch not Found", compilation_statistics.single_arm_to_branch_not_found
+        print prefix, "Branch to Single Arm not Possible", compilation_statistics.branch_to_single_arm_not_possible
+        print prefix, "Const to Non-Const", compilation_statistics.const_to_non_const
+        print prefix, "Product to Product Failed", compilation_statistics.product_to_product_failed
+        print prefix, "Sum Failed", compilation_statistics.sum_failure
+        print prefix, "Branch to Branch Failure", compilation_statistics.branch_to_branch_failure
+        print prefix, "Types differ", compilation_statistics.types_differ
+        print prefix, "Accept to non-accept", compilation_statistics.accept_to_non_accept
+        print prefix, "Const to Sum", compilation_statistics.const_to_sum_failed
+        print prefix, "Sum to Sum", compilation_statistics.sum_to_const_failed
+
+    if options.time:
+        print "Time taken was", time.time() - start_time
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -27,6 +27,7 @@ class Options(object):
 
         self.size_difference_cutoff_factor = 2.0
         self.memory_debug = False
+        self.time = False
         self.size_limit = None
         self.target = 'single-state'
         self.skip_on_fail = True
@@ -65,6 +66,7 @@ def create_from_args(args):
     opts.size_difference_cutoff_factor = args.size_difference_cutoff
     opts.no_leq_heuristics = args.no_leq_heuristics
     opts.memory_debug = args.memory_debug
+    opts.time = args.time
     opts.algebra_size_threshold = args.algebra_size_threshold
     opts.target = args.target
     opts.print_compile_time = args.print_compile_time
@@ -102,7 +104,7 @@ def add_to_parser(parser):
     parser.add_argument('--size-difference-cutoff-factor', default=2.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
     parser.add_argument('--no-leq-heuristics', default=False, dest='no_leq_heuristics', action='store_true', help='Use heuristics to skip some of the comparisons that seem likely to fail anyway')
     parser.add_argument('--compile-only', default=False, dest='compile_only', action='store_true', help="Don't  run any cross-compilation commands, just compile the algebras")
-    parser.add_argument('--max-unifiers', default=100, dest='max_unifiers', type=int, help='Maximum number of unifiers to consider for any particular pair of equations')
+    parser.add_argument('--max-unifiers', default=20, dest='max_unifiers', type=int, help='Maximum number of unifiers to consider for any particular pair of equations')
     
     # Debug flags.
     parser.add_argument('--debug-leq', default=False, dest='debug_leq', action='store_true')
@@ -115,6 +117,7 @@ def add_to_parser(parser):
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
     parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
+    parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')
