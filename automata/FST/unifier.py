@@ -6,7 +6,7 @@ DEBUG_UNIFICATION = False
 PRINT_UNIFICATION_FAILURE_REASONS = False
 
 # The maximum number of unifiers to keep in the unifier lists.
-MAX_UNIFIERS = 100
+MAX_UNIFIERS = 20
 
 # This class is a stupid abstrction that we need because I designed
 # the algebra.leq functions around a single unifier, then I realized

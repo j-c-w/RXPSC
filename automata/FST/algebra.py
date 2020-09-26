@@ -533,6 +533,15 @@ def leq_fails_on_heuristics(A, B, options):
             print "Skipping due to size difference"
         return True
 
+    a_loop_sizes = A.loop_sizes()
+    b_loop_sizes = set(B.loop_sizes())
+    for loop_size in a_loop_sizes:
+        # 4 is an arbitrary threshold here, that dictates how large
+        # a loop can be injected --- but the larger this is,
+        # the slower it is.
+        if loop_size > 4 and loop_size not in b_loop_sizes:
+            return False
+
     # Check for overlap in the distances to accept states ---
     # no overlap suggests(?) no hope.
     a_accepting_distances = A.accepting_distances_approximation()

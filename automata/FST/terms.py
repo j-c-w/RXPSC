@@ -12,6 +12,8 @@ class DepthEquation(object):
         global terms_id_counter
         self.id = terms_id_counter
         terms_id_counter += 1
+        self._cached_loop_sizes = None
+        self._cached_lengths = None
         self._cached_first_edge = None
         self._cached_has_accept = None
         self._cached_has_accept_before_first_edge = None
@@ -60,6 +62,34 @@ class DepthEquation(object):
         assert False
 
     def equals(self, other, selflookup=None, otherlookup=None):
+        assert False
+
+    def loop_sizes(self):
+        if self._cached_loop_sizes is not None:
+            return self._cached_loop_sizes
+        else:
+            result = self._loop_sizes()
+            if len(result) > 100:
+                result = set(list(result[:100]))
+            self._cached_loop_sizes = result
+            return result
+
+    def _loop_sizes(self):
+        assert False
+
+    def length(self):
+        # this is a set of the number of symbols requierd to move through
+        # this.  it's  set.
+        if self._cached_lengths:
+            return self._cached_lengths
+        else:
+            result = self._length()
+            if len(result) > 100:
+                result = set(list(result)[:100])
+            self._cached_lengths = result
+            return result
+
+    def _length(self):
         assert False
 
     # The idea of this is an approximation of the lengths
@@ -146,6 +176,12 @@ class Product(DepthEquation):
 
     def _branches_count(self):
         return self.e1.branches_count()
+
+    def _loop_sizes(self):
+        return self.length()
+
+    def _length(self):
+        return self.e1.length()
 
     # Approximate this as just the length of the
     # subexpression.
@@ -251,6 +287,26 @@ class Sum(DepthEquation):
         for x in self.e1:
             s += x.branches_count() 
         return s
+
+    def _length(self):
+        result = list(self.e1[0].length())
+        for item in self.e1[1:]:
+            new_result = []
+            for distance in item.length():
+                for distance2 in result:
+                    new_result.append(distance + distance2)
+            result = new_result
+        return result
+
+        return set(result)
+
+    def _loop_sizes(self):
+        subsets = [x.loop_sizes() for x in self.e1]
+        result = set()
+        for subset in subsets:
+            result = result.union(subset)
+
+        return result
 
     def _accepting_distances_approximation(self):
         set = self.e1[0].accepting_distances_approximation()
@@ -481,6 +537,12 @@ class Const(DepthEquation):
     def _branches_count(self):
         return 0
 
+    def _loop_sizes(self):
+        return set()
+
+    def _length(self):
+        return set([self.val])
+
     def _accepting_distances_approximation(self):
         # Assume there is an accept at the end...
         return [self.val]
@@ -580,6 +642,19 @@ class Branch(DepthEquation):
 
     def _branches_count(self):
         return 1 + sum([opt.branches_count() for opt in self.options])
+
+    def _loop_sizes(self):
+        result = set()
+        for opt in self.options:
+            result = result.union(opt.loop_sizes())
+
+        return result
+
+    def _length(self):
+        result = set()
+        for subset in self.options:
+            result = result.union(subset.length())
+        return result
 
     def _accepting_distances_approximation(self):
         results = []
@@ -788,6 +863,12 @@ class Accept(DepthEquation):
     def _branches_count(self):
         return 0
 
+    def _loop_sizes(self):
+        return set()
+
+    def _length(self):
+        return set([0])
+
     def _accepting_distances_approximation(self):
         return [0]
 
@@ -856,6 +937,12 @@ class End(DepthEquation):
         # Not 100% sure what to do in this case.  Pretty
         # sure this shouldn't get called.
         assert False
+
+    def _loop_sizes(self):
+        return set()
+
+    def _length(self):
+        return set([0])
 
     def _accepting_distances_approximation(self):
         return [0]
