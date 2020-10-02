@@ -247,7 +247,7 @@ def parseSymbolSet(symbol_set):
 
         elif c == 'd' :
             if(escaped):
-                setRange(bitset,48,57);
+                setRange(bitset,chr(48),chr(57));
                 escaped = False;
             else:
                 bitset.add(c);
@@ -259,9 +259,9 @@ def parseSymbolSet(symbol_set):
         elif c == 'w' :
             if(escaped):
                 bitset.add('_'); #  '_'
-                setRange(bitset,48,57); #  d
-                setRange(bitset,65,90); 
-                setRange(bitset,97,122); 
+                setRange(bitset,chr(48),chr(57)); #  d
+                setRange(bitset,chr(65),chr(90)); 
+                setRange(bitset,chr(97),chr(122)); 
                 escaped = False;
             else:
                 bitset.add(c);
@@ -294,7 +294,7 @@ def parseSymbolSet(symbol_set):
                 index  += 1;
                 bitset.add(chr(number))
                 if(range_set):
-                    setRange(bitset,range_start,number);
+                    setRange(bitset,range_start,chr(number));
                     range_set = False;
                 last_char = number;
                 escaped = False;
@@ -336,5 +336,9 @@ def invert(col):
     return result
 
 def setRange(bitset, start, end):
+    if str(type(start)) == "<type 'str'>":
+        start = ord(start)
+    if str(type(end)) == "<type 'str'>":
+        end = ord(end)
     for i in range(start, end + 1):
         bitset.add(i);

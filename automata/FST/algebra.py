@@ -856,141 +856,174 @@ def leq_internal_wrapper(A, B, options):
                 print "Both are sums: unifying subsums"
                 print "Lenths are ", len(A.e1),  "and", len(B.e1)
 
-            still_equal = True
-            unifier = UnifierList([Unifier()])
+            # If A is 1 + a + e, then we have a getout option here:
+            # This could be a lot more general, e.g. if A is 1 + a + 1,
+            # we could also do something with a split and a rejoin into B,
+            # but for the moment, we are ignoring that and just leaving pointy-ends.
+            if options.use_structural_change and len(A.e1) == 3 and \
+                    A.e1[0].isconst() and A.e1[1].isaccept() and A.e1[2].isend():
+                unifier = Unifier()
+                unifier.add_branch(A, B.first_edge())
+                result = True
+            # It would be good if we could handle this case, but it is a bit more
+            # complicated, becuase it requires a bit more complex structural change.
+            elif options.use_structural_change and len(A.e1) >= 3 and \
+                    A.e1[0].isconst() and A.e1[1].isaccept() and not B.has_accept():
+                pass
+            else:
+                still_equal = True
+                unifier = UnifierList([Unifier()])
 
-            a_index = 0
-            b_index = 0
-            # We don't need equality up to the end here, due
-            # the the (trim) rule (i.e. e <= x (provided x != a))
-            while still_equal and a_index < len(A.e1) and b_index < len(B.e1):
-                # The algorithm here is to progressively increase
-                # the range of terms over which we unify in A to the
-                # first element in B.  If that doesn't work, then
-                # we progressively unify larger terms of B to the
-                # first element of A.
-                # We want to match the biggest section possible ---
-                # e.g. if there is a branch {1, 1 + 1}, we heuristically
-                # want to take the longer branch.
-                # That said, it shouldn't be too hard to extend
-                # this to try all branches --- it might give more coverage.
-                # Unfortunately, the algoritm to unify the biggest
-                # section possible was really quite slow, especially
-                # when considering very long 1 + 1 + 1...
-                # I think it's possible to get away with an heuristic
-                # here that just looks to see if the first two terms
-                # are consts of the same size, and if they are
-                # just bumps forward on the equality.
-                if LEQ_DEBUG:
-                    print "Call ID ", this_call_id
-                    print "Staritng a new iteration of the sum checker"
-                    print "The indexes are:"
-                    print a_index, b_index
+                a_index = 0
+                b_index = 0
+                # We don't need equality up to the end here, due
+                # the the (trim) rule (i.e. e <= x (provided x != a))
+                while still_equal and a_index < len(A.e1) and b_index < len(B.e1):
+                    # The algorithm here is to progressively increase
+                    # the range of terms over which we unify in A to the
+                    # first element in B.  If that doesn't work, then
+                    # we progressively unify larger terms of B to the
+                    # first element of A.
+                    # We want to match the biggest section possible ---
+                    # e.g. if there is a branch {1, 1 + 1}, we heuristically
+                    # want to take the longer branch.
+                    # That said, it shouldn't be too hard to extend
+                    # this to try all branches --- it might give more coverage.
+                    # Unfortunately, the algoritm to unify the biggest
+                    # section possible was really quite slow, especially
+                    # when considering very long 1 + 1 + 1...
+                    # I think it's possible to get away with an heuristic
+                    # here that just looks to see if the first two terms
+                    # are consts of the same size, and if they are
+                    # just bumps forward on the equality.
+                    if LEQ_DEBUG:
+                        print "Call ID ", this_call_id
+                        print "Staritng a new iteration of the sum checker"
+                        print "The indexes are:"
+                        print a_index, b_index
 
-                # If we are structurally modifying the accelerators, then we can inject products into
-                # B.  Clearly if there was a product at the start of A, and there was not a product
-                # at the start of B, these were not going to unify.
-                if options.use_structural_change and A.e1[a_index].isproduct() and not B.e1[b_index].isproduct():
-                    # TODO -- actually do something.
-                    a_index += 1
-                    continue
-
-                if A.e1[a_index].isconst() and B.e1[b_index].isconst():
-                    # Unify and continue:
-                    sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
-                    if sub_unifier is not None:
-                        # We can just go back around the loop:
-                        unifier.unify_with(sub_unifier)
+                    # If we are structurally modifying the accelerators, then we can inject products into
+                    # B.  Clearly if there was a product at the start of A, and there was not a product
+                    # at the start of B, these were not going to unify.
+                    if options.use_structural_change and A.e1[a_index].isproduct() and not B.e1[b_index].isproduct():
+                        unifier.add_insert(A.e1[a_index], B.first_edge())
                         a_index += 1
-                        b_index += 1
                         continue
 
-                last_element_of_a = len(A.e1)
-                found_match_expanding_a = False
-                while not found_match_expanding_a and last_element_of_a > a_index:
-                    # We can call simple_normalize here because (a) it is much faster, and (b)
-                    # we already know that all the sub-elements are normalized, and that
-                    # there is no inter-element normalization to do.
-                    smaller_elements = Sum(A.e1[a_index:last_element_of_a]).normalize(flatten=False)
-                    # Now, try to compile:
-                    sub_unifier = leq_internal(smaller_elements, B.e1[b_index], options)
-                    if sub_unifier is not None:
-                        # Eat all the matched elements and continue:
-                        found_match_expanding_a = True
-                        if LEQ_DEBUG:
-                            print "Found match expanding A"
-                    else:
-                        last_element_of_a -= 1
-
-                if found_match_expanding_a:
-                    # Shrink things and move onward :)
-                    unifier.unify_with(sub_unifier)
-
-                    a_index = last_element_of_a
-                    b_index += 1
-                else:
-                    # Otherwise, try matching more things of B to
-                    # the first element of A.
-                    last_element_of_b = len(B.e1)
-                    found_match_expanding_b = False
-
-                    while not found_match_expanding_b and last_element_of_b > b_index:
-                        smaller_elements = Sum(B.e1[b_index:last_element_of_b]).normalize(flatten=False)
-                        sub_unifier = leq_internal(A.e1[a_index], smaller_elements, options)
-
+                    # The expanding algorithm works well for a lot of things, but for picking up this
+                    # case, it doens't work very well.  This makes sure that we trigger the
+                    # branch addition case if we are using structural change.
+                    if options.use_structural_change and \
+                            len(A.e1) - a_index == 3 and A.e1[a_index].isconst() and\
+                            A.e1[a_index + 1].isaccept() and \
+                            (len(B.e1) - b_index < 3 or not B.e1[b_index + 1].isaccept()):
+                            # (commentary on on last case)
+                            # But don't trigger this case if we'll probably get a unification
+                            # anyway --- it's better not to trigger the above case if we
+                            # can avoid it, since that introduces new edges, and this shares
+                            # existing edges.
+                        sub_unifier = leq_internal(Sum(A.e1[a_index:]), B, options)
                         if sub_unifier is not None:
+                            unifier.unify_with(sub_unifier)
+                            a_index = len(A.e1)
+                            break
+
+                    if A.e1[a_index].isconst() and B.e1[b_index].isconst():
+                        # Unify and continue:
+                        sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
+                        if sub_unifier is not None:
+                            # We can just go back around the loop:
+                            unifier.unify_with(sub_unifier)
+                            a_index += 1
+                            b_index += 1
+                            continue
+
+                    last_element_of_a = len(A.e1)
+                    found_match_expanding_a = False
+                    while not found_match_expanding_a and last_element_of_a > a_index:
+                        # We can call simple_normalize here because (a) it is much faster, and (b)
+                        # we already know that all the sub-elements are normalized, and that
+                        # there is no inter-element normalization to do.
+                        smaller_elements = Sum(A.e1[a_index:last_element_of_a]).normalize(flatten=False)
+                        # Now, try to compile:
+                        sub_unifier = leq_internal(smaller_elements, B.e1[b_index], options)
+                        if sub_unifier is not None:
+                            # Eat all the matched elements and continue:
+                            found_match_expanding_a = True
                             if LEQ_DEBUG:
-                                print "Found match expanding B"
-                            found_match_expanding_b = True
+                                print "Found match expanding A"
                         else:
-                            last_element_of_b -= 1
+                            last_element_of_a -= 1
 
-                    if found_match_expanding_b:
-                        unifier.unify_with(unifier)
-                        b_index = last_element_of_b - 1
-                        a_index += 1
+                    if found_match_expanding_a:
+                        # Shrink things and move onward :)
+                        unifier.unify_with(sub_unifier)
+
+                        a_index = last_element_of_a
+                        b_index += 1
                     else:
-                        # No matches found, so termiate
+                        # Otherwise, try matching more things of B to
+                        # the first element of A.
+                        last_element_of_b = len(B.e1)
+                        found_match_expanding_b = False
+
+                        while not found_match_expanding_b and last_element_of_b > b_index:
+                            smaller_elements = Sum(B.e1[b_index:last_element_of_b]).normalize(flatten=False)
+                            sub_unifier = leq_internal(A.e1[a_index], smaller_elements, options)
+
+                            if sub_unifier is not None:
+                                if LEQ_DEBUG:
+                                    print "Found match expanding B"
+                                found_match_expanding_b = True
+                            else:
+                                last_element_of_b -= 1
+
+                        if found_match_expanding_b:
+                            unifier.unify_with(unifier)
+                            b_index = last_element_of_b - 1
+                            a_index += 1
+                        else:
+                            # No matches found, so termiate
+                            if LEQ_DEBUG:
+                                print "Unifying sums failed at indexes", a_index, b_index
+                            still_equal = False
+
+                # TODO -- Do the tail approximation check.
+
+                # If A is completely used, then we are done.  We might
+                # have to disable the first edge out of as far as we got into B.
+                if LEQ_DEBUG:
+                    print "Exited the sum comparison loop --- managed "
+                    print "to unify up to index ", a_index, b_index
+                    print "out of ", len(A.e1), len(B.e1)
+                if a_index == len(A.e1):
+                    if b_index != len(B.e1):
                         if LEQ_DEBUG:
-                            print "Unifying sums failed at indexes", a_index, b_index
-                        still_equal = False
+                            print "Attempting to apply trim property..."
+                        sum_tail = Sum(B.e1[b_index - 1:]).normalize()
+                        # Need to disable the first edge.
+                        first_edges = sum_tail.first_edge()
 
-            # TODO -- Do the tail approximation check.
-
-            # If A is completely used, then we are done.  We might
-            # have to disable the first edge out of as far as we got into B.
-            if LEQ_DEBUG:
-                print "Exited the sum comparison loop --- managed "
-                print "to unify up to index ", a_index, b_index
-                print "out of ", len(A.e1), len(B.e1)
-            if a_index == len(A.e1):
-                if b_index != len(B.e1):
-                    if LEQ_DEBUG:
-                        print "Attempting to apply trim property..."
-                    sum_tail = Sum(B.e1[b_index - 1:]).normalize()
-                    # Need to disable the first edge.
-                    first_edges = sum_tail.first_edge()
-
-                    # And if there is an accept before the first
-                    # edge, then we need to fail.
-                    if sum_tail.has_accept_before_first_edge():
-                        if LEQ_DEBUG:
-                            print sum_tail
-                            print "Trim property failed because tail has accept before first edge"
-                        result = False
-                        unifier = None
-                    else:
-                        if first_edges:
-                            unifier.add_disabled_edges(first_edges)
-                else: # We used up all of B, so do not
-                    # need to add any disabled edges.
-                    result = True
-            else:
-                # TODO -- Apply the tail approximation. For now,
-                # we makr this as a fail.
-                result = False
-                unifier = None
-                compilation_statistics.sum_failure += 1
+                        # And if there is an accept before the first
+                        # edge, then we need to fail.
+                        if sum_tail.has_accept_before_first_edge():
+                            if LEQ_DEBUG:
+                                print sum_tail
+                                print "Trim property failed because tail has accept before first edge"
+                            result = False
+                            unifier = None
+                        else:
+                            if first_edges:
+                                unifier.add_disabled_edges(first_edges)
+                    else: # We used up all of B, so do not
+                        # need to add any disabled edges.
+                        result = True
+                else:
+                    # TODO -- Apply the tail approximation. For now,
+                    # we makr this as a fail.
+                    result = False
+                    unifier = None
+                    compilation_statistics.sum_failure += 1
         elif A.isbranch() and B.isbranch():
             if LEQ_DEBUG:
                 print "Both are branches, trying all combinations to find a unifying pair"
@@ -1076,9 +1109,8 @@ def leq_internal_wrapper(A, B, options):
             if options.use_structural_change and A.isproduct():
                 result = True
                 unifier = Unifier()
-            elif options.use_structural_change and A.isaccept() and not B.isaccept():
-                result = True
-                unifier = Unifier()
+                # Insert before the first edge of B.
+                unifier.add_insert(A, B.first_edge())
             else:
                 compilation_statistics.types_differ += 1
                 result = False

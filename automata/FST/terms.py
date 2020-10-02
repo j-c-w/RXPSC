@@ -336,7 +336,7 @@ class Sum(DepthEquation):
 
     def _has_accept(self):
         for elem in self.e1:
-            if self.elem.has_accept():
+            if elem.has_accept():
                 return True
         return False
 

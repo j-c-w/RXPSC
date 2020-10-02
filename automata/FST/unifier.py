@@ -36,6 +36,14 @@ class UnifierList(object):
 
         self.trim_unifier_list()
 
+    def add_insert(self, insert, edges_after):
+        for unifier in self.unifiers:
+            unifier.add_insert(insert, edges_after)
+
+    def add_branch(self, branch, edges_after):
+        for unifier in self.unifiers:
+            unifier.add_branch(branch, edges_after)
+
     def trim_unifier_list(self):
         if len(self.unifiers) > MAX_UNIFIERS:
             compilation_statistics.unifier_trimming_events += 1
@@ -105,6 +113,22 @@ class Unifier(object):
         self.algebra_to = algebra_to
         self.cost = cost
         self.ununified_terms = []
+        # What modifications have to be made to the underlying automata
+        # for a successful conversion?
+        self.inserts = []
+        self.branches = []
+
+    def add_insert(self, insert, edges_after):
+        assert not insert.has_accept_before_first_edge()
+        assert insert.first_edge() is not None
+
+        self.inserts.append((insert, edges_after))
+
+    def add_branch(self, branch, edges_after):
+        assert not branch.has_accept_before_first_edge()
+        assert branch.first_edge() is not None
+
+        self.branches.append((branch, edges_after))
 
     def deep_clone(self):
         result = Unifier()
@@ -114,6 +138,8 @@ class Unifier(object):
         result.disabled_edges = self.disabled_edges[:]
         result.cost = self.cost
         result.ununified_terms = self.ununified_terms[:]
+        result.branches = self.branches[:]
+        result.inserts = self.inserts[:]
         # We don't deep clone this because it's immutable from
         # the perspective of a unifier.
         result.algebra_from = self.algebra_from
@@ -267,13 +293,94 @@ class Unifier(object):
                 for char in to_chars:
                     matching_symbol[char] = True
 
-           
+        # As an approximation, we need to make sure that we can disable any
+        # of the edges that have to be added when running the original automaton.
+        # We could look at the cost of adding a translator to the original automata too,
+        # but we're not interested in that right now.
+        for (branch, edges_after) in self.branches:
+            # Only handle the 1 + a + e branches for the time being.
+            if not branch.issum() and not branch.e1[0].isconst() and not branch.e1[1].isaccept() and \
+                    not branch.e1[2].isend():
+                return None
+
+            # Need to be able to disable the first edge of the branch:
+            target_symbolset = set()
+            for edge in branch.first_edge():
+                # Get the target symbolset from the first edge:
+                source_characterset = symbol_lookup_2[edge]
+                for char in source_characterset:
+                    if char in state_lookup:
+                        target_symbolset.add
+                    else:
+                        target_symbolset.add(char)
+
+        disabling_symbols = set()
+        for i in range(0, 256):
+            if i not in matching_symbol:
+                disabling_symbols.add(i)
+
+        for (insert, edges_after) in self.inserts:
+            # Only handle small inserts.
+            if insert.size() > 2:
+                return None
+
+            if len(disabling_symbols) == 0:
+                return None
+            # We first need to pick the characterset for the insert --- use
+            # all the characters in the first edge of the insert.
+            insert_characterset = set()
+            # The first edges can't be none if this was added
+            # as an insert --- that would mean this is going to be
+            # difficult to disable I think...
+            assert insert.first_edge() is not None
+            for edge in insert.first_edge():
+                for character in symbol_lookup_2[edge]:
+                    # This could definitely be moved up to the part before state_lookup is
+                    # solidified.
+                    if character in state_lookup:
+                        for c in state_lookup[character]:
+                            insert_characterset.add(c)
+                    else:
+                        # assume that we will map character to itself.
+                        insert_characterset.add(character)
+
+            # Now, make sure that we can disable that edge in normal use of
+            # the accelerator.  We do that by mapping the contents of that edge
+            # to one of the non_matching symbols.
+            for character in insert_characterset:
+                # Try to map this character to one of the disabled characters:
+                if character in state_lookup:
+                    existing_set = state_lookup[character]
+                    new_set = disabling_symbols.intersection(existing_set)
+                    if len(new_set) == 0:
+                        return None
+                    else:
+                        state_lookup[character] = new_set
+
+                    # TODO --- Need to disable one of the characters in
+                    # the new_set from the matching_set.   this is actually
+                    # broken until that happens.
+                else:
+                    state_lookup[character] = [sorted(list(disabling_symbols))[0]]
+                    # this is now a symbol that matches this edge.
+                    # TODO -- need to make clear that the disabling set is for this
+                    # particular structure.
+                    matching_symbol[(sorted(list(disabling_symbols))[0])] = True
+
+            # Need to make sure that every character in the loop is treated
+            # as a matching symbol and not used as a disabling symbol.
+            # for edge in insert.all_edges():
+            # For now, we skip this by failing unless A is a single element big :)
+
+
         # Now, go through and map any None values, which mean
         # that symbols should be mapped to things that don't match
         # any edges.
         non_matching = None
+        non_matching_set = set()
         for i in range(0, 256):
             if i not in matching_symbol:
+                non_matching_set.add(i)
                 non_matching = i
 
         disabled_edges = self.get_disabled_edges()
