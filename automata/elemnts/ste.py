@@ -323,7 +323,6 @@ class PackedIntervalSet(object):
             test_points = []
 
             while curr_time < ranges[-1][1] or finish_list:
-
                 if len(finish_list) == 0:
                     processed_range_idx +=1
                     curr_time = ranges[processed_range_idx][0]
@@ -703,7 +702,6 @@ class S_T_E(BaseElement):
         # Want to remove dependency on the C code.
         # symbol_list = VASim.parseSymbolSet(symbol_str)
         symbol_list = internal_vasim.parseSymbolSet(symbol_str)
-
 
         symbol_set = list_to_packed_set(symbol_list)
 
