@@ -2,8 +2,8 @@ def parseSymbolSet(symbol_set):
     bitset = set()
     if symbol_set == "*":
         for i in range(0, 256):
-            bitset.add(i)
-        return bitset
+            bitset.add(chr(i))
+        return list(bitset)
 
     # KAA found that apcompile parses symbol-set="." to mean "^\x0a"
     # hard-coding this here
@@ -11,8 +11,8 @@ def parseSymbolSet(symbol_set):
         for i in range(0, 256):
             if i == ord('\n'):
                 continue
-            bitset.add(i)
-        return bitset
+            bitset.add(chr(i))
+        return list(bitset)
 
     in_charset = False;
     escaped = False;
@@ -331,8 +331,8 @@ def parseSymbolSet(symbol_set):
 def invert(col):
     result = set()
     for i in range(0, 256):
-        if i not in col:
-            result.add(i)
+        if chr(i) not in col:
+            result.add(chr(i))
     return result
 
 def setRange(bitset, start, end):
@@ -341,4 +341,4 @@ def setRange(bitset, start, end):
     if str(type(end)) == "<type 'str'>":
         end = ord(end)
     for i in range(start, end + 1):
-        bitset.add(i);
+        bitset.add(chr(i));
