@@ -167,5 +167,23 @@ class UnificationTest(unittest.TestCase):
         res = alg.leq_unify(t2, t1, EmptyOptions)
         self.assertNotEqual(res, [])
 
+class TestDeconstruction(unittest.TestCase):
+    def test_graph_for_const(self):
+        nodes, edges, start_states, accept_states, symbols, end_nodes = alg.graph_for(Const(1, [(0, 1)]), {(0, 1): 'a'})
+        print nodes, edges, start_states, accept_states, symbols, end_nodes
+        self.assertEqual(edges, [(0, 1)])
+        self.assertEqual(start_states, [0])
+        self.assertEqual(end_nodes, [1])
+
+    def test_graph_for_sum(self):
+        nodes, edges, start_states, accept_states, symbols, end_nodes = alg.graph_for(Sum([Const(1, [(0, 1)]), Accept(), End()]), {(0, 1): 'a'})
+        self.assertEqual(accept_states, [1])
+
+    def test_graph_for_loop(self):
+        nodes, edges, start_states, accept_states, symbols, end_nodes = alg.graph_for(Product(Const(1, [(2, 2)])), {(2, 2): 'a'})
+        self.assertEqual(edges, [(0, 0)])
+        self.assertEqual(end_nodes, [])
+        self.assertEqual(nodes, [0])
+
 if __name__ == "__main__":
     unittest.main()

@@ -29,6 +29,9 @@ profiler = None
 class AlgebraGenerationException(Exception):
     pass
 
+class UnsupportedAlgebraException(Exception):
+    pass
+
 def generate(nodes, edges, start, accept_states, options):
     # Clear the results cache for 'generate_internal'
     clean_caches()
@@ -490,6 +493,82 @@ def linear_algebra_for(branch, accept_states):
 
     return sum_elt.normalize()
 
+# This generates a graph for a linear section of algebra.
+# It could be a full inverse to the algebra generation algorithm,
+# but it really doesn't need to be given that the current
+# usecase is small extensions to graphs.
+# Returns: nodes, edges, start_states, accept_states, symbols, end_nodes
+def graph_for(algebra, symbol_lookup):
+    edges = []
+    accept_states = []
+    result_lookup = {}
+    last_nodes = []
+    end_nodes = []
+
+    node_counter = 1
+    # Create the start node:
+    start_node = 0
+    start_states = [start_node]
+    nodes = [start_node]
+    if algebra.issum():
+        last_node = start_node
+        for obj in algebra.e1:
+            if obj.isconst():
+                assert obj.val == 1 # Can support non-1 consts,
+                # but don't need to with current normalization policies.
+                new_node = node_counter
+                node_counter += 1
+
+                nodes.append(new_node)
+                edges.append((last_node, new_node))
+                result_lookup[(last_node, new_node)] = symbol_lookup[obj.edges[0]]
+                # Move the node along one for the next term.
+                last_node = new_node
+            elif obj.isaccept():
+                accept_states.append(last_node)
+            elif obj.isend():
+                last_nodes.append(last_node)
+            else:
+                # We could support the generation of a graph
+                # from more complex algebras, but choose
+                # not to due to the unnessecary implementation
+                # complexity.  We expect that we get most
+                # of the benefit from supporting small
+                # extensions anyway.
+                raise UnsupportedAlgebraException()
+    elif algebra.isconst():
+        # Return a two-node graph.
+        next_node = node_counter
+        edges.append((start_node, next_node))
+        nodes.append(node_counter)
+        result_lookup[(start_node, next_node)] = symbol_lookup[algebra.edges[0]]
+        end_nodes.append(next_node)
+    elif algebra.isproduct():
+        # Do this by computing the subgraph, then linking the
+        # last node to the first node.
+        nodes, edges, start_states, accept_states, result_lookup, end_nodes = graph_for(algebra.e1, symbol_lookup)
+        # Make the end state and the start state the same, because this
+        # is a loop.
+        assert len(start_states) == 1
+        for state in end_nodes:
+            for i in range(len(edges)):
+                # If this edge goes to an ending state, then point
+                # it around at a start state.
+                # Note that for various more complicated structures,
+                # like a branch with a possible ending within
+                # a loop, this doesn't work.
+                # (e.g. (1 + {1 + e, 1})* )
+                if edges[i][1] == state:
+                    old_edge = edges[i]
+                    edges[i] = (edges[i][0], start_states[0])
+                    result_lookup[edges[i]] = result_lookup[old_edge]
+                    del result_lookup[old_edge]
+            # Also remove the deleted node from the list of nodes.
+            for i in range(len(nodes)):
+                if nodes[i] == state:
+                    del nodes[i]
+        end_nodes = []
+    return nodes, edges, start_states, accept_states, result_lookup, end_nodes
 
 # This is an implementation of the comparison operator ---
 # the concept is that if A < B, then  we can use the circuit
