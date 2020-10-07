@@ -488,3 +488,99 @@ def compute_branches(nodes, edges, start_node):
             branchdepth += len(next_nodes) - 1
 
     return completed_branches
+
+# Return a list of nodes that preceed the edges in target edges.
+# (i.e. the union of all the first elements to all the edges.
+def get_node_before_edges(target_edges):
+    result = set()
+    for edge in target_edges:
+        if edge[0] not in result:
+            result.add(edge[0])
+    return result
+
+# Splice a graph into another graph at a given node --- this works
+# by (1) renumbering all the new graph nodes so they are unique
+# then (2) by replacing the start node of the input graph
+# with the starting-point node of the graph to be splied onto.
+# It also updates the symbol lookup and the accepting states
+# for the first graph.
+# Returns: the new nodes, the new edges, the new accepting states
+# and the
+def splice(nodes, edges, symbol_lookup, accepting_states, target_node,
+        new_nodes, new_edges, new_start_states, new_symbol_lookup, new_accepting_states):
+    # First, get the max node number, and just add onto that:
+    max_node_number = max(nodes)
+
+    # Relabel the graph:
+    new_nodes, new_edges, new_start_states, new_symbol_lookup, new_accepting_states = relabel_from(max_node_number + 1, new_nodes, new_edges, new_start_states, new_symbol_lookup, new_accepting_states)
+
+    assert len(new_start_states) == 1 # Only support inserts
+    # with single entries.
+
+    # Now, we need to go through all the above fields, and replace
+    # any reference to the start state with references to the
+    # node.
+    new_start_state = new_start_states[0]
+    # nodes
+    for i in range(len(new_nodes) - 1, -1, -1):
+        # Just delete the node --- it won't exist anymore.
+        if new_start_state == new_nodes[i]:
+            del new_nodes[i]
+    # Edges and the edge-symbol lookup.
+    for i in range(len(new_edges)):
+        (from_node, to_node) = new_edges[i]
+        if from_node == new_start_state:
+            from_node = target_node
+        if to_node == new_start_state:
+            to_node = target_node
+        # Reconfigure the edge-symbol lookup
+        new_edge = (from_node, to_node)
+        # Only change things if the edge changes.
+        if new_edge != new_edges[i]:
+            new_symbol_lookup[new_edge] = new_symbol_lookup[new_edges[i]]
+            del new_symbol_lookup[new_edges[i]]
+            new_edges[i] = new_edge
+
+    # Accept states
+    for i in range(len(new_accepting_states)):
+        if new_accepting_states[i] == new_start_state:
+            new_accepting_states[i] = target_node
+
+    # Now that we have the rebuilt graph, we just need to splice it into the current graph:
+    result_nodes = nodes + new_nodes
+    result_edges = edges + new_edges
+    result_symbol_lookup = dict(symbol_lookup)
+    for edge in new_edges:
+        result_symbol_lookup[edge] = new_symbol_lookup[edge]
+
+    result_accepting_states = accepting_states + new_accepting_states
+
+    return result_nodes, result_edges, result_symbol_lookup, result_accepting_states
+
+def relabel_from(new_lowest_number, nodes, edges, start_states, symbol_lookup, accepting_states):
+    node_label_mapping = {}
+    # Construct a mapping for the old numbers to the new ones.
+    for node in nodes:
+        node_label_mapping[node] = new_lowest_number
+        new_lowest_number += 1
+
+    # Rebuild every component
+    for i in range(len(nodes)):
+        nodes[i] = node_label_mapping[nodes[i]]
+    for i in range(len(edges)):
+        old_edge = edges[i]
+        edges[i] = (node_label_mapping[edges[i][0]],
+                        node_label_mapping[edges[i][1]])
+        symbol_lookup[edges[i]] = symbol_lookup[old_edge]
+    for i in range(len(accepting_states)):
+        accepting_states[i] = node_label_mapping[accepting_states[i]]
+    for i in range(len(start_states)):
+        start_states[i] = node_label_mapping[start_states[i]]
+
+    return nodes, edges, start_states, symbol_lookup, accepting_states
+
+
+# Given an AutomataNetwork object from grapefruit, get
+# back a list of nodes and edges.
+def automata_to_nodes_and_edges(automata):
+    return automata.node_ids_list(), automata.edge_ids_list()

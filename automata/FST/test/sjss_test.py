@@ -84,6 +84,50 @@ class SJSSTest(unittest.TestCase):
     def test_compute_loop_subregion_2(self):
         self.assertEqual(sjss.compute_loop_subregion([0], [(0, 0)], 0, {0: [[0, 0]]}, [0, 0])[2], [(0, 0)])
 
+    def test_node_before_edges(self):
+        self.assertEqual(sorted(list(sjss.get_node_before_edges([(0, 1), (4, 2)]))), [0, 4])
+
+    def test_relabel_from(self):
+        nodes = [0, 1]
+        edges = [(0, 1)]
+        start_states = [0]
+        symbol_lookup = { (0, 1): 'a' }
+        accepting_states = [1]
+
+        nodes, edges, start_states, symbol_lookup, accepting_states = sjss.relabel_from(5, nodes, edges, start_states, symbol_lookup, accepting_states)
+
+        self.assertEqual(nodes, [5, 6])
+        self.assertEqual(edges, [(5, 6)])
+        self.assertEqual(start_states, [5])
+        self.assertEqual(symbol_lookup[(5, 6)], 'a')
+        self.assertEqual(accepting_states, [6])
+
+    def test_splice(self):
+        bnodes = [0, 1]
+        bedges = [(0, 1)]
+        blookup = {(0, 1): 'a'}
+        baccepting_states = [1]
+        bstart_states = [0]
+
+        inodes = [0, 1]
+        iedges = [(0, 1)]
+        ilookup = {(0, 1): 'a'}
+        iaccepting_states =[1]
+        istart_states = [0]
+
+        target_node = 1
+
+        nodes, edges, symbol_lookup, accepting_state = sjss.splice(
+                bnodes, bedges, blookup, baccepting_states,
+                target_node,
+                inodes, iedges, istart_states, ilookup, iaccepting_states
+                )
+
+        self.assertEqual(len(nodes), 3)
+        self.assertEqual(edges, [(0, 1), (1, 3)])
+        self.assertTrue((0, 1) in symbol_lookup)
+        self.assertTrue((1, 3) in symbol_lookup)
+        self.assertEqual(len(accepting_state), 2)
 
 if __name__ == "__main__":
     unittest.main()
