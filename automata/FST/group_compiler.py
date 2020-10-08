@@ -3,6 +3,7 @@ import compilation_statistics
 from multiprocessing import Pool
 import tqdm
 import time
+import sjss
 from cache import ComparisonCache
 import algebra as alg
 
@@ -70,9 +71,21 @@ class AutomataContainer(object):
         self.automata = automata
         self.algebra = algebra
 
+# Store an automata to be implemented, and a set of translators
+# to link up to it as a CCGroup (ConnectedComponent Group)
+class CCGroup(object):
+    def __init__(self, physical_automata):
+        self.physical_automata = physical_automata
+        self.supported_automata = []
+        self.translators = []
+
+    def add_automata(self, automata, translator):
+        self.supported_automata.append(automata)
+        self.translators.append(translator)
+
 # Given a group, compute a 3D array representing the cross
 # compilability of that matrix.
-def compute_cross_compatibility_matrix_for(group, options):
+def compute_cross_compatibility_matrix_for(group, options, read_comparison_cache, dump_comparison_cache):
     results = [None] * len(group)
     compilation_list = [None] * len(group)
     # The compilation_list should be a 3D array that
@@ -88,17 +101,6 @@ def compute_cross_compatibility_matrix_for(group, options):
     # This flattens the tasks so that they can be
     # executed by a thread pool.
     tasks = []
-
-    if options.comparison_cache:
-        read_comparison_cache = ComparisonCache(options.target)
-        read_comparison_cache.from_file(options.comparison_cache)
-    else:
-        read_comparison_cache = None
-
-    if options.dump_comparison_cache:
-        dump_comparison_cache = ComparisonCache(options.target)
-    else:
-        dump_comparison_cache = None
 
     for i in range(len(group)):
         for j in range(len(group[i])):
@@ -130,10 +132,6 @@ def compute_cross_compatibility_matrix_for(group, options):
         for i, j, res, compilation_list_res in tqdm.tqdm(pool.imap_unordered(compute_compiles_for, tasks), total=len(tasks)):
             flat_results[index] = (i, j, res, compilation_list_res)
             index += 1
-
-    # Dump the write comparison cache if it exists:
-    if options.dump_comparison_cache:
-        dump_comparison_cache.dump_to_file(options.dump_comparison_cache)
 
     if options.line_profile:
         alg.profiler.print_stats()
@@ -214,9 +212,6 @@ def compute_compiles_for(args):
                     wcomparison_cache.add_compiles_to(source_automata.algebra.structural_hash(), target_automata.algebra.structural_hash())
                 if DEBUG_COMPUTE_COMPAT_MATRIX:
                     print "Successfully found a conversion between ", i2, j2
-                # Do not store the conversion machines --- recompte
-                # the ones we pick.
-                conversion_machine = None
                 successful_compiles.append(CompilationIndex(i2, j2, conversion_machine))
                 compilation_list.append((i2, j2, CompilationIndex(i, j, conversion_machine)))
 
@@ -227,13 +222,13 @@ def compute_compiles_for(args):
 # compute a set of regular expressions to
 # put on hardware, assignments for everything,
 # and conversion machines.
-def compute_hardware_assignments_for(groups, options):
+def compute_hardware_assignments_for(groups, options, read_comparison_cache, dump_comparison_cache):
     if options.memory_debug:
         print "Memory Usage before cross compat matrix"
         h = hpy()
         print(h.heap())
 
-    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options)
+    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options, read_comparison_cache, dump_comparison_cache)
     if options.memory_debug:
         print "Memory Usage after cross compat matrix"
         h = hpy()
@@ -289,8 +284,11 @@ def assign_hardware(compiles_from, compiles_to, options):
         # assign other automata that are part of different
         # groups to it.  Greedy step 2: pick the automata
         # with the fewest other options first.
+        # We also try and pick the automata with the fewest
+        # number of structural modifications.
         for i in range(len(compiles_to)):
             min_assigns = 100000000
+            min_num_modifications = 10000000000
             min_assigns_index = None
             min_assings_object = None
             # find the min and min index.
@@ -309,7 +307,10 @@ def assign_hardware(compiles_from, compiles_to, options):
                             print "Match Found"
                         is_match = True
                         match_obj = option
-                if is_match and num_options < min_assigns:
+                        num_modifications = 0 # option.unifier.num_modifications
+                        # TODO
+                if is_match and num_options < min_assigns and num_modifications <= min_num_modifications:
+                    min_num_mofications = num_modifications
                     min_assigns = num_options
                     min_assigns_index = j
                     min_assigns_object = match_obj
@@ -323,25 +324,183 @@ def assign_hardware(compiles_from, compiles_to, options):
 
     return assigned_hardware
 
+
+# Given a set of groups, generate the set of automata needed ---
+# using structural modification where required.
+# In addition to returning the automata for structural assignments,
+# it returns a hash table lookup for all the successful compilations.
+def generate_base_automata_for(groups, assignments, options):
+    result_automata_group = []
+    structural_additions = []
+    automata_mapping = {}
+
+    for i in range(len(groups)):
+        for j in range(len(groups[i])):
+            # See if this is assigned to itself:
+            assignment = assignments[i][j]
+            if assignment.i == i and assignment.j == j:
+                # This is assigned to itself --- need to
+                # add it to the group of automata
+                result_automata_group.append(groups[i][j].automata)
+                # Add the empty structural additions --- these
+                # are added in the next loop.
+                structural_additions.append([])
+                automata_mapping[(i, j)] = len(result_automata_group) - 1
+
+    # Now, generate the mapping: (and include any structural
+    # changes required.
+    for i in range(len(groups)):
+        for j in range(len(groups[i])):
+            # The automata in position i, j maps to the automata
+            # in position target.i, target.j
+            target = assignments[i][j]
+            mapping = automata_mapping[(target.i, target.j)]
+            automata_mapping[(i, j)] = mapping
+            
+            # Add the required structural mappings:
+            # structural_additions[i].append(result_automata_group[mapping].modifications)
+            # TODO
+
+    # Now, generate the structurally changed automata:
+    result = []
+    for i in range(len(result_automata_group)):
+        automata = result_automata_group[i]
+
+        result.append(alg.apply_structural_transformations(automata, structural_additions[i]))
+
+    return result, automata_mapping
+
+
 def compile(automata_components, options):
+    if options.print_compile_time:
+        start_time = time.time()
+
+    # If we want to use the comparison cache from a file, then load
+    # it in.  Likewise, if we want to dump the comparison cache,
+    # then create the dump comparison cache.
+    if options.comparison_cache:
+        read_comparison_cache = ComparisonCache(options.target)
+        read_comparison_cache.from_file(options.comparison_cache)
+    else:
+        read_comparison_cache = None
+
+    if options.dump_comparison_cache:
+        dump_comparison_cache = ComparisonCache(options.target)
+    else:
+        dump_comparison_cache = None
+
+    if options.group_size_distribution:
+        group_sizes = []
+        for group in automata_components:
+            group_sizes.append(len(group))
+
+        print "Dumping group size distributions to file ", options.group_size_distribution
+        with open(options.group_size_distribution, 'w') as f:
+            f.write(",".join(group_sizes))
+
+    # Do the normal compilation pass:
+    #   1: comptue the algebras for each automata.
+    #   2: compute all the unifications.
+    #   3: compute the hardware assignments.
+    #   4: recompute the translators for all the chosen automata.
+    # (1)
+    groups = compile_to_fixed_structures(automata_components, options)
+    if options.compile_only:
+        return None
+
+    # (2)
+    assignments = compute_hardware_assignments_for(groups, options, read_comparison_cache, dump_comparison_cache)
+    # (3)
+    base_automata_components, mapping = generate_base_automata_for(groups, assignments, options)
+    
+    # If we are using structural modification, then we need to
+    # regenerate the groups form the /new/ base_automata_components
+    # but /without/ the same old structural modification flags.
+    if options.use_structural_change:
+        options.use_structural_change = False
+
+    # (4) - regenerate the base automata algebras in case these changed.
+    base_automata_algebras = compile_to_fixed_structures([base_automata_components], options)[0]
+    result = generate_translators(base_automata_algebras, groups, mapping, options)
+
+    # Dump the write comparison cache if it exists:
+    if options.dump_comparison_cache:
+        dump_comparison_cache.dump_to_file(options.dump_comparison_cache)
+
+    if options.print_compile_time:
+        total_time = time.time() - start_time
+        print "Total taken is:", total_time, "seconds"
+
+    return result
+
+# Given a list of accelerators that are going to be implemented,
+# and a large group of automata, and a mapping on which automata
+# to try on the list, compute the translators that these automata
+# are going to use.
+def generate_translators(base_accelerators, groups, mapping, options):
+    translators = []
+    for accelerator in base_accelerators:
+        translators.append(CCGroup(accelerator.automata))
+
+    for i in range(len(groups)):
+        for j in range(len(groups[i])):
+            # See what i, j compiles to:
+            target_accel_index = mapping[(i, j)]
+            target = base_accelerators[target_accel_index]
+            source = groups[i][j]
+            
+            # Now, generate the unifier for this compilation:
+            conversion_machine = sc.compile_from_algebras(source.algebra, source.automata, target.algebra, target.automata, options)
+            # I think that this is going to have to succeed.
+            # There are ways around it, but it suggests that
+            # some approximation was used if it fails.
+            assert conversion_machine is not None
+            # This can't be the case --- we are just about to
+            # create a final hardware assignment, if there are
+            # structural additions, they should be dealt with
+            # before this function.
+            assert not conversion_machine.has_structural_additions()
+
+            translators[target_accel_index].add_automata(source.automata, conversion_machine)
+
+    return translators
+
+
+# This runs a compilation pass that regenerates some structures
+# for much greater automata coverage.
+# It takes the automata_components, rejenerates a new set
+# of automata componenets that we think are likely to have
+# a lot broader support at the cost of minor modifications.
+def recompile_structures(automata_components, options):
+    groups = groups_from_components(automata_components, options)
+    group_index = 0
+
+def compile_to_fixed_structures(automata_components, options):
     # Takes a list of lists of CCs, and computes a
     # set of CCs that should go in hardware, and a list
     # that can be translated.
 
-    if options.print_compile_time:
-        start_time = time.time()
-    
+    # This compilation algorithm only works if structural modification is disabled.
+    assert not options.use_structural_change
+
     # Generate the group.
-    groups = []
-    group_index = 0
-    if options.group_size_distribution:
-        group_sizes = []
+    groups = groups_from_components(automata_components, options)
 
     if options.memory_debug:
         print "Memory Usage before computing depth equations"
         h = hpy()
         print(h.heap())
 
+    if options.memory_debug:
+        print "Memory Usage after computing depth equations"
+        h = hpy()
+        print(h.heap())
+
+    return groups
+
+def groups_from_components(automata_components, options):
+    groups = []
+    group_index = 0
     for cc_list in automata_components:
         group = []
         equation_index = 0
@@ -363,30 +522,11 @@ def compile(automata_components, options):
                 group.append(AutomataContainer(cc, depth_eqn))
                 equation_index += 1
 
-        if options.group_size_distribution:
-            group_sizes.append(str(len(group)))
-
         groups.append(group)
         group_index += 1
 
-    if options.memory_debug:
-        print "Memory Usage after computing depth equations"
-        h = hpy()
-        print(h.heap())
+    return groups
 
-    if options.group_size_distribution:
-        print "Dumping group size distributions to file ", options.group_size_distribution
-        with open(options.group_size_distribution, 'w') as f:
-            f.write(",".join(group_sizes))
-
-    if options.print_compile_time:
-        total_time = time.time() - start_time
-        print "Total taken is:", total_time, "seconds"
-
-    if options.compile_only:
-        return groups, None
-    else:
-        return groups, compute_hardware_assignments_for(groups, options)
 
 
 # Estimate the amount of cross-compatability within
