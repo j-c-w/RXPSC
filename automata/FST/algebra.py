@@ -1,4 +1,5 @@
 # Get the algebtra terms
+from simple_graph import SimpleGraph
 from terms import *
 import sjss
 import itertools
@@ -546,7 +547,12 @@ def graph_for(algebra, symbol_lookup):
     elif algebra.isproduct():
         # Do this by computing the subgraph, then linking the
         # last node to the first node.
-        nodes, edges, start_states, accept_states, result_lookup, end_nodes = graph_for(algebra.e1, symbol_lookup)
+        subgraph, end_nodes = graph_for(algebra.e1, symbol_lookup)
+        nodes = subgraph.nodes
+        edges = subgraph.edges
+        symbol_lookup = subgraph.symbol_lookup
+        accepting_states = subgraph.accepting_states
+        start_state = symbol_lookup.start_state
         # Make the end state and the start state the same, because this
         # is a loop.
         assert len(start_states) == 1
@@ -568,7 +574,7 @@ def graph_for(algebra, symbol_lookup):
                 if nodes[i] == state:
                     del nodes[i]
         end_nodes = []
-    return nodes, edges, start_states, accept_states, result_lookup, end_nodes
+    return SimpleGraph(nodes, edges, start_states, accept_states, result_lookup), end_nodes
 
 # This is an implementation of the comparison operator ---
 # the concept is that if A < B, then  we can use the circuit
@@ -1226,3 +1232,28 @@ def leq_internal_wrapper(A, B, options):
 # Yield every cpermustations of i numbers up to j.
 def permutations(i, j):
     return itertools.product(j, repeat=i)
+
+# Given an automata, and a list of additions, inject the additions
+# into the automata.
+def apply_structural_transformations(automata, additions):
+    old_graph = sjss.automata_to_nodes_and_edges(automata)
+    for addition in additions:
+        # Get the edges that this has to be before
+        edges_after = addition.edges_after
+        # Now, get the node that leads to the 'edges after',
+        # and insert this one before all the edges after.
+        nodes_before = list(sjss.get_node_before_edges(edges_after))
+
+        # I don't think we currently support adding things
+        # with many different start nodes --- not sure how
+        # that would work.
+        assert len(nodes_before) == 1
+
+        # Then, insert this by generating new edge numbers and
+        # putting it in with the appropriate symbol set.
+        new_graph, _ = graph_for(addition.equation, addition.symbol_lookup)
+
+        # And insert it into the graph:
+        graph = sjss.splice(old_graph, nodes_before[0], new_graph)
+
+    return sjss.nodes_and_edges_to_automata(old_graph)
