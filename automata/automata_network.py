@@ -60,20 +60,29 @@ class Automatanetwork(object):
         return self.last_assigned_id
 
     @classmethod
+    def from_simple_graph(cls, id, graph, last_assigned_id):
+        automata = Automatanetwork(id=id, is_homogenous=True, stride=1, max_val=255)
+        automata.last_assigned_id = last_assigned_id
+        assert 0 in graph.nodes
+
+        # Now, construct the graph for this:
+
+    @classmethod
     # this function is used in connecteed components detection
-    def _from_graph(cls, id ,is_homogenous, graph ,stride, last_assigned_id, max_val):
+    def _from_graph(cls, id ,is_homogenous, graph ,stride, last_assigned_id, max_val, add_fake_root=True):
         assert is_homogenous, "graph should be in homogenous state"
 
         automata = Automatanetwork(id=id, is_homogenous=True, stride=stride, max_val=max_val)
         automata.last_assigned_id = last_assigned_id
         del automata._my_graph
         automata._my_graph = graph
-        automata.add_element(FakeRoot())
+        if add_fake_root:
+            automata.add_element(FakeRoot())
 
-        for node in graph.nodes:
-            if node.start_type == StartType.all_input or \
-                            node.start_type == StartType.start_of_data:
-                automata.add_edge(automata.fake_root, node)
+            for node in graph.nodes:
+                if node.start_type == StartType.all_input or \
+                                node.start_type == StartType.start_of_data:
+                    automata.add_edge(automata.fake_root, node)
         return automata
 
     @property

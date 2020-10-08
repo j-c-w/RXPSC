@@ -704,28 +704,8 @@ class S_T_E(BaseElement):
         # symbol_list = VASim.parseSymbolSet(symbol_str)
         symbol_list = internal_vasim.parseSymbolSet(symbol_str)
 
-        symbol_set = PackedIntervalSet([])
 
-        start = False
-        start_idx = -1
-        for ch in range(256):
-            if chr(ch) in symbol_list and start == False:
-                start = True
-                start_idx = ch
-            elif chr(ch) not in symbol_list and start == True:
-                start = False
-                left_pt = PackedInput((start_idx,))
-                right_pt = PackedInput((ch - 1,))
-                interval = PackedInterval(left_pt, right_pt)
-                symbol_set.add_interval(interval)
-                start_idx = -1
-
-        if start == True:  # this is necessary if the last iteration was 1
-            left_pt = PackedInput((start_idx,))
-            right_pt = PackedInput((ch,))
-            interval = PackedInterval(left_pt, right_pt)
-            symbol_set.add_interval(interval)
-
+        symbol_set = list_to_packed_set(symbol_list)
 
         parameter_dict['symbol_set'] = symbol_set
 
@@ -816,3 +796,27 @@ class S_T_E(BaseElement):
     @property
     def is_fake(self):
         return False
+
+def list_to_packed_set(symbol_list):
+    symbol_set = PackedIntervalSet([])
+
+    start = False
+    start_idx = -1
+    for ch in range(256):
+        if chr(ch) in symbol_list and start == False:
+            start = True
+            start_idx = ch
+        elif chr(ch) not in symbol_list and start == True:
+            start = False
+            left_pt = PackedInput((start_idx,))
+            right_pt = PackedInput((ch - 1,))
+            interval = PackedInterval(left_pt, right_pt)
+            symbol_set.add_interval(interval)
+            start_idx = -1
+
+    if start == True:  # this is necessary if the last iteration was 1
+        left_pt = PackedInput((start_idx,))
+        right_pt = PackedInput((ch,))
+        interval = PackedInterval(left_pt, right_pt)
+        symbol_set.add_interval(interval)
+    return symbol_set
