@@ -25,8 +25,12 @@ class FSTState(object):
         self.lookuptable = lookuptable
 
 class SingleStateTranslator(object):
-    def __init__(self, lookup):
+    def __init__(self, lookup, modification_count):
         self.lookup = lookup
+        self.modification_count = modification_count
+
+    def has_structural_additions(self):
+        return self.modification_count > 0
 
     def isempty(self):
         for entry in self.lookup:
