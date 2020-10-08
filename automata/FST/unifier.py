@@ -118,6 +118,12 @@ class Unifier(object):
         self.inserts = []
         self.branches = []
 
+    def structural_modification_count(self):
+        return len(self.inserts) + len(self.branches)
+
+    def has_structural_additions(self):
+        return len(self.inserts) > 0 or len(self.branches) > 0
+
     def add_insert(self, insert, edges_after):
         assert not insert.has_accept_before_first_edge()
         assert insert.first_edge() is not None
@@ -383,6 +389,31 @@ class Unifier(object):
                 non_matching_set.add(i)
                 non_matching = i
 
+        # We can't have symbols accidentally activating an edge
+        # they are not meant to.  Go through and make sure
+        # that they aren't doing that.
+        for i in range(len(self.from_edges)):
+            # Each edge lines up to exactly one other edge ---
+            # the other edges might line up to more than
+            # one of the from_edges though.
+            from_symbols = symbol_lookup_1[self.from_edges[i]]
+
+            for j in range(len(self.to_edges)):
+                if j == i:
+                    continue # No restrictions matching yourself.
+
+                other_symbols = symbol_lookup_2[self.to_edges[j]]
+
+                for from_symbol in from_symbols:
+                    # These are the symbols that activate this
+                    # other edge.  Need to not translate to these...
+                    for symb in other_symbols:
+                        if symb in state_lookup[from_symbol]:
+                            state_lookup[from_symbol].remove(symb)
+                            if len(state_lookup[from_symbol]) == 0:
+                                # Fail because now there are no options to translate this symbol to.
+                                return False
+
         disabled_edges = self.get_disabled_edges()
         if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation:
             if DEBUG_UNIFICATION:
@@ -396,14 +427,12 @@ class Unifier(object):
         # Translate everything else to itself.  This is an
         # relatively arbitrary decision I'm pretty sure.
         for i in range(0, 256):
-            if chr(i) in state_lookup:
-                # Pick the first available option arbitrarily.
-                state_lookup[chr(i)] = list(state_lookup[chr(i)])[0]
-            else:
+            if chr(i) not in state_lookup:
                 state_lookup[chr(i)] = chr(i)
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Returning a real result"
 
         compilation_statistics.single_state_unification_success += 1
-        return FST.SingleStateTranslator(state_lookup)
+        modification_count = len(self.branches) + len(self.inserts)
+        return FST.SingleStateTranslator(state_lookup, modification_count)
