@@ -1,6 +1,13 @@
 # Due to poor choices, we largely don't use this.
+from simple_graph import SimpleGraph
+from automata.elemnts.element import StartType
+from automata.elemnts.element import FakeRoot
+from automata.elemnts.ste import S_T_E
+import automata.elemnts.ste
 import networkx as nx
 import time
+import generate_fst
+from automata.automata_network import Automatanetwork
 
 # This file computes an SJSS graph from a non-SJSS input graph.
 
@@ -583,4 +590,53 @@ def relabel_from(new_lowest_number, nodes, edges, start_states, symbol_lookup, a
 # Given an AutomataNetwork object from grapefruit, get
 # back a list of nodes and edges.
 def automata_to_nodes_and_edges(automata):
-    return automata.node_ids_list(), automata.edge_ids_list()
+    edges = automata.edge_ids_list()
+    accepting_states = automata.reporting_states_list()
+    start_state = automata.fake_root.id
+    return SimpleGraph(automata.node_ids_list(), edges, generate_fst.edge_label_lookup_generate(automata), accepting_states, start_state)
+
+# Convert a nodes and edges representation to an automata network
+# object.
+def nodes_and_edges_to_automata(simple_graph):
+    id = 'testid' # Does this need to be insightful?
+
+    # Need to reconstruct the STEs for each node:
+    stes = []
+    symbol_sets = []
+    node_lookup = {}
+    for node in simple_graph.nodes:
+        reporting = node in simple_graph.accepting_states
+        # Get the symbol table from the symbol lookup.
+        for edge in simple_graph.edges:
+            _, finish = edge
+            # Assume homogenous, so all inputs are the same.
+            if finish == node:
+                # TODO --- need to make the symbols a packed interval.
+                symbols = simple_graph.symbol_lookup[edge]
+
+        # 0 is always the identity of the fake root.
+        if node == 0:
+            start_type = StartType.all_input
+            stes.append(FakeRoot())
+        else:
+            start_type = StartType.non_start
+
+            # Ignore the report code because that isn't actually
+            # what we are interested in?  Just research software yo
+            stes.append(S_T_E(start_type, reporting, False, node, symbols, None, (0 if reporting else -1), report_code=1))
+
+        node_lookup[node] = stes[-1]
+        symbol_sets.append(symbols)
+
+    graph = nx.MultiDiGraph()
+    for i in range(len(stes)):
+        graph.add_nodes_from(stes, data=stes[i])
+    for from_n, to_n in simple_graph.edges:
+        from_ste = node_lookup[from_n]
+        to_ste = node_lookup[to_n]
+        graph.add_edge(from_ste, to_ste, symbol_set=automata.elemnts.ste.list_to_packed_set(simple_graph.symbol_lookup[(from_n, to_n)]))
+    max_node_val = max(graph.nodes)
+    # Assume homogenous, and stride of 1.
+    # Also assume that we are using byte representation
+    # of inputs, which means 255 I think.
+    return Automatanetwork._from_graph(id, True, graph, 1, max_node_val, 255, add_fake_root=False)
