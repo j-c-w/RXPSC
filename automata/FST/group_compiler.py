@@ -421,7 +421,7 @@ def compile(automata_components, options):
 
     # (4) - regenerate the base automata algebras in case these changed.
     base_automata_algebras = compile_to_fixed_structures([base_automata_components], options)[0]
-    result = generate_translators(base_automata_algebras, groups, mapping, options)
+    result = generate_translators(base_automata_algebras, groups, mapping, assignments, options)
 
     # Dump the write comparison cache if it exists:
     if options.dump_comparison_cache:
@@ -436,8 +436,9 @@ def compile(automata_components, options):
 # Given a list of accelerators that are going to be implemented,
 # and a large group of automata, and a mapping on which automata
 # to try on the list, compute the translators that these automata
-# are going to use.
-def generate_translators(base_accelerators, groups, mapping, options):
+# are going to use.  The original assignments list is taken as
+# a debug crutch.
+def generate_translators(base_accelerators, groups, mapping, assignments, options):
     translators = []
     for accelerator in base_accelerators:
         translators.append(CCGroup(accelerator.automata))
@@ -450,10 +451,20 @@ def generate_translators(base_accelerators, groups, mapping, options):
             source = groups[i][j]
             
             # Now, generate the unifier for this compilation:
-            conversion_machine = sc.compile_from_algebras(source.algebra, source.automata, target.algebra, target.automata, options)
+            conversion_machine = sc.compile_from_algebras(target.algebra, target.automata, source.algebra, source.automata, options)
             # I think that this is going to have to succeed.
             # There are ways around it, but it suggests that
             # some approximation was used if it fails.
+            if conversion_machine is None:
+                print "Suprisise! Failed to convert machines"
+                print source.algebra
+                print target.algebra
+                print "WHen we were promised to be able to"
+                print "Original assignment was from:"
+                print source.algebra
+                assign = assignments[i][j]
+                ti, tj = assign.i, assign.j
+                print groups[ti][tj].algebra
             assert conversion_machine is not None
             # This can't be the case --- we are just about to
             # create a final hardware assignment, if there are
