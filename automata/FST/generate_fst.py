@@ -31,6 +31,8 @@ def generate(unification, to_atma, from_atma, options):
     to_edge_lookup = edge_label_lookup_generate(to_atma)
     from_edge_lookup = edge_label_lookup_generate(from_atma)
 
+    best_result = None
+    best_structural_modification_count = 1000000
     for unifier in unification:
         if not unifier:
             continue
@@ -45,6 +47,15 @@ def generate(unification, to_atma, from_atma, options):
             print "Unkown target " + options.target
             sys.exit(1)
 
-        if result:
+        # We want to return results with 0 structural modification
+        # where possible.  So, if we find one with structural
+        # modification, then keep going.
+        structural_modification_count = unifier.structural_modification_count()
+        if result and structural_modification_count == 0:
+            # Auto-return if we get an answer with 0 modification
             return result
-    return None
+        elif result and structural_modification_count < best_structural_modification_count:
+            best_result = result
+            best_structural_modification_count = structural_modification_count
+
+    return best_result
