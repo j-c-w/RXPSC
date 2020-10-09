@@ -1,6 +1,7 @@
 import os
 import algebra
 import unifier
+import terms
 import group_compiler
 
 class Options(object):
@@ -43,6 +44,7 @@ class Options(object):
 def create_from_args(args):
     algebra.LEQ_DEBUG = args.debug_leq
     algebra.ALG_DEBUG = args.debug_alg
+    terms.TERMS_DEBUG = args.debug_terms
     unifier.DEBUG_UNIFICATION = args.debug_unification
     unifier.MAX_UNIFIERS = args.max_unifiers
     group_compiler.DEBUG_COMPUTE_COMPAT_MATRIX = args.debug_compute_compat_matrix
@@ -108,6 +110,7 @@ def add_to_parser(parser):
     
     # Debug flags.
     parser.add_argument('--debug-leq', default=False, dest='debug_leq', action='store_true')
+    parser.add_argument('--debug-terms', default=False, dest='debug_terms', action='store_true', help='Print all information about terms when printing')
     parser.add_argument('--no-skip-on-fail', default=False, dest='no_skip_on_fail', action='store_true', help="Normally, we skip the algebra if a tool fails.  With this flag, we do not skip")
     parser.add_argument('--debug-alg', default=False, dest='debug_alg', action='store_true')
     parser.add_argument('--debug-unification', default=False, dest='debug_unification', action='store_true')
