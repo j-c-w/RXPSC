@@ -3,6 +3,7 @@ from simple_graph import SimpleGraph
 from automata.elemnts.element import StartType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import S_T_E
+import generate_fst
 import automata.elemnts.ste
 import networkx as nx
 import time
@@ -634,7 +635,12 @@ def nodes_and_edges_to_automata(simple_graph):
     for from_n, to_n in simple_graph.edges:
         from_ste = node_lookup[from_n]
         to_ste = node_lookup[to_n]
-        graph.add_edge(from_ste, to_ste, symbol_set=automata.elemnts.ste.list_to_packed_set(simple_graph.symbol_lookup[(from_n, to_n)]))
+
+        # Need to make sure that these are actually the same...
+        reslookup = generate_fst.expand_ranges(automata.elemnts.ste.list_to_packed_set(set(simple_graph.symbol_lookup[(from_n, to_n)]), ints=True))
+        assert reslookup ==  simple_graph.symbol_lookup[(from_n, to_n)]
+
+        graph.add_edge(from_ste, to_ste, symbol_set=automata.elemnts.ste.list_to_packed_set(simple_graph.symbol_lookup[(from_n, to_n)], ints=True))
     max_node_val = max(graph.nodes)
     # Assume homogenous, and stride of 1.
     # Also assume that we are using byte representation

@@ -797,16 +797,20 @@ class S_T_E(BaseElement):
     def is_fake(self):
         return False
 
-def list_to_packed_set(symbol_list):
+def list_to_packed_set(symbol_list, ints=False):
     symbol_set = PackedIntervalSet([])
 
     start = False
     start_idx = -1
     for ch in range(256):
-        if chr(ch) in symbol_list and start == False:
+        if ints:
+            converted = ch
+        else:
+            converted = chr(ch)
+        if converted in symbol_list and start == False:
             start = True
             start_idx = ch
-        elif chr(ch) not in symbol_list and start == True:
+        elif converted not in symbol_list and start == True:
             start = False
             left_pt = PackedInput((start_idx,))
             right_pt = PackedInput((ch - 1,))
@@ -819,4 +823,5 @@ def list_to_packed_set(symbol_list):
         right_pt = PackedInput((ch,))
         interval = PackedInterval(left_pt, right_pt)
         symbol_set.add_interval(interval)
+
     return symbol_set
