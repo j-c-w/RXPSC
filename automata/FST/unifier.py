@@ -262,167 +262,31 @@ class Unifier(object):
 
             compilation_statistics.exact_same_compilations += 1
 
-        for i in range(len(self.from_edges)):
-            if DEBUG_UNIFICATION:
-                print "Trying to unify edges: "
-                print self.from_edges[i]
-                print self.to_edges[i]
-                print symbol_lookup_1
-                print symbol_lookup_2
-                print "Symbol sets are:"
-                print symbol_lookup_1[self.from_edges[i]]
-                print symbol_lookup_2[self.to_edges[i]]
-            from_chars = symbol_lookup_1[self.from_edges[i]]
-            to_chars = symbol_lookup_2[self.to_edges[i]]
-
-            for from_char in from_chars:
-                if from_char in state_lookup:
-                    overlap_set = set()
-                    for character in state_lookup[from_char]:
-                        if character in to_chars:
-                            overlap_set.add(character)
-
-                    if len(overlap_set) == 0:
-                        if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
-                            print "Unification failed due to double-mapped state"
-                            print "(" + str(from_char) + ") already mapped to " + str(state_lookup[from_char]) + " when something in " + str(to_chars) + " is required"
-                        compilation_statistics.single_state_unification_double_map_fails += 1
-                        return None
-                    else:
-                        # The overlap set is non-zero, but may
-                        # still be smaller than it was before.
-                        state_lookup[from_char] = overlap_set
-                else: # Fromchar not in state lookup.
-                    state_lookup[from_char] = to_chars
-
-            if to_chars:
-                for char in to_chars:
-                    matching_symbol[char] = True
-
-        # As an approximation, we need to make sure that we can disable any
-        # of the edges that have to be added when running the original automaton.
-        # We could look at the cost of adding a translator to the original automata too,
-        # but we're not interested in that right now.
-        for (branch, edges_after) in self.branches:
-            # Only handle the 1 + a + e branches for the time being.
-            if not branch.issum() and not branch.e1[0].isconst() and not branch.e1[1].isaccept() and \
-                    not branch.e1[2].isend():
-                return None
-
-            # Need to be able to disable the first edge of the branch:
-            target_symbolset = set()
-            for edge in branch.first_edge():
-                # Get the target symbolset from the first edge:
-                source_characterset = symbol_lookup_2[edge]
-                for char in source_characterset:
-                    if char in state_lookup:
-                        target_symbolset.add
-                    else:
-                        target_symbolset.add(char)
-
-        disabling_symbols = set()
-        for i in range(0, 256):
-            if i not in matching_symbol:
-                disabling_symbols.add(i)
-
-        for (insert, edges_after) in self.inserts:
-            # Only handle small inserts.
-            if insert.size() > 2:
-                return None
-
-            if len(disabling_symbols) == 0:
-                return None
-            # We first need to pick the characterset for the insert --- use
-            # all the characters in the first edge of the insert.
-            insert_characterset = set()
-            # The first edges can't be none if this was added
-            # as an insert --- that would mean this is going to be
-            # difficult to disable I think...
-            assert insert.first_edge() is not None
-            for edge in insert.first_edge():
-                for character in symbol_lookup_2[edge]:
-                    # This could definitely be moved up to the part before state_lookup is
-                    # solidified.
-                    if character in state_lookup:
-                        for c in state_lookup[character]:
-                            insert_characterset.add(c)
-                    else:
-                        # assume that we will map character to itself.
-                        insert_characterset.add(character)
-
-            # Now, make sure that we can disable that edge in normal use of
-            # the accelerator.  We do that by mapping the contents of that edge
-            # to one of the non_matching symbols.
-            for character in insert_characterset:
-                # Try to map this character to one of the disabled characters:
-                if character in state_lookup:
-                    existing_set = state_lookup[character]
-                    new_set = disabling_symbols.intersection(existing_set)
-                    if len(new_set) == 0:
-                        return None
-                    else:
-                        state_lookup[character] = new_set
-
-                    # TODO --- Need to disable one of the characters in
-                    # the new_set from the matching_set.   this is actually
-                    # broken until that happens.
-                else:
-                    state_lookup[character] = [sorted(list(disabling_symbols))[0]]
-                    # this is now a symbol that matches this edge.
-                    # TODO -- need to make clear that the disabling set is for this
-                    # particular structure.
-                    matching_symbol[(sorted(list(disabling_symbols))[0])] = True
-
-            # Need to make sure that every character in the loop is treated
-            # as a matching symbol and not used as a disabling symbol.
-            # for edge in insert.all_edges():
-            # For now, we skip this by failing unless A is a single element big :)
-
-
-        # Now, go through and map any None values, which mean
-        # that symbols should be mapped to things that don't match
-        # any edges.
-        non_matching = None
-        non_matching_set = set()
-        for i in range(0, 256):
-            if i not in matching_symbol:
-                non_matching_set.add(i)
-                non_matching = i
-
-        # We can't have symbols accidentally activating an edge
-        # they are not meant to.  Go through and make sure
-        # that they aren't doing that.
-        for i in range(len(self.from_edges)):
-            # Each edge lines up to exactly one other edge ---
-            # the other edges might line up to more than
-            # one of the from_edges though.
-            from_symbols = symbol_lookup_1[self.from_edges[i]]
-
-            for j in range(len(self.to_edges)):
-                if j == i:
-                    continue # No restrictions matching yourself.
-
-                other_symbols = symbol_lookup_2[self.to_edges[j]]
-
-                for from_symbol in from_symbols:
-                    # These are the symbols that activate this
-                    # other edge.  Need to not translate to these...
-                    for symb in other_symbols:
-                        if symb in state_lookup[from_symbol]:
-                            state_lookup[from_symbol].remove(symb)
-                            if len(state_lookup[from_symbol]) == 0:
-                                # Fail because now there are no options to translate this symbol to.
-                                return False
-
-        disabled_edges = self.get_disabled_edges()
-        if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation:
-            if DEBUG_UNIFICATION:
-                print "Unification failed due to required edge disabling that cannot be achieved"
-            compilation_statistics.single_state_unification_non_matching += 1
+        # Generate a mapping that is complete, but not correct.
+        state_lookup, matching_symbol = generate_complete_mapping(self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
+        if state_lookup is None:
             return None
-        elif non_matching is not None:
-            for disable in disabled_edges:
-                state_lookup[disable] = non_matching
+
+        # Check that we would be able to unify with the structural
+        # modifications:  this just has to be an approximation, because
+        # we don't really use this to unify, just to guide decisions
+        # for a later reconstruction pass.
+        state_lookup, matching_symbol = generate_additions_mapping(state_lookup, matching_symbol, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, self.inserts, self.branches, options)
+
+        if state_lookup is None:
+            return None
+
+        # Get the non-matching symbols:
+        non_matching = compute_non_matching_symbol(matching_symbol)
+
+        # We can't have a symbol activating an edge that it is not
+        # supposed to activate.
+        # Go through and get all the valid activating symbols
+        # together
+        state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges())
+
+        if state_lookup is None:
+            return None
 
         # Translate everything else to itself.  This is an
         # relatively arbitrary decision I'm pretty sure.
@@ -436,3 +300,150 @@ class Unifier(object):
         compilation_statistics.single_state_unification_success += 1
         modification_count = len(self.branches) + len(self.inserts)
         return FST.SingleStateTranslator(state_lookup, modification_count)
+
+# Given a set of input edges and output edges, generate a set
+# of input/output assignments that /does not double-map any symbol/
+# (return None, None if it does double-map a symbol).
+def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, options):
+    state_lookup = {}
+    matching_symbol = {}
+    for i in range(len(from_edges)):
+        if DEBUG_UNIFICATION:
+            print "Trying to unify edges: "
+            print from_edges[i]
+            print to_edges[i]
+            print symbol_lookup_1
+            print symbol_lookup_2
+            print "Symbol sets are:"
+            print symbol_lookup_1[from_edges[i]]
+            print symbol_lookup_2[to_edges[i]]
+        from_chars = symbol_lookup_1[from_edges[i]]
+        to_chars = symbol_lookup_2[to_edges[i]]
+
+        for from_char in from_chars:
+            if from_char in state_lookup:
+                overlap_set = set()
+                for character in state_lookup[from_char]:
+                    if character in to_chars:
+                        overlap_set.add(character)
+
+                if len(overlap_set) == 0:
+                    if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                        print "Unification failed due to double-mapped state"
+                        print "(" + str(from_char) + ") already mapped to " + str(state_lookup[from_char]) + " when something in " + str(to_chars) + " is required"
+                    compilation_statistics.single_state_unification_double_map_fails += 1
+                    return None, None
+                else:
+                    # The overlap set is non-zero, but may
+                    # still be smaller than it was before.
+                    state_lookup[from_char] = overlap_set
+            else: # Fromchar not in state lookup.
+                state_lookup[from_char] = to_chars
+
+        if to_chars:
+            for char in to_chars:
+                matching_symbol[char] = True
+
+    return state_lookup, matching_symbol
+
+def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, inserts, branches, options):
+    # As an approximation, we need to make sure that we can disable any
+    # of the edges that have to be added when running the original automaton.
+    # We could look at the cost of adding a translator to the original automata too,
+    # but we're not interested in that right now.
+    for (branch, edges_after) in branches:
+        # Only handle the 1 + a + e branches for the time being.
+        if not branch.issum() and not branch.e1[0].isconst() and not branch.e1[1].isaccept() and \
+                not branch.e1[2].isend():
+            return None, None
+
+        # Need to be able to disable the first edge of the branch:
+        target_symbolset = set()
+        for edge in branch.first_edge():
+            # Get the target symbolset from the first edge:
+            source_characterset = symbol_lookup_2[edge]
+            for char in source_characterset:
+                if char in state_lookup:
+                    target_symbolset.add
+                else:
+                    target_symbolset.add(char)
+
+    disabling_symbols = set()
+    for i in range(0, 256):
+        if i not in matching_symbol:
+            disabling_symbols.add(i)
+
+    for (insert, edges_after) in inserts:
+        # Only handle small inserts.
+        if insert.size() > 2:
+            return None, None
+
+        if len(disabling_symbols) == 0:
+            return None, None
+        # We first need to pick the characterset for the insert --- use
+        # all the characters in the first edge of the insert.
+        insert_characterset = set()
+        # The first edges can't be none if this was added
+        # as an insert --- that would mean this is going to be
+        # difficult to disable I think...
+        assert insert.first_edge() is not None
+        for edge in insert.first_edge():
+            for character in symbol_lookup_2[edge]:
+                # This could definitely be moved up to the part before state_lookup is
+                # solidified.
+                if character in state_lookup:
+                    for c in state_lookup[character]:
+                        insert_characterset.add(c)
+                else:
+                    # assume that we will map character to itself.
+                    insert_characterset.add(character)
+
+        # Now, make sure that we can disable that edge in normal use of
+        # the accelerator.  We do that by mapping the contents of that edge
+        # to one of the non_matching symbols.
+        for character in insert_characterset:
+            # Try to map this character to one of the disabled characters:
+            if character in state_lookup:
+                existing_set = state_lookup[character]
+                new_set = disabling_symbols.intersection(existing_set)
+                if len(new_set) == 0:
+                    return None, None
+                else:
+                    state_lookup[character] = new_set
+
+                # TODO --- Need to disable one of the characters in
+                # the new_set from the matching_set.   this is actually
+                # broken until that happens.
+            else:
+                state_lookup[character] = [sorted(list(disabling_symbols))[0]]
+                # this is now a symbol that matches this edge.
+                # TODO -- need to make clear that the disabling set is for this
+                # particular structure.
+                matching_symbol[(sorted(list(disabling_symbols))[0])] = True
+
+    return state_lookup, matching_symbol
+
+def compute_non_matching_symbol(matching):
+    # Now, go through and map any None values, which mean
+    # that symbols should be mapped to things that don't match
+    # any edges.
+    non_matching = None
+    non_matching_set = set()
+    for i in range(0, 256):
+        if i not in matching:
+            non_matching_set.add(i)
+            non_matching = i
+
+    return non_matching
+
+def disable_edges(state_lookup, non_matching, disabled_edges):
+    if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation:
+        if DEBUG_UNIFICATION:
+            print "Unification failed due to required edge disabling that cannot be achieved"
+        compilation_statistics.single_state_unification_non_matching += 1
+        return None
+    elif non_matching is not None:
+        for disable in disabled_edges:
+            state_lookup[disable] = non_matching
+
+    return state_lookup
