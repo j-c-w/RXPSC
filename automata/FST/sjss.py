@@ -2,6 +2,7 @@
 import simple_graph
 from automata.elemnts.element import StartType
 from automata.elemnts.element import FakeRoot
+from automata.elemnts.ste import list_to_packed_set 
 from automata.elemnts.ste import S_T_E
 import generate_fst
 import automata.elemnts.ste
@@ -588,6 +589,7 @@ def automata_to_nodes_and_edges(automata):
     edges = automata.edge_ids_list()
     accepting_states = automata.reporting_states_list()
     start_state = automata.fake_root.id
+    assert start_state == 0
     return simple_graph.SimpleGraph(automata.node_ids_list(), edges, generate_fst.edge_label_lookup_generate(automata), accepting_states, start_state)
 
 # Convert a nodes and edges representation to an automata network
@@ -599,34 +601,45 @@ def nodes_and_edges_to_automata(simple_graph):
     stes = []
     symbol_sets = []
     node_lookup = {}
+    starts = set() # Keep track of the real start nodes.
+    for start, finish in simple_graph.edges:
+        if start == 0:
+            starts.add(finish)
+
     for node in simple_graph.nodes:
         reporting = node in simple_graph.accepting_states
         # Get the symbol table from the symbol lookup.
         for edge in simple_graph.edges:
-            _, finish = edge
+            start, finish = edge
             # Assume homogenous, so all inputs are the same.
             if finish == node:
-                # TODO --- need to make the symbols a packed interval.
-                symbols = simple_graph.symbol_lookup[edge]
+                symbols = list_to_packed_set(simple_graph.symbol_lookup[edge])
+                break
 
-        # 0 is always the identity of the fake root.
+        # 0 is always the identity of the fake root. --- skip it.
         if node == 0:
-            start_type = StartType.all_input
-            stes.append(FakeRoot())
+            continue
         else:
-            start_type = StartType.non_start
+            if node in starts:
+                start_type = StartType.all_input
+            else:
+                start_type = StartType.non_start
 
             # Ignore the report code because that isn't actually
             # what we are interested in?  Just research software yo
             stes.append(S_T_E(start_type, reporting, False, node, symbols, None, (0 if reporting else -1), report_code=1))
 
-        node_lookup[node] = stes[-1]
-        symbol_sets.append(symbols)
+            node_lookup[node] = stes[-1]
+            symbol_sets.append(symbols)
 
     graph = nx.MultiDiGraph()
     for i in range(len(stes)):
         graph.add_nodes_from(stes, data=stes[i])
     for from_n, to_n in simple_graph.edges:
+        if from_n == 0:
+            continue
+        assert to_n != 0 # Can't have an edge going /to/ the
+        # start no
         from_ste = node_lookup[from_n]
         to_ste = node_lookup[to_n]
 
@@ -639,4 +652,5 @@ def nodes_and_edges_to_automata(simple_graph):
     # Assume homogenous, and stride of 1.
     # Also assume that we are using byte representation
     # of inputs, which means 255 I think.
-    return Automatanetwork._from_graph(id, True, graph, 1, max_node_val, 255, add_fake_root=False)
+    result = Automatanetwork._from_graph(id, True, graph, 1, max_node_val, 255, add_fake_root=True)
+    return result
