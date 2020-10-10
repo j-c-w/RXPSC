@@ -267,10 +267,11 @@ class Unifier(object):
         if state_lookup is None:
             return None
 
-        # Make that mapping correct. (i.e. not an overapproximation)
-        state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
-        if state_lookup is None:
-            return None
+        if options.correct_mapping:
+            # Make that mapping correct. (i.e. not an overapproximation)
+            state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
+            if state_lookup is None:
+                return None
 
         # Check that we would be able to unify with the structural
         # modifications:  this just has to be an approximation, because
@@ -281,22 +282,27 @@ class Unifier(object):
         if state_lookup is None:
             return None
 
-        # Get the non-matching symbols:
+        # This is correctness, not completeness related:
         non_matching = compute_non_matching_symbol(matching_symbol)
+        if options.correct_mapping:
+            # Get the non-matching symbols:
 
-        # We can't have a symbol activating an edge that it is not
-        # supposed to activate.
-        # Go through and get all the valid activating symbols
-        # together
-        state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges())
+            # We can't have a symbol activating an edge that it is not
+            # supposed to activate.
+            # Go through and get all the valid activating symbols
+            # together
+            state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges())
 
-        if state_lookup is None:
-            return None
+            if state_lookup is None:
+                return None
 
         # Collapse any symbol sets that are still more than one element,
         # and also complete the conversion table to include
         # all characters.
-        state_lookup = collapse_and_complete_state_lookup(state_lookup)
+        state_lookup = collapse_and_complete_state_lookup(state_lookup, non_matching, options)
+
+        if state_lookup is None:
+            return None
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Returning a real result"
@@ -452,14 +458,30 @@ def disable_edges(state_lookup, non_matching, disabled_edges):
 
     return state_lookup
 
-def collapse_and_complete_state_lookup(state_lookup):
-    # Translate everything else to itself.  This is an
-    # relatively arbitrary decision I'm pretty sure.
+def collapse_and_complete_state_lookup(state_lookup, non_matching, options):
+    # Translate everthing not mapped to the non_matching character
+    # if we don't have correctness, then we can translate things
+    # to themselves in the event that there is no non-matching character.
+    # otherwise, we have to fail, because the character will
+    # activate an edge, and the virtual symbol set doesn't have 
+    # that edge active.
     for i in range(0, 256):
         if chr(i) in state_lookup:
             state_lookup[chr(i)] = list(state_lookup[chr(i)])[0]
         else:
-            state_lookup[chr(i)] = chr(i)
+            if non_matching:
+                state_lookup[chr(i)] = non_matching
+            elif not options.correct_mapping:
+                # We can just do whatever with this symbol,
+                # it isn't required for completeness.
+                state_lookup[chr(i)] = chr(i)
+            else:
+                # We have to fail.
+                if DEBUG_UNIFICATION:
+                    print "Failed due to inability to disable input character."
+                return None
+    return state_lookup
+                    
 
 def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, options):
     # The aim here is to make sure that we don't have any 'false'

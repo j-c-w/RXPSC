@@ -11,6 +11,7 @@ class Options(object):
         self.print_algebras = False
         self.profile = False
         self.print_compile_time = False
+        self.correct_mapping = True
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -52,6 +53,7 @@ def create_from_args(args):
     opts = Options()
     opts.tail_approximation = args.tail_approximation
     opts.disabled_edges_approximation = args.disabled_edges_approximation
+    opts.correct_mapping = not args.allow_overapproximation
     opts.print_algebras = args.print_derived
     opts.profile = args.profile
     opts.leq_iterations_file = args.leq_iterations_file
@@ -88,6 +90,7 @@ def create_from_args(args):
 
 def add_to_parser(parser):
     parser.add_argument('--tail-approximation', default=False, dest='tail_approximation', action='store_true', help='Use the Tail Cutoff approximation in conversions.')
+    parser.add_argument('--allow-overapproximation', default=False, dest='allow_overapproximation', action='store_true', help='Allow overapproximation of automata when compiling (completeness but not correctness)')
     parser.add_argument('--disabled-edges-approximation', default=False, dest='disabled_edges_approximation', action='store_true', help='Do not require edges to be disabled.')
     parser.add_argument('--print-algebras', default=False, dest='print_derived',
             help='Print Derived Algebras', action='store_true')
