@@ -2,10 +2,12 @@
 algebras_compiled = 0
 
 # Unifier
-single_state_unification_double_map_fails = 0
-single_state_unification_non_matching = 0
-single_state_unification_success = 0
-single_state_unification_correctness_fail = 0
+ssu_complete_mapping_failed = 0
+ssu_correct_mapping_failed = 0
+ssu_additions_failed = 0
+ssu_disable_edges_failed = 0
+ssu_disable_symbols_failed = 0
+ssu_success = 0
 
 unifier_trimming_events = 0
 unifiers_returned = 0

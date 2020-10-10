@@ -36,27 +36,28 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         automatas.remove_ors()
         automata_components.append(automatas.get_connected_components_as_automatas())
 
-    groups, assignments = gc.compile(automata_components, options)
+    assignments = gc.compile(automata_components, options)
 
     if print_compression_stats:
-        self_compiles = 0
+        self_compiles = len(assignments)
         other_compiles = 0
+        nodes_required = 0
+        nodes_saved = 0
+        for assignment in assignments:
+            other_compiles += len(assignment.translators)
+            nodes_required += len(assignment.physical_automata.nodes)
+            for supported_automata in assignment.supported_automata:
+                nodes_saved += len(supported_automata.nodes)
         # Don't print the results of the comparison if we are doing --compile-only (which skips the comparisons)
         if not options.compile_only:
-            for i in range(len(assignments)):
-                for j in range(len(assignments[i])):
-                    compilation_index = assignments[i][j]
-                    if compilation_index.i == i and compilation_index.j == j:
-                        self_compiles += 1
-                    else:
-                        # Compiled to something else
-                        other_compiles += 1
-
-                        print "Achieved compilation from ", str(groups[i][j].algebra)
-                        print " to ", str(groups[compilation_index.i][compilation_index.j].algebra)
-
             print "COMPILATION STATISTICS: self compiles = ", self_compiles
             print "COMPILATION STATISTICS: other compiles = ", other_compiles
+            print "COMPILATION STATISTICS: reduction in regexes = ", other_compiles - self_compiles
+            # The underlying hardware accelerator nodes
+            # are double counted since it is also in the 'supported'
+            # list.
+            print "COMPILATION STATISTICS: total states required = ", nodes_required
+            print "COMPLIATION STATISTICS: total states saved = ", nodes_saved - nodes_required
 
         print "COMPILATION STATISTICS: unifications = ", compilation_statistics.unification_successes
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
@@ -65,11 +66,12 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         print "Avoided ", compilation_statistics.cutoff_comparisons, "detailed comparison attempts with heuristics"
         print "Of the algebras ", compilation_statistics.failed_algebra_computations, " failed (likely) due to incompleteness of current implementation"
     if options.print_unification_statistics:
-        print "Single state unification fails due to double mapping", compilation_statistics.single_state_unification_double_map_fails
-        print "Single state unification non matching fails", compilation_statistics.single_state_unification_non_matching
-        print "Single State unification successes", compilation_statistics.single_state_unification_success
-        print "Unifier cutoff events ", compilation_statistics.unifier_trimming_events
-        print "Unifiers returned ", compilation_statistics.unifiers_returned
+        print "Single state completeness fails", compilation_statistics.ssu_complete_mapping_failed
+        print "Single state correctness fails", compilation_statistics.ssu_correct_mapping_failed
+        print "Single state structural modifications unification failed", compilation_statistics.ssu_additions_failed
+        print "Single state disable edges failed", compilation_statistics.ssu_disable_edges_failed
+        print "Single state disable symbols failed", compilation_statistics.ssu_disable_symbols_failed
+        print "Single state successes", compilation_statistics.ssu_success
 
     if options.print_leq_failure_reasons:
         prefix = "LEQ Failure Reason:"

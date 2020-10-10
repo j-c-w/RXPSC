@@ -265,12 +265,14 @@ class Unifier(object):
         # Generate a mapping that is complete, but not correct. (i.e. does not miss anything)
         state_lookup, matching_symbol = generate_complete_mapping(self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
         if state_lookup is None:
+            compilation_statistics.ssu_complete_mapping_failed += 1
             return None
 
         if options.correct_mapping:
             # Make that mapping correct. (i.e. not an overapproximation)
             state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
             if state_lookup is None:
+                compilation_statistics.ssu_correct_mapping_failed += 1
                 return None
 
         # Check that we would be able to unify with the structural
@@ -280,6 +282,7 @@ class Unifier(object):
         state_lookup, matching_symbol = generate_additions_mapping(state_lookup, matching_symbol, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, self.inserts, self.branches, options)
 
         if state_lookup is None:
+            compilation_statistics.ssu_additions_failed += 1
             return None
 
         # This is correctness, not completeness related:
@@ -294,6 +297,7 @@ class Unifier(object):
             state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges())
 
             if state_lookup is None:
+                compilation_statistics.ssu_disable_edges_failed += 1
                 return None
 
         # Collapse any symbol sets that are still more than one element,
@@ -302,11 +306,12 @@ class Unifier(object):
         state_lookup = collapse_and_complete_state_lookup(state_lookup, non_matching, options)
 
         if state_lookup is None:
+            compilation_statistics.ssu_disable_symbols_failed += 1
             return None
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Returning a real result"
-        compilation_statistics.single_state_unification_success += 1
+        compilation_statistics.ssu_success += 1
 
         modification_count = len(self.branches) + len(self.inserts)
         return FST.SingleStateTranslator(state_lookup, modification_count)
@@ -341,7 +346,6 @@ def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_look
                     if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                         print "Unification failed due to double-mapped state"
                         print "(" + str(from_char) + ") already mapped to " + str(state_lookup[from_char]) + " when something in " + str(to_chars) + " is required"
-                    compilation_statistics.single_state_unification_double_map_fails += 1
                     return None, None
                 else:
                     # The overlap set is non-zero, but may
@@ -450,7 +454,6 @@ def disable_edges(state_lookup, non_matching, disabled_edges):
     if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation:
         if DEBUG_UNIFICATION:
             print "Unification failed due to required edge disabling that cannot be achieved"
-        compilation_statistics.single_state_unification_non_matching += 1
         return None
     elif non_matching is not None:
         for disable in disabled_edges:
