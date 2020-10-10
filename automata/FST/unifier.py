@@ -469,15 +469,15 @@ def collapse_and_complete_state_lookup(state_lookup, non_matching, options):
     # activate an edge, and the virtual symbol set doesn't have 
     # that edge active.
     for i in range(0, 256):
-        if chr(i) in state_lookup:
-            state_lookup[chr(i)] = list(state_lookup[chr(i)])[0]
+        if i in state_lookup:
+            state_lookup[i] = list(state_lookup[i])[0]
         else:
             if non_matching:
-                state_lookup[chr(i)] = non_matching
+                state_lookup[i] = non_matching
             elif not options.correct_mapping:
                 # We can just do whatever with this symbol,
                 # it isn't required for completeness.
-                state_lookup[chr(i)] = chr(i)
+                state_lookup[i] = i
             else:
                 # We have to fail.
                 if DEBUG_UNIFICATION:
