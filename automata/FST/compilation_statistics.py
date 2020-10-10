@@ -5,6 +5,7 @@ algebras_compiled = 0
 single_state_unification_double_map_fails = 0
 single_state_unification_non_matching = 0
 single_state_unification_success = 0
+single_state_unification_correctness_fail = 0
 
 unifier_trimming_events = 0
 unifiers_returned = 0

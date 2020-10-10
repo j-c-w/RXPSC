@@ -262,8 +262,13 @@ class Unifier(object):
 
             compilation_statistics.exact_same_compilations += 1
 
-        # Generate a mapping that is complete, but not correct.
+        # Generate a mapping that is complete, but not correct. (i.e. does not miss anything)
         state_lookup, matching_symbol = generate_complete_mapping(self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
+        if state_lookup is None:
+            return None
+
+        # Make that mapping correct. (i.e. not an overapproximation)
+        state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
         if state_lookup is None:
             return None
 
@@ -288,16 +293,15 @@ class Unifier(object):
         if state_lookup is None:
             return None
 
-        # Translate everything else to itself.  This is an
-        # relatively arbitrary decision I'm pretty sure.
-        for i in range(0, 256):
-            if chr(i) not in state_lookup:
-                state_lookup[chr(i)] = chr(i)
+        # Collapse any symbol sets that are still more than one element,
+        # and also complete the conversion table to include
+        # all characters.
+        state_lookup = collapse_and_complete_state_lookup(state_lookup)
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Returning a real result"
-
         compilation_statistics.single_state_unification_success += 1
+
         modification_count = len(self.branches) + len(self.inserts)
         return FST.SingleStateTranslator(state_lookup, modification_count)
 
@@ -446,4 +450,111 @@ def disable_edges(state_lookup, non_matching, disabled_edges):
         for disable in disabled_edges:
             state_lookup[disable] = non_matching
 
+    return state_lookup
+
+def collapse_and_complete_state_lookup(state_lookup):
+    # Translate everything else to itself.  This is an
+    # relatively arbitrary decision I'm pretty sure.
+    for i in range(0, 256):
+        if chr(i) in state_lookup:
+            state_lookup[chr(i)] = list(state_lookup[chr(i)])[0]
+        else:
+            state_lookup[chr(i)] = chr(i)
+
+def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, options):
+    # The aim here is to make sure that we don't have any 'false'
+    # activations --- go through all the edges, and build
+    # up a dictionary of what translates to what.
+    # We build 'activation sets', of edges that are activated
+    # by particular characters.  We then remove symbols from
+    # the state lookup that activate the wrong edges and see
+    # if there is anything left.
+
+    if DEBUG_UNIFICATION:
+        print "Forcing correct mapping..."
+
+    # Which edges are activated by each character
+    accelerator_active_edges = {}
+    # Which edges need to be active for each character
+    base_active_edge_mapping = {}
+
+    for i in range(0, 256):
+        active_set = set()
+        for edge in to_edges:
+            if i in symbol_lookup_2[edge]:
+                active_set.add(edge)
+        accelerator_active_edges[i] = active_set
+
+        # Aldo so the same thing for tbe base_active_edges:
+        active_set = set()
+        for j in range(len(from_edges)):
+            from_edge = from_edges[j]
+            to_edge = to_edges[j]
+
+            if i in symbol_lookup_1[from_edge]:
+                active_set.add(to_edge)
+        base_active_edge_mapping[i] = active_set
+
+    # Now we have a set of edges that have to be active for
+    # each character, and a set of edges that are activated
+    # for each character, so go through and make sure that
+    # those are exact:
+    for i in range(0, 256):
+        # When we translate this character, we will get something
+        # from the set:
+        if i not in state_lookup:
+            continue # If there's not mappings for this symbol, 
+        # we don't need to deal with that here.
+        targets = state_lookup[i]
+
+        # We need to make sure this doesn't activate anything
+        # we don't want, so compute the set of all activated nodes
+        # for each character in targets:
+        activated_edges = {}
+        for character in targets:
+            activated_edges[character] = set(accelerator_active_edges[character])
+
+        # Compute the edges we can't activate:
+        edges_inactive = set()
+        edges_active = base_active_edge_mapping[i] # edges the must be active
+        for character in targets:
+            for edge in activated_edges[character]:
+                if edge not in edges_active:
+                    edges_inactive.add(edge)
+
+        if DEBUG_UNIFICATION:
+            print "Active edges is "
+            print edges_active
+            print "Inactive edges is "
+            print edges_inactive
+
+        # Algorithm here is to:
+        # 1: remove all the characters in the unactive set
+        # 2: see if the remaining characters can cover the active set.
+        # 1: build the inactive set --- the characters we can't use.
+        invalid_symbols = set()
+        for edge in edges_inactive:
+            activating_symbols = symbol_lookup_2[edge]
+            for symbol in activating_symbols:
+                invalid_symbols.add(symbol)
+
+        if DEBUG_UNIFICATION:
+            print "Invalid symbols is"
+            print invalid_symbols
+
+        # 2: find the active set --- the characters that activate things.
+        new_symbols = set()
+        for character in targets:
+            if character not in invalid_symbols:
+                new_symbols.add(character)
+
+        if len(new_symbols) == 0:
+            # We failed to add any character that could activate this edge.
+            if DEBUG_UNIFICATION:
+                print "Failed due to unnessecarily activated edges"
+            return None
+        state_lookup[i] = new_symbols
+        if DEBUG_UNIFICATION:
+            print "Successfully reduced edges for character ", i
+            print "Had", len(targets), "options before, and ", len(new_symbols), "options now"
     return state_lookup
