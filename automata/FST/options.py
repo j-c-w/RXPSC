@@ -46,6 +46,7 @@ class Options(object):
 def create_from_args(args):
     algebra.LEQ_DEBUG = args.debug_leq
     algebra.ALG_DEBUG = args.debug_alg
+    algebra.CACHE_ENABLED = not args.no_cache
     terms.TERMS_DEBUG = args.debug_terms
     unifier.DEBUG_UNIFICATION = args.debug_unification
     unifier.MAX_UNIFIERS = args.max_unifiers
@@ -129,6 +130,7 @@ def add_to_parser(parser):
     parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
     parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
     parser.add_argument('--verify', default=False, dest='verify', help='Do a verification --- the inputs are line-by-line in the file that is provided as argument.')
+    parser.add_argument('--no-cache', default=False, dest='no_cache', action='store_true', help='Disable the computation caches --- this makes things /much/ shlower.')
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')
