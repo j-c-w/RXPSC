@@ -1,11 +1,12 @@
 # Get the algebtra terms
 from simple_graph import SimpleGraph
 from terms import *
-import sjss
-import itertools
 from unifier import *
 import compilation_statistics
 import group_compiler
+import itertools
+import single_compiler
+import sjss
 try:
     import line_profiler
     from guppy import hpy
@@ -1236,13 +1237,19 @@ def permutations(i, j):
 
 # Given an automata, and a list of additions, inject the additions
 # into the automata.
-def apply_structural_transformations(automata, additions):
+def apply_structural_transformations(automata, additions, options):
     old_graph = sjss.automata_to_nodes_and_edges(automata)
+    if group_compiler.DEBUG_GENERATE_BASE:
+        print "Start graph is"
+        print old_graph
+        print "It has algebra", single_compiler.compute_depth_equation(sjss.nodes_and_edges_to_automata(old_graph), options)
     # multiple modifications --- one for each unification to this
     # automata
+    modification_count = 0
     for modification_set in additions:
         # muliple additions per unification :)
         for addition in modification_set.all_modifications():
+            modification_count += 1
             if group_compiler.DEBUG_GENERATE_BASE:
                 print "Adding:"
                 print "(of ", len(modification_set), " additions)"
@@ -1262,7 +1269,15 @@ def apply_structural_transformations(automata, additions):
             # putting it in with the appropriate symbol set.
             new_graph, _ = graph_for(addition.algebra, modification_set.symbol_lookup)
 
+            # check that we are only inserting things.
+            og = old_graph.clone()
             # And insert it into the graph:
             old_graph = sjss.splice(old_graph, nodes_before[0], new_graph)
 
+    if group_compiler.DEBUG_GENERATE_BASE:
+        if modification_count > 0:
+            print "Applied", modification_count, "transformations to the graph"
+        print "After modification, graph is"
+        print old_graph
+        print "and has algebra", single_compiler.compute_depth_equation(sjss.nodes_and_edges_to_automata(old_graph), options)
     return sjss.nodes_and_edges_to_automata(old_graph)
