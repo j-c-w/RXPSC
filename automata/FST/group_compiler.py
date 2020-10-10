@@ -4,6 +4,7 @@ from multiprocessing import Pool
 import tqdm
 import time
 import sjss
+import unifier
 from cache import ComparisonCache
 import algebra as alg
 
@@ -20,6 +21,7 @@ except:
 
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = True
+DEBUG_GENERATE_BASE = False
 
 # This is a class that contains a set of accelerated
 # regular expressions.  We can use it to find which
@@ -61,10 +63,11 @@ class HardwareAccelerators(object):
 # This is just a wrapper that stores the location and conversion
 # machine required for a particular regular expression.
 class CompilationIndex(object):
-    def __init__(self, i2, j2, conversion):
+    def __init__(self, i2, j2, conversion, modifications):
         self.i = i2
         self.j = j2
         self.conversion_machine = conversion
+        self.modifications = modifications
 
 class AutomataContainer(object):
     def __init__(self, automata, algebra):
@@ -212,8 +215,8 @@ def compute_compiles_for(args):
                     wcomparison_cache.add_compiles_to(source_automata.algebra.structural_hash(), target_automata.algebra.structural_hash())
                 if DEBUG_COMPUTE_COMPAT_MATRIX:
                     print "Successfully found a conversion between ", i2, j2
-                successful_compiles.append(CompilationIndex(i2, j2, conversion_machine))
-                compilation_list.append((i2, j2, CompilationIndex(i, j, conversion_machine)))
+                successful_compiles.append(CompilationIndex(i2, j2, conversion_machine, conversion_machine.modifications))
+                compilation_list.append((i2, j2, CompilationIndex(i, j, conversion_machine, conversion_machine.modifications)))
 
     return i, j, successful_compiles, compilation_list
 
@@ -228,7 +231,7 @@ def compute_hardware_assignments_for(groups, options, read_comparison_cache, dum
         h = hpy()
         print(h.heap())
 
-    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options, read_comparison_cache, dump_comparison_cache)
+    compiles_to, compiles_from = compute_cross_compatibility_matrix_for(groups, options, read_comparison_cache, dump_comparison_cache)
     if options.memory_debug:
         print "Memory Usage after cross compat matrix"
         h = hpy()
@@ -278,7 +281,7 @@ def assign_hardware(compiles_from, compiles_to, options):
 
         # Assign this peice of hardware to itself:
         hardware_i, hardware_j = index
-        assigned_hardware[hardware_i][hardware_j] = CompilationIndex(hardware_i, hardware_j, None)
+        assigned_hardware[hardware_i][hardware_j] = CompilationIndex(hardware_i, hardware_j, None, unifier.Modifications([], [], {}))
 
         # Now, we (a) put that in hardware, we need to
         # assign other automata that are part of different
@@ -307,8 +310,7 @@ def assign_hardware(compiles_from, compiles_to, options):
                             print "Match Found"
                         is_match = True
                         match_obj = option
-                        num_modifications = 0 # option.unifier.num_modifications
-                        # TODO
+                        num_modifications = len(option.modifications)
                 if is_match and num_options < min_assigns and num_modifications <= min_num_modifications:
                     min_num_mofications = num_modifications
                     min_assigns = num_options
@@ -320,7 +322,7 @@ def assign_hardware(compiles_from, compiles_to, options):
             # Could make this heuristic a bit better by deleting
             # entries from this list.
             if min_assigns_index is not None:
-                assigned_hardware[i][min_assigns_index] = CompilationIndex(index[0], index[1], min_assigns_object.conversion_machine)
+                assigned_hardware[i][min_assigns_index] = CompilationIndex(index[0], index[1], min_assigns_object.conversion_machine, min_assigns_object.modifications)
 
     return assigned_hardware
 
@@ -358,15 +360,19 @@ def generate_base_automata_for(groups, assignments, options):
             automata_mapping[(i, j)] = mapping
             
             # Add the required structural mappings:
-            # structural_additions[i].append(result_automata_group[mapping].modifications)
-            # TODO
+            structural_additions[mapping].append(assignments[i][j].modifications)
 
     # Now, generate the structurally changed automata:
     result = []
     for i in range(len(result_automata_group)):
         automata = result_automata_group[i]
 
+        if DEBUG_GENERATE_BASE:
+            print "Pre modification", sc.compute_depth_equation(automata, options)
+            print "Making ", len(structural_additions[i]), "modifications"
         result.append(alg.apply_structural_transformations(automata, structural_additions[i]))
+        if DEBUG_GENERATE_BASE:
+            print "Post-mofication", sc.compute_depth_equation(result[-1], options)
 
     return result, automata_mapping
 
@@ -490,9 +496,6 @@ def compile_to_fixed_structures(automata_components, options):
     # Takes a list of lists of CCs, and computes a
     # set of CCs that should go in hardware, and a list
     # that can be translated.
-
-    # This compilation algorithm only works if structural modification is disabled.
-    assert not options.use_structural_change
 
     # Generate the group.
     groups = groups_from_components(automata_components, options)
