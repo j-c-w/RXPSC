@@ -514,78 +514,72 @@ def get_node_before_edges(target_edges):
 # for the first graph.
 # Returns: the new nodes, the new edges, the new accepting states
 # and the
-def splice(nodes, edges, symbol_lookup, accepting_states, target_node,
-        new_nodes, new_edges, new_start_states, new_symbol_lookup, new_accepting_states):
+def splice(source_graph, target_node, splice_graph):
     # First, get the max node number, and just add onto that:
-    max_node_number = max(nodes)
+    max_node_number = max(source_graph.nodes)
 
     # Relabel the graph:
-    new_nodes, new_edges, new_start_states, new_symbol_lookup, new_accepting_states = relabel_from(max_node_number + 1, new_nodes, new_edges, new_start_states, new_symbol_lookup, new_accepting_states)
-
-    assert len(new_start_states) == 1 # Only support inserts
-    # with single entries.
+    new_splice_graph = relabel_from(max_node_number + 1, splice_graph.clone())
 
     # Now, we need to go through all the above fields, and replace
     # any reference to the start state with references to the
     # node.
-    new_start_state = new_start_states[0]
     # nodes
-    for i in range(len(new_nodes) - 1, -1, -1):
+    for i in range(len(new_splice_graph.nodes) - 1, -1, -1):
         # Just delete the node --- it won't exist anymore.
-        if new_start_state == new_nodes[i]:
-            del new_nodes[i]
+        if new_splice_graph.start_state == new_splice_graph.nodes[i]:
+            del new_splice_graph.nodes[i]
     # Edges and the edge-symbol lookup.
-    for i in range(len(new_edges)):
-        (from_node, to_node) = new_edges[i]
-        if from_node == new_start_state:
+    for i in range(len(new_splice_graph.edges)):
+        (from_node, to_node) = new_splice_graph.edges[i]
+        if from_node == new_splice_graph.start_state:
             from_node = target_node
-        if to_node == new_start_state:
+        if to_node == new_splice_graph.start_state:
             to_node = target_node
         # Reconfigure the edge-symbol lookup
         new_edge = (from_node, to_node)
         # Only change things if the edge changes.
-        if new_edge != new_edges[i]:
-            new_symbol_lookup[new_edge] = new_symbol_lookup[new_edges[i]]
-            del new_symbol_lookup[new_edges[i]]
-            new_edges[i] = new_edge
+        if new_edge != new_splice_graph.edges[i]:
+            new_splice_graph.symbol_lookup[new_edge] = new_splice_graph.symbol_lookup[new_splice_graph.edges[i]]
+            del new_splice_graph.symbol_lookup[new_splice_graph.edges[i]]
+            new_splice_graph.edges[i] = new_edge
 
     # Accept states
-    for i in range(len(new_accepting_states)):
-        if new_accepting_states[i] == new_start_state:
-            new_accepting_states[i] = target_node
+    for i in range(len(new_splice_graph.accepting_states)):
+        if new_splice_graph.accepting_states[i] == new_splice_graph.start_state:
+            new_splice_graph.accepting_states[i] = target_node
 
     # Now that we have the rebuilt graph, we just need to splice it into the current graph:
-    result_nodes = nodes + new_nodes
-    result_edges = edges + new_edges
-    result_symbol_lookup = dict(symbol_lookup)
-    for edge in new_edges:
-        result_symbol_lookup[edge] = new_symbol_lookup[edge]
+    result_nodes = source_graph.nodes + new_splice_graph.nodes
+    result_edges = source_graph.edges + new_splice_graph.edges
+    result_symbol_lookup = dict(source_graph.symbol_lookup)
+    for edge in new_splice_graph.edges:
+        result_symbol_lookup[edge] = new_splice_graph.symbol_lookup[edge]
 
-    result_accepting_states = accepting_states + new_accepting_states
+    result_accepting_states = source_graph.accepting_states + new_splice_graph.accepting_states
 
-    return result_nodes, result_edges, result_symbol_lookup, result_accepting_states
+    return simple_graph.SimpleGraph(result_nodes, result_edges, result_symbol_lookup, result_accepting_states, source_graph.start_state)
 
-def relabel_from(new_lowest_number, nodes, edges, start_states, symbol_lookup, accepting_states):
+def relabel_from(new_lowest_number, graph):
     node_label_mapping = {}
     # Construct a mapping for the old numbers to the new ones.
-    for node in nodes:
+    for node in graph.nodes:
         node_label_mapping[node] = new_lowest_number
         new_lowest_number += 1
 
     # Rebuild every component
-    for i in range(len(nodes)):
-        nodes[i] = node_label_mapping[nodes[i]]
-    for i in range(len(edges)):
-        old_edge = edges[i]
-        edges[i] = (node_label_mapping[edges[i][0]],
-                        node_label_mapping[edges[i][1]])
-        symbol_lookup[edges[i]] = symbol_lookup[old_edge]
-    for i in range(len(accepting_states)):
-        accepting_states[i] = node_label_mapping[accepting_states[i]]
-    for i in range(len(start_states)):
-        start_states[i] = node_label_mapping[start_states[i]]
+    for i in range(len(graph.nodes)):
+        graph.nodes[i] = node_label_mapping[graph.nodes[i]]
+    for i in range(len(graph.edges)):
+        old_edge = graph.edges[i]
+        graph.edges[i] = (node_label_mapping[graph.edges[i][0]],
+                        node_label_mapping[graph.edges[i][1]])
+        graph.symbol_lookup[graph.edges[i]] = graph.symbol_lookup[old_edge]
+    for i in range(len(graph.accepting_states)):
+        graph.accepting_states[i] = node_label_mapping[graph.accepting_states[i]]
+    graph.start_state = node_label_mapping[graph.start_state]
 
-    return nodes, edges, start_states, symbol_lookup, accepting_states
+    return graph
 
 
 # Given an AutomataNetwork object from grapefruit, get
