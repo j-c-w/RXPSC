@@ -4,7 +4,9 @@ import algebra
 import time
 import generate_fst
 import compilation_statistics
+import simple_graph
 import FST
+import automata.FST.simulator.simulate_automata as simulator
 try:
     from guppy import hpy
 except:
@@ -46,7 +48,36 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
         result = generate_fst.generate(unification, automata_to, automata_from, options)
         if result:
             compilation_statistics.unification_successes += 1
+
+            if options.verify:
+                verify_fst(automata_from, automata_to, result, options)
         return result
+
+
+# Ensure that the expected outputs are the same as the
+# post-translation results.
+def verify_fst(accelerator, automata, translator, options):
+    # Don't verify automata that require structural modification,
+    # a lot more work is needed before an 'actual' FST for
+    # those automata is generated.
+    if translator.has_structural_additions():
+        return None
+
+    # Don't currently support verification for other targets.
+    assert options.target == 'single-state'
+
+    with open(options.verify, 'r') as f:
+        for input in f.readlines():
+            input = input[:-1] # Delete the newline at the end of each input.
+            original = simulator.accepts(simple_graph.fromatma(automata), input)
+            translated_input = translator.apply(input)
+            accelerated = simulator.accepts(simple_graph.fromatma(accelerator), translated_input)
+
+            print "For input ", input
+            print "Original answer is", original
+            print "Accelerated answer is", accelerated
+
+            assert original == accelerated
 
 
 depth_equation_computation_index = 0

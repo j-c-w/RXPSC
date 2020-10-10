@@ -5,9 +5,12 @@ import automata.FST.simple_graph
 # machines behave correctly.
 
 # Pretend this is a start at the beginning automata and see what happens.
-def accepts(graph, string, trace=False):
+def accepts(graph, string, trace=True):
     active_states = set([graph.start_state])
     neighbors = generate_neighbors_lookup(graph)
+    if str(type(graph.symbol_lookup[graph.edges[0]][0])) == "<type 'int'>" and str(type(string)) == "<type 'str'>":
+        # Translate the char stream to an int stream:
+        string = [ord(x) for x in string]
     
     for character in string:
         if trace:
@@ -18,6 +21,8 @@ def accepts(graph, string, trace=False):
             neighbor_states = neighbors[current_state]
 
             for next_state in neighbor_states:
+                assert type(character) == type(graph.symbol_lookup[(current_state, next_state)][0])
+
                 if character in graph.symbol_lookup[(current_state, next_state)]:
                     next_states.add(next_state)
         active_states = next_states

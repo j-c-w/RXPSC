@@ -12,6 +12,7 @@ class Options(object):
         self.profile = False
         self.print_compile_time = False
         self.correct_mapping = True
+        self.verify = None
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -54,6 +55,7 @@ def create_from_args(args):
     opts.tail_approximation = args.tail_approximation
     opts.disabled_edges_approximation = args.disabled_edges_approximation
     opts.correct_mapping = not args.allow_overapproximation
+    opts.verify = args.verify
     opts.print_algebras = args.print_derived
     opts.profile = args.profile
     opts.leq_iterations_file = args.leq_iterations_file
@@ -124,6 +126,7 @@ def add_to_parser(parser):
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
     parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
     parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
+    parser.add_argument('--verify', default=False, dest='verify', help='Do a verification --- the inputs are line-by-line in the file that is provided as argument.')
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')

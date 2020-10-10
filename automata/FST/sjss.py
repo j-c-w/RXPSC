@@ -1,5 +1,5 @@
 # Due to poor choices, we largely don't use this.
-from simple_graph import SimpleGraph
+import simple_graph
 from automata.elemnts.element import StartType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import S_T_E
@@ -594,7 +594,7 @@ def automata_to_nodes_and_edges(automata):
     edges = automata.edge_ids_list()
     accepting_states = automata.reporting_states_list()
     start_state = automata.fake_root.id
-    return SimpleGraph(automata.node_ids_list(), edges, generate_fst.edge_label_lookup_generate(automata), accepting_states, start_state)
+    return simple_graph.SimpleGraph(automata.node_ids_list(), edges, generate_fst.edge_label_lookup_generate(automata), accepting_states, start_state)
 
 # Convert a nodes and edges representation to an automata network
 # object.
