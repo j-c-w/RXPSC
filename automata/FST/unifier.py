@@ -124,17 +124,21 @@ class Unifier(object):
     def has_structural_additions(self):
         return len(self.inserts) > 0 or len(self.branches) > 0
 
+    # Note taht for this and teh branches, the 'insert' corresponds
+    # to the automata we are going to accelerate,
+    # the edges after corresponds to the automata we have an
+    # accelerator for
     def add_insert(self, insert, edges_after):
         assert not insert.has_accept_before_first_edge()
         assert insert.first_edge() is not None
 
-        self.inserts.append((insert, edges_after))
+        self.inserts.append(Modification(insert, edges_after))
 
     def add_branch(self, branch, edges_after):
         assert not branch.has_accept_before_first_edge()
         assert branch.first_edge() is not None
 
-        self.branches.append((branch, edges_after))
+        self.branches.append(Modification(branch, edges_after))
 
     def deep_clone(self):
         result = Unifier()
@@ -183,6 +187,8 @@ class Unifier(object):
         self.from_edges += other.from_edges
         self.to_edges += other.to_edges
         self.cost += other.cost
+        self.branches += other.branches
+        self.inserts += other.inserts
         self.ununified_terms.append(other.ununified_terms)
 
     def unify_symbol_only_reconfigutaion(self, symbol_lookup_1, symbol_lookup_2, options):
@@ -313,8 +319,25 @@ class Unifier(object):
             print "Returning a real result"
         compilation_statistics.ssu_success += 1
 
-        modification_count = len(self.branches) + len(self.inserts)
-        return FST.SingleStateTranslator(state_lookup, modification_count)
+        modifications = Modifications(self.branches, self.inserts, symbol_lookup_2)
+        return FST.SingleStateTranslator(state_lookup, modifications)
+
+class Modifications(object):
+    def __init__(self, branches, inserts, symbol_lookup):
+        self.branches = branches
+        self.inserts = inserts
+        self.symbol_lookup = symbol_lookup
+
+    def __len__(self):
+        return len(self.branches) + len(self.inserts)
+
+    def all_modifications(self):
+        return self.branches + self.inserts
+
+class Modification(object):
+    def __init__(self, algebra, edges_after):
+        self.algebra = algebra
+        self.edges_after = edges_after
 
 # Given a set of input edges and output edges, generate a set
 # of input/output assignments that /does not double-map any symbol/
@@ -365,7 +388,9 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
     # of the edges that have to be added when running the original automaton.
     # We could look at the cost of adding a translator to the original automata too,
     # but we're not interested in that right now.
-    for (branch, edges_after) in branches:
+    for modification in branches:
+        branch = modification.algebra
+        edges_after = modification.edges_after
         # Only handle the 1 + a + e branches for the time being.
         if not branch.issum() and not branch.e1[0].isconst() and not branch.e1[1].isaccept() and \
                 not branch.e1[2].isend():
@@ -387,7 +412,9 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
         if i not in matching_symbol:
             disabling_symbols.add(i)
 
-    for (insert, edges_after) in inserts:
+    for modification in inserts:
+        insert = modification.algebra
+        edges_after = modification.edges_after
         # Only handle small inserts.
         if insert.size() > 2:
             return None, None
