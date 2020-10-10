@@ -47,10 +47,14 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
         # Use the unification to generate an FST if possible.
         result = generate_fst.generate(unification, automata_to, automata_from, options)
         if result:
+            # Debugging issues with which accelerator is which.
+            # for option in result.modifications.all_modifications():
+            #     for edge in option.edges_after:
+            #         assert edge in simple_graph.fromatma(automata_to).edges
             compilation_statistics.unification_successes += 1
 
             if options.verify:
-                verify_fst(automata_from, automata_to, result, options)
+                verify_fst(automata_to, automata_from, result, options)
         return result
 
 
