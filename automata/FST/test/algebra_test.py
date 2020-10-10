@@ -8,7 +8,7 @@ import automata.FST.algebra as alg
 class AlgebraTest(unittest.TestCase):
     def test_simpleTest(self):
         simple = alg.generate([0, 1, 2, 3], [(0, 1), (1, 2), (2, 3)], 0, [3], EmptyOptions)
-        self.assertEquals("1 + 1 + 1 + a + e", str(simple))
+        self.assertEquals("3 + a + e", str(simple))
 
     # Generated from a failing exmapl
     def test_cross_loop(self):
@@ -29,15 +29,15 @@ class AlgebraTest(unittest.TestCase):
 
     def test_generate_linear_algebras(self):
         simple = str(alg.linear_algebra_for([0, 1, 2], [2]).normalize())
-        self.assertEquals("1 + 1 + a", simple)
+        self.assertEquals("2 + a", simple)
 
     def test_simple_loop(self):
         loop = alg.generate([0, 1, 2, 3], [(0, 1), (1, 2), (2, 1), (1, 3)], 0, [3], EmptyOptions)
-        self.assertEquals("1 + (1 + 1)* + 1 + a + e", str(loop))
+        self.assertEquals("1 + (2)* + 1 + a + e", str(loop))
 
     def test_simple_loop_2(self):
         loop = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 2), (2, 1), (2, 3), (3, 2), (1, 4)], 0, [4], EmptyOptions)
-        self.assertEquals("1 + (1 + (1 + 1)* + 1)* + 1 + a + e", str(loop))
+        self.assertEquals("1 + (1 + (2)* + 1)* + 1 + a + e", str(loop))
 
     def test_mono_loop(self):
         loop = alg.generate([0], [(0, 0)], 0, [0], EmptyOptions)
@@ -64,11 +64,11 @@ class AlgebraTest(unittest.TestCase):
 
     def test_double_branch(self):
         res = alg.generate([0, 1, 2, 3, 4, 5], [(0, 1), (0, 2), (2, 3), (1, 3), (3, 4), (3, 5)], 0, [], EmptyOptions)
-        self.assertEqual(str(res), "{1 + 1, 1 + 1} + {1 + e, 1 + e}")
+        self.assertEqual(str(res), "{2, 2} + {1 + e, 1 + e}")
 
     def test_double_branch_2(self):
         res = alg.generate([0, 1, 2, 3, 4, 5, 6], [(0, 1), (0, 2), (2, 3), (1, 3), (3, 4), (4, 5), (4, 6)], 0, [], EmptyOptions)
-        self.assertEqual(str(res), "{1 + 1, 1 + 1} + 1 + {1 + e, 1 + e}")
+        self.assertEqual(str(res), "{2, 2} + 1 + {1 + e, 1 + e}")
 
 class UnificationTest(unittest.TestCase):
     def test_simple_unifier(self):
@@ -169,21 +169,20 @@ class UnificationTest(unittest.TestCase):
 
 class TestDeconstruction(unittest.TestCase):
     def test_graph_for_const(self):
-        nodes, edges, start_states, accept_states, symbols, end_nodes = alg.graph_for(Const(1, [(0, 1)]), {(0, 1): 'a'})
-        print nodes, edges, start_states, accept_states, symbols, end_nodes
-        self.assertEqual(edges, [(0, 1)])
-        self.assertEqual(start_states, [0])
+        graph, end_nodes = alg.graph_for(Const(1, [(0, 1)]), {(0, 1): 'a'})
+        self.assertEqual(graph.edges, [(0, 1)])
+        self.assertEqual(graph.start_state, 0)
         self.assertEqual(end_nodes, [1])
 
     def test_graph_for_sum(self):
-        nodes, edges, start_states, accept_states, symbols, end_nodes = alg.graph_for(Sum([Const(1, [(0, 1)]), Accept(), End()]), {(0, 1): 'a'})
-        self.assertEqual(accept_states, [1])
+        graph, end_nodes = alg.graph_for(Sum([Const(1, [(0, 1)]), Accept(), End()]), {(0, 1): 'a'})
+        self.assertEqual(graph.accepting_states, [1])
 
     def test_graph_for_loop(self):
-        nodes, edges, start_states, accept_states, symbols, end_nodes = alg.graph_for(Product(Const(1, [(2, 2)])), {(2, 2): 'a'})
-        self.assertEqual(edges, [(0, 0)])
+        graph, end_nodes = alg.graph_for(Product(Const(1, [(2, 2)])), {(2, 2): 'a'})
+        self.assertEqual(graph.edges, [(0, 0)])
         self.assertEqual(end_nodes, [])
-        self.assertEqual(nodes, [0])
+        self.assertEqual(graph.nodes, [0])
 
 if __name__ == "__main__":
     unittest.main()
