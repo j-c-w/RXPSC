@@ -2,10 +2,23 @@ import unittest
 from automata.FST.terms import *
 from automata.FST.options import EmptyOptions
 import automata.FST.unifier as unifier
+from automata.FST.unifier import Modifications, Modification
 import automata.FST.algebra as alg
 
 
 class AlgebraTest(unittest.TestCase):
+    # It is not 100% clear to me that these should nessecarily
+    # be of the format a + (1 + a)*, rather than (a + 1)*.
+    # I think that the later requires applying the loop rolling
+    # property, but I'm not actually sure.
+    def test_trailing_product_2(self):
+        algebra = alg.generate([0, 1, 2, 3, 4, 5], [(0, 1), (1, 3), (3, 4), (1, 4), (4, 5), (5, 4)], 0, [4], EmptyOptions)
+        self.assertEqual("1 + {2, 1} + a + (2 + a)*", str(algebra))
+
+    def test_trailing_product(self):
+        algebra = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 3), (3, 4), (1, 4), (4, 4)], 0, [4], EmptyOptions)
+        self.assertEqual("1 + {2, 1} + a + (1 + a)*", str(algebra))
+
     def test_simpleTest(self):
         simple = alg.generate([0, 1, 2, 3], [(0, 1), (1, 2), (2, 3)], 0, [3], EmptyOptions)
         self.assertEquals("3 + a + e", str(simple))
@@ -41,7 +54,10 @@ class AlgebraTest(unittest.TestCase):
 
     def test_mono_loop(self):
         loop = alg.generate([0], [(0, 0)], 0, [0], EmptyOptions)
-        self.assertEqual("(1)*", str(loop))
+        # I am not actually sure this is correct --- it might
+        # need to be a + (1 + a)*?  --- Not too sure though.
+        # Also not sure it matters.
+        self.assertEqual("(1 + a)*", str(loop))
 
     # This is an edge case we don't really handle well, but
     # it isn't incorrect -- the algebra just makes the automaton
@@ -189,6 +205,19 @@ class TestDeconstruction(unittest.TestCase):
         self.assertEqual(graph.edges, [(0, 0)])
         self.assertEqual(end_nodes, [])
         self.assertEqual(graph.nodes, [0])
+
+class StructuralTransformations(unittest.TestCase):
+    def test_apply_structural_transformations(self):
+        graph, _ = alg.graph_for(Sum([Const(1, [(0, 1)]), Const(1, [(1, 2)])]), {(0, 1): 'a', (1, 2): 'b'} )
+        slookup = {
+                (0, 0): 'c'
+                }
+        additions = [
+                Modifications([], [Modification(Product(Const(1, [(0, 0)])), [(1, 2)])], slookup)
+                ]
+        result = alg.apply_structural_transformations_internal(graph, additions, EmptyOptions)
+        self.assertTrue((1, 1) in result.edges)
+        self.assertEqual(result.symbol_lookup[(1, 1)], 'c')
 
 if __name__ == "__main__":
     unittest.main()

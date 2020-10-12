@@ -258,32 +258,56 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 else:
                     branch_elems = [loop_algebra]
 
+                for (src, dst) in removed_edges:
+                    if src == dst:
+                        # THis means there is a 1-loop,
+                        # which was removed from the underlying
+                        # analysis, so add it back in.
+                        branch_elems.append(Const(0, []))
+                        if ALG_DEBUG:
+                            print "Found a self-loop"
+
                 # We know that each removed edge will be of
                 # the form [last_node_in_loop, loop_start]
                 # So we can just add a sum to the end of the loop:
                 for i in range(len(branch_elems)):
                     elemn = branch_elems[i]
 
-                    last_edge = elemn.get_last_node()
-                    if last_edge:
-                        branch_elems[i] = Sum([branch_elems[i], Const(1, [(last_edge, node)])]).normalize()
+                    if elemn.isconst() and elemn.val == 0:
+                        # This happens e.g. with a self-loop.
+                        last_node = node
                     else:
-                        # This is likely due to a branch within
-                        # the branch --- we really need some
-                        # complicated recusion here to 
-                        # then go down every
-                        # branch and add the + 1 to
-                        # every end.
+                        last_node = elemn.get_last_node()
+
+                    if ALG_DEBUG:
+                        print "Getting last node from.. ", elemn
+                        print "Appending edge: ", last_node, ", ", node, "to each element"
+                    if last_node is not None:
+                        branch_elems[i] = Sum([branch_elems[i], Const(1, [(last_node, node)])])
+
+                        # Also check if we need to add a '+ a' to
+                        # the end.
+                        if node in accept_states:
+                            branch_elems[i].e1.append(Accept())
+
+                        branch_elems[i] = branch_elems[i].normalize()
+                    else:
+                        # THe comment here used to read
+                        # that this was probably a branch,
+                        # and that in that case, we would need to
+                        # go and do more work by appending an element
+                        # to each option in the branch.  However, I'm not sure
+                        # that is the case, and the things
+                        # I've seen here are mostly Const(0) and
+                        # End()/ Sum(End())
+                        if ALG_DEBUG:
+                            print "Last node was None, and that happened in this structure:"
+                            print elemn
+
+                        assert not elemn.isbranch()
                         pass
 
-                for (src, dst) in removed_edges:
-                    if src == dst:
-                        # THis means there is a 1-loop,
-                        # which was removed from the underlying
-                        # analysis, so add it back in.
-                        branch_elems.append(Const(1, [(src, dst)]))
-
-                loop_algebra = Sum([loop_algebra, Const(1, [removed_edges[0]])]).normalize()
+                loop_algebra = Branch(branch_elems)
                 if ALG_DEBUG:
                     print "Generated loop algebra is:"
                     print(loop_algebra)
@@ -1268,6 +1292,17 @@ def apply_structural_transformations(automata, additions, options):
         print "Start graph is"
         print old_graph
         print "It has algebra", single_compiler.compute_depth_equation(sjss.nodes_and_edges_to_automata(old_graph), options)
+
+    result_graph = apply_structural_transformations_internal(old_graph, additions, options)
+
+    if group_compiler.DEBUG_GENERATE_BASE:
+        print "After modification, graph is"
+        print result_graph
+        print "and has algebra", single_compiler.compute_depth_equation(sjss.nodes_and_edges_to_automata(result_graph), options)
+    return sjss.nodes_and_edges_to_automata(result_graph)
+
+def apply_structural_transformations_internal(simple_graph, additions, options):
+    old_graph = simple_graph
     # multiple modifications --- one for each unification to this
     # automata
     modification_count = 0
@@ -1278,7 +1313,7 @@ def apply_structural_transformations(automata, additions, options):
             if group_compiler.DEBUG_GENERATE_BASE:
                 print "Adding:"
                 print "(of ", len(modification_set), " additions)"
-                print addition.algebra
+                print addition
             # Get the edges that this has to be before
             edges_after = addition.edges_after
             # Now, get the node that leads to the 'edges after',
@@ -1297,12 +1332,8 @@ def apply_structural_transformations(automata, additions, options):
             # check that we are only inserting things.
             og = old_graph.clone()
             # And insert it into the graph:
-            old_graph = sjss.splice(old_graph, nodes_before[0], new_graph)
-
+            old_graph = sjss.splice(og, nodes_before[0], new_graph)
     if group_compiler.DEBUG_GENERATE_BASE:
         if modification_count > 0:
             print "Applied", modification_count, "transformations to the graph"
-        print "After modification, graph is"
-        print old_graph
-        print "and has algebra", single_compiler.compute_depth_equation(sjss.nodes_and_edges_to_automata(old_graph), options)
-    return sjss.nodes_and_edges_to_automata(old_graph)
+    return old_graph

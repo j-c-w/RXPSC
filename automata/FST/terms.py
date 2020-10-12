@@ -265,6 +265,11 @@ class Product(DepthEquation):
         self.isnormal = True
         self.e1 = self.e1.normalize()
 
+        # If this contains nothing, normalize it to a cannonical
+        # form
+        if self.e1.isconst() and self.e1.val == 0:
+            return self.e1
+
         return self
 
     def size(self):
@@ -431,7 +436,7 @@ class Sum(DepthEquation):
         found_last_node = None
         index = len(self.e1) - 1
         while found_last_node is None and index >= 0:
-            found_last_node = self.e1[-1].get_last_node()
+            found_last_node = self.e1[index].get_last_node()
 
             index -= 1
 
@@ -587,6 +592,9 @@ class Const(DepthEquation):
             for i in range(self.val):
                 if otherlookup and selflookup:
                     if otherlookup[other.edges[i]] != selflookup[self.edges[i]]:
+                        return False
+                else:
+                    if self.edges[i] != other.edges[i]:
                         return False
             return True
         else:
@@ -767,11 +775,14 @@ class Branch(DepthEquation):
         if len(self.options) == 1:
             return self.options[0].normalize()
         self.options = [opt.normalize() for opt in self.options if opt]
+        # Check if any of the 'options' are empty.
         for i in range(len(self.options) - 1, -1, -1):
             if self.options[i].isconst() and self.options[i].val == 0:
                 # Don't need that.
                 del self.options[i]
 
+        # If this is an empty branch, then it's the same as 0,
+        # which is a more cannonical form.
         if len(self.options) == 0:
             return Const(0, [])
 
