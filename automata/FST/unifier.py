@@ -118,6 +118,17 @@ class Unifier(object):
         self.inserts = []
         self.branches = []
 
+    # Return a count of all the edges represented in the 'from'
+    # portion of this unifier.
+    def all_from_edges_count(self):
+        return len(self.all_from_edges())
+
+    def all_from_edges(self):
+        result = set(self.from_edges)
+        for mod in self.inserts + self.branches:
+            result = result.union(mod.algebra.all_edges())
+        return result
+
     def structural_modification_count(self):
         return len(self.inserts) + len(self.branches)
 
@@ -319,8 +330,8 @@ class Unifier(object):
             print "Returning a real result"
         compilation_statistics.ssu_success += 1
 
-        modifications = Modifications(self.branches, self.inserts, symbol_lookup_2)
-        return FST.SingleStateTranslator(state_lookup, modifications)
+        modifications = Modifications(self.branches, self.inserts, symbol_lookup_1)
+        return FST.SingleStateTranslator(state_lookup, modifications, unifier=self)
 
 class Modifications(object):
     def __init__(self, branches, inserts, symbol_lookup):
@@ -338,6 +349,9 @@ class Modification(object):
     def __init__(self, algebra, edges_after):
         self.algebra = algebra
         self.edges_after = edges_after
+
+    def __str__(self):
+        return str(self.algebra) + " Inserted before " + str(self.edges_after)
 
 # Given a set of input edges and output edges, generate a set
 # of input/output assignments that /does not double-map any symbol/
@@ -400,7 +414,7 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
         target_symbolset = set()
         for edge in branch.first_edge():
             # Get the target symbolset from the first edge:
-            source_characterset = symbol_lookup_2[edge]
+            source_characterset = symbol_lookup_1[edge]
             for char in source_characterset:
                 if char in state_lookup:
                     target_symbolset.add
@@ -429,7 +443,7 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
         # difficult to disable I think...
         assert insert.first_edge() is not None
         for edge in insert.first_edge():
-            for character in symbol_lookup_2[edge]:
+            for character in symbol_lookup_1[edge]:
                 # This could definitely be moved up to the part before state_lookup is
                 # solidified.
                 if character in state_lookup:

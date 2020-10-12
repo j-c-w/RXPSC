@@ -589,7 +589,7 @@ def graph_for(algebra, symbol_lookup):
 # in python.
 def leq(A, B, options):
     unifier = leq_unify(A, B, options)
-    return unifier is not None
+    return unifier is not None and unifier != []
 
 
 # This MUST support multithreaded operation.
@@ -811,14 +811,16 @@ def leq_internal_wrapper(A, B, options):
                     print "B also const, checking equality of:"
                     print A.val
                     print B.val
+                    print len(A.edges)
+                    print len(B.edges)
                 if A.val == B.val:
                     result = True
                     unifier = Unifier()
-                    unifier.add_edges(B.edges, A.edges)
+                    unifier.add_edges(A.edges, B.edges)
                 elif use_leq_on_constants and B.val < A.val:
                     result = True
                     unifier = Unifier(cost=A.val - B.val)
-                    unifier.add_edges(B.edges, A.edges[:len(B.edges)])
+                    unifier.add_edges(A.edges[:len(B.edges)], B.edges)
                 else:
                     result = False
             elif B.isproduct():
@@ -949,7 +951,8 @@ def leq_internal_wrapper(A, B, options):
             # we could also do something with a split and a rejoin into B,
             # but for the moment, we are ignoring that and just leaving pointy-ends.
             if options.use_structural_change and len(A.e1) == 3 and \
-                    A.e1[0].isconst() and A.e1[1].isaccept() and A.e1[2].isend():
+                    A.e1[0].isconst() and A.e1[1].isaccept() and A.e1[2].isend() and \
+                    not (len(B.e1) >= 3 and B.e1[0].isconst() and B.e1[1].isaccept() and B.e1[2].isend()):
                 unifier = Unifier()
                 unifier.add_branch(A, B.first_edge())
                 result = True
@@ -1069,7 +1072,7 @@ def leq_internal_wrapper(A, B, options):
                                 last_element_of_b -= 1
 
                         if found_match_expanding_b:
-                            unifier.unify_with(unifier)
+                            unifier.unify_with(sub_unifier)
                             b_index = last_element_of_b - 1
                             a_index += 1
                         else:
@@ -1090,7 +1093,7 @@ def leq_internal_wrapper(A, B, options):
                     if b_index != len(B.e1):
                         if LEQ_DEBUG:
                             print "Attempting to apply trim property..."
-                        sum_tail = Sum(B.e1[b_index - 1:]).normalize()
+                        sum_tail = Sum(B.e1[b_index:]).normalize()
                         # Need to disable the first edge.
                         first_edges = sum_tail.first_edge()
 
@@ -1148,7 +1151,8 @@ def leq_internal_wrapper(A, B, options):
 
             mcount = 0
             found_match = None
-            unifier = UnifierList([Unifier()])
+            assert unifier is None
+            unifier = UnifierList([])
             for combination in permutations(len(elements_A), range(len(elements_B))):
                 perm_count += 1
                 if perm_count > PERMUTATION_THRESHOLD:
