@@ -613,8 +613,9 @@ def nodes_and_edges_to_automata(simple_graph):
             start, finish = edge
             # Assume homogenous, so all inputs are the same.
             if finish == node:
-                symbols = list_to_packed_set(simple_graph.symbol_lookup[edge])
+                symbols = list_to_packed_set(simple_graph.symbol_lookup[edge], ints=True)
                 break
+        assert len(symbols) > 0
 
         # 0 is always the identity of the fake root. --- skip it.
         if node == 0:
