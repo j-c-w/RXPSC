@@ -224,11 +224,7 @@ class Product(DepthEquation):
             return False
 
     def overlap_distance(self, other):
-        # I think we can do this because the caching
-        # algorithm that constructs these trees
-        # ensures that any duplicate items are really
-        # at the same point in memory.
-        if self == other:
+        if self.equals(other):
             return self.size()
         else:
             return 0
@@ -255,7 +251,7 @@ class Product(DepthEquation):
         return "(" + str(self.e1) + ")*"
 
     def str_with_lookup(self, lookup):
-        return "(" + str(self.e1.str_with_lookup(lookup)) + ")"
+        return "(" + str(self.e1.str_with_lookup(lookup)) + ")*"
 
     def normalize(self):
         # We do not want to normalize things
@@ -605,7 +601,7 @@ class Const(DepthEquation):
     def overlap_distance(self, other):
         if not other.isconst():
             return 0
-        if self == other:
+        if self.equals(other):
             return self.size()
         tail_count = 0
         matching = True
@@ -738,7 +734,7 @@ class Branch(DepthEquation):
             return first_edges
 
     def overlap_distance(self, other):
-        if self == other:
+        if self.equals(other):
             return self.size()
         else:
             return 0
@@ -771,6 +767,14 @@ class Branch(DepthEquation):
         if len(self.options) == 1:
             return self.options[0].normalize()
         self.options = [opt.normalize() for opt in self.options if opt]
+        for i in range(len(self.options) - 1, -1, -1):
+            if self.options[i].isconst() and self.options[i].val == 0:
+                # Don't need that.
+                del self.options[i]
+
+        if len(self.options) == 0:
+            return Const(0, [])
+
         for opt in self.options:
             assert opt.isnormal
         # Compression is not required if the sum was constructed
