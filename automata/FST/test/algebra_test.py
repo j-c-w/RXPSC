@@ -73,17 +73,23 @@ class AlgebraTest(unittest.TestCase):
 class UnificationTest(unittest.TestCase):
     def test_simple_unifier(self):
         res = alg.leq_unify(Const(1, [(1, 2)]), Const(1, [(2, 3)]), EmptyOptions)[0]
-        self.assertEqual(res.to_edges, [(1, 2)])
-        self.assertEqual(res.from_edges, [(2, 3)])
+        self.assertEqual(res.from_edges, [(1, 2)])
+        self.assertEqual(res.to_edges, [(2, 3)])
 
     def test_unifier_branches(self):
         t1 = Branch([Const(2, [(1, 2), (2, 3)]), Const(1, [(4, 5)])]).normalize()
         t2 = Const(2, [(-1, -2), (-2, -3)]).normalize()
 
         res = alg.leq_unify(t2, t1, EmptyOptions)[0]
-        self.assertEqual(res.from_edges, [(1, 2), (2, 3)])
-        self.assertEqual(res.to_edges, [(-1, -2), (-2, -3)])
+        self.assertEqual(res.to_edges, [(1, 2), (2, 3)])
+        self.assertEqual(res.from_edges, [(-1, -2), (-2, -3)])
         self.assertEqual(res.disabled_edges, [(4, 5)])
+
+    def test_structural_modification(self):
+        t1 = Sum([Const(1, [1]), Product(Const(1, [1])), Const(1, [1])])
+        t2 = Sum([Const(1, [2]), Product(Const(1, [2])), Const(1, [2]), Accept(), End()])
+
+        self.assertEqual(alg.leq(t1, t2, EmptyOptions), False)
 
     def test_unifier_both_branches(self):
         t1 = Branch([Sum([Const(1, [(0, 1)]), Accept()]), Sum([Const(2, [(1, 2), (2, 3)]), End()])]).normalize()
