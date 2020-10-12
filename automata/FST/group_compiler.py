@@ -370,7 +370,7 @@ def generate_base_automata_for(groups, assignments, options):
         if DEBUG_GENERATE_BASE:
             print "Pre modification", sc.compute_depth_equation(automata, options)
             print "Making ", len(structural_additions[i]), "modifications"
-        result.append(alg.apply_structural_transformations(automata, structural_additions[i]))
+        result.append(alg.apply_structural_transformations(automata, structural_additions[i], options))
         if DEBUG_GENERATE_BASE:
             print "Post-mofication", sc.compute_depth_equation(result[-1], options)
 
@@ -427,6 +427,7 @@ def compile(automata_components, options):
 
     # (4) - regenerate the base automata algebras in case these changed.
     base_automata_algebras = compile_to_fixed_structures([base_automata_components], options)[0]
+    assert len(base_automata_algebras) == len(base_automata_components)
     result = generate_translators(base_automata_algebras, groups, mapping, assignments, options)
 
     # Dump the write comparison cache if it exists:
@@ -457,7 +458,7 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
             source = groups[i][j]
             
             # Now, generate the unifier for this compilation:
-            conversion_machine = sc.compile_from_algebras(target.algebra, target.automata, source.algebra, source.automata, options)
+            conversion_machine = sc.compile_from_algebras(source.algebra, source.automata, target.algebra, target.automata, options)
             # I think that this is going to have to succeed.
             # There are ways around it, but it suggests that
             # some approximation was used if it fails.

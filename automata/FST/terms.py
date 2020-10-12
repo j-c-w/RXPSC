@@ -20,6 +20,7 @@ class DepthEquation(object):
         self._cached_accepting_distances_approximation = None
         self._cached_branches_count = None
         self._cached_loop_count = None
+        self._cached_all_edges = None
 
     def isproduct(self):
         return False
@@ -38,6 +39,17 @@ class DepthEquation(object):
 
     def isend(self):
         return False
+
+    def all_edges(self):
+        if self._cached_all_edges is not None:
+            return self._cached_all_edges
+        else:
+            result = self._all_edges()
+            self._cached_all_edges = result
+            return result
+
+    def _all_edges(self):
+        assert False
 
     def has_accept(self):
         if self._cached_has_accept:
@@ -171,6 +183,9 @@ class Product(DepthEquation):
         self._size = None
         self._last_node = None
 
+    def _all_edges(self):
+        return self.e1.all_edges()
+
     def _loops_count(self):
         return 1 + self.e1.loops_count()
 
@@ -275,6 +290,12 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _all_edges(self):
+        result = set()
+        for e in self.e1:
+            result = result.union(e.all_edges())
+        return result
 
     def _loops_count(self):
         s = 0
@@ -531,6 +552,9 @@ class Const(DepthEquation):
         self._size = None
         self.isnormal = val <= 1
 
+    def _all_edges(self):
+        return set(self.edges)
+
     def _loops_count(self):
         return 0
 
@@ -636,6 +660,12 @@ class Branch(DepthEquation):
         self.isnormal = False
         self._size = None
         self.iscompressed = False
+
+    def _all_edges(self):
+        result = set()
+        for opt in self.options:
+            result = result.union(opt.all_edges())
+        return result
 
     def _loops_count(self):
         return sum([opt.loops_count() for opt in self.options])
@@ -857,6 +887,9 @@ class Accept(DepthEquation):
         super(Accept, self).__init__()
         self.isnormal = True
 
+    def _all_edges(self):
+        return set()
+
     def _loops_count(self):
         return 0
     
@@ -926,6 +959,9 @@ class End(DepthEquation):
     def __init__(self):
         super(End, self).__init__()
         self.isnormal = True
+
+    def _all_edges(self):
+        return set()
 
     def _loops_count(self):
         return 0
