@@ -38,7 +38,7 @@ def generate(unification, to_atma, from_atma, options):
             continue
 
         if options.target == 'single-state':
-            result = unifier.unify_single_state(to_edge_lookup, from_edge_lookup, options)
+            result = unifier.unify_single_state(from_edge_lookup, to_edge_lookup, options)
         elif options.target == 'symbol-only-reconfiguration':
             result = unifier.unify_symbol_only_reconfigutaion(to_edge_lookup, from_edge_lookup, options)
         elif options.target == 'perfect-unification':
