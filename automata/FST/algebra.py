@@ -607,11 +607,13 @@ def leq_unify(A, B, options):
 
     unifier = leq_internal_wrapper(A, B, options)
     if unifier is not None and unifier.isunifierlist:
-        return unifier.as_list()
+        result = unifier.as_list()
     elif unifier is not None:
-        return [unifier]
+        result = [unifier]
     else:
-        return []
+        result = []
+
+    return result
 
 def leq_fails_on_heuristics(A, B, options):
     if A.size() > options.size_difference_cutoff_factor * B.size():
@@ -992,6 +994,8 @@ def leq_internal_wrapper(A, B, options):
                     # B.  Clearly if there was a product at the start of A, and there was not a product
                     # at the start of B, these were not going to unify.
                     if options.use_structural_change and A.e1[a_index].isproduct() and not B.e1[b_index].isproduct():
+                        if LEQ_DEBUG:
+                            print "Adding loop insert"
                         unifier.add_insert(A.e1[a_index], B.first_edge())
                         a_index += 1
                         continue
@@ -1218,6 +1222,23 @@ def leq_internal_wrapper(A, B, options):
         if unifier:
             unifier.set_algebra_from(A)
             unifier.set_algebra_to(B)
+
+        if LEQ_DEBUG and unifier is not None:
+            if unifier.isunifierlist:
+                unifiers = unifier.as_list()
+            else:
+                unifiers = [unifier]
+
+            for u in unifiers:
+                all_edges_set = A.all_edges()
+                if u.all_from_edges_count() != len(all_edges_set):
+                    print "Error, lengths differ: ", len(u.from_edges), len(all_edges_set)
+                    print [str(x) for x in u.inserts]
+                    print u.from_edges
+                    print all_edges_set
+                    print A
+                    print B
+                    assert False
 
         global_variables['leq_depth'] -= 1
         return unifier
