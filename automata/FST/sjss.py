@@ -11,6 +11,8 @@ import time
 import generate_fst
 from automata.automata_network import Automatanetwork
 
+DEBUG_COMPUTE_BRANCHES = True
+
 # This file computes an SJSS graph from a non-SJSS input graph.
 
 # I think I actually don't need to do this.  I think we
@@ -430,6 +432,9 @@ def compute_end_states(nodes, edges):
 
 # Given an automata, return a list of all branches.
 def compute_branches(nodes, edges, start_node):
+    if DEBUG_COMPUTE_BRANCHES:
+        print "Starting compute branches..."
+        print "Edges are, ", edges
     next_node = [start_node]
     output_lookup = generate_output_lookup(nodes, edges)
     input_lookup = generate_input_lookup(nodes, edges)
@@ -447,6 +452,11 @@ def compute_branches(nodes, edges, start_node):
     while (len(next_node) > 0):
         node = next_node[0]
         next_node = next_node[1:]
+        if DEBUG_COMPUTE_BRANCHES:
+            print "Next Iteration Started:"
+            print "Next node stack is ", next_node
+            print "Current node is ", node
+            print "Visisted?", visited[node]
 
         # Check if visited:
         if visited[node] > 0:
@@ -455,6 +465,8 @@ def compute_branches(nodes, edges, start_node):
             # here.
             # Do append this to the current branch though so
             # we know where it ends.
+            assert (branches[-1][-1], node) in edges
+
             branches[branchdepth].append(node)
 
             # We should reduce the number of branches
@@ -496,6 +508,9 @@ def compute_branches(nodes, edges, start_node):
 
             branchdepth += len(next_nodes) - 1
 
+    if DEBUG_COMPUTE_BRANCHES:
+        print "Completed branches are"
+        print completed_branches
     return completed_branches
 
 # Return a list of nodes that preceed the edges in target edges.
