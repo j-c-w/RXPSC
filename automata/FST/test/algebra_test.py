@@ -7,6 +7,19 @@ import automata.FST.algebra as alg
 
 
 class AlgebraTest(unittest.TestCase):
+    def test_long_loop(self):
+        nodes = [0, 1654, 1655, 1656, 1657, 1658, 1659, 1660, 1661]
+        edges = [(1654, 1661), (1654, 1654), (1654, 1655), (1661, 1661), (1661, 1654), (1661, 1655), (1659, 1660), (1659, 1661), (1660, 1660), (1660, 1661), (1658, 1659), (1657, 1658), (1656, 1657), (0, 1656)]
+        algebra = alg.generate(nodes, edges, 0, [1657], EmptyOptions)
+        for edge in algebra.all_edges():
+            self.assertTrue(edge in edges)
+        # I'm really not sure about tha e in the middle of the loop.
+        # Seems like there is a simple equivalent to me?  Not sure
+        # though.
+        # Don't think it's incorrect, just obtuse and hard to 
+        # compile to.
+        self.assertEqual(str(algebra), '2 + a + 2 + {1 + (1)* + 1, 1} + ({1 + (1)* + 1 + e, 1})* + 1 + e')
+
     # It is not 100% clear to me that these should nessecarily
     # be of the format a + (1 + a)*, rather than (a + 1)*.
     # I think that the later requires applying the loop rolling
