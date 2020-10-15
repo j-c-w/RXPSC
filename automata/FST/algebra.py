@@ -188,6 +188,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 print("Current Algebra is:")
                 algebra = algebra_stack[-1][algebra_stack_counts[-1] - 1]
                 print(algebra)
+                print "Branch lookup is:"
+                print(branch_lookup)
 
             branches_starting_here = branch_lookup[node]
 
@@ -219,6 +221,10 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     print "Recursing"
 
                 sub_nodes, sub_edges, removed_edges, sub_branches_analysis, sub_loops_analysis = sjss.compute_loop_subregion(nodes, edges, node, loops_analysis, branches_analysis)
+                if ALG_DEBUG:
+                    print "Sub-edges are ", sub_edges
+                    print "Removed edges are", removed_edges
+                    print "Sub-branches analysis is", sub_branches_analysis
                 # This is done by recursively considering a much smaller
                 # graph with the loop in it.
 
@@ -278,11 +284,13 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                         last_node = node
                     else:
                         last_node = elemn.get_last_node()
+                        assert elemn.get_first_node() == node
 
                     if ALG_DEBUG:
                         print "Getting last node from.. ", elemn
                         print "Appending edge: ", last_node, ", ", node, "to each element"
                     if last_node is not None:
+                        assert (last_node, node) in edges
                         branch_elems[i] = Sum([branch_elems[i], Const(1, [(last_node, node)])])
 
                         # Also check if we need to add a '+ a' to
@@ -312,6 +320,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     print "Generated loop algebra is:"
                     print "(From node ", node, ")"
                     print(loop_algebra)
+                    print "Edges represented are", loop_algebra.all_edges()
 
                 # Increment the stack with this loop algebra on top.:
                 algebra_stack.append([loop_algebra])
@@ -342,6 +351,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             if len(non_loops_from_this_node) == 1:
                 if ALG_DEBUG:
                     print "Non loops from this node is 1 --- continuing"
+                    print "Node is", node
+                    print "Non-loops are", non_loops_from_this_node
 
                 new_linalg = linear_algebra_for(non_loops_from_this_node[0], accept_states)
                 # Persist that algebra into the stack.
@@ -441,7 +452,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                             print "Entering in cache..."
                         computed_algebras[node_we_finished] = algebra.normalize()
                     else:
-                        print "Call was finished and compressed, but node ", node_we_finished, " still has work to be done."
+                        if ALG_DEBUG:
+                            print "Call was finished and compressed, but node ", node_we_finished, " still has work to be done."
                 # We have 'completed' a branch here.
                 # Combine the algebra we computed with the last algebra
                 # on the stack.
@@ -1350,7 +1362,15 @@ def apply_structural_transformations_internal(simple_graph, additions, options):
             # check that we are only inserting things.
             og = old_graph.clone()
             # And insert it into the graph:
+            in_edges_before = False
             old_graph = sjss.splice(og, nodes_before[0], new_graph)
+
+            if group_compiler.DEBUG_GENERATE_BASE:
+                # Ensure that all the new lookups are in the new
+                # graph:
+
+                for edge in new_graph.edges:
+                    assert edge in old_graph.symbol_lookup
     if group_compiler.DEBUG_GENERATE_BASE:
         if modification_count > 0:
             print "Applied", modification_count, "transformations to the graph"
