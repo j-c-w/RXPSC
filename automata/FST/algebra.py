@@ -467,7 +467,6 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     new_head_of_stack = Sum([new_head_of_stack, algebra]).normalize()
                 algebra_stack[-1][algebra_stack_counts[-1] - 1] = new_head_of_stack
 
-
             # Decrement the stack counts.
             algebra_stack_counts[-1] = algebra_stack_counts[-1] - 1
 
@@ -1053,7 +1052,9 @@ def leq_internal_wrapper(A, B, options):
                     if options.use_structural_change and A.e1[a_index].isproduct() and not B.e1[b_index].isproduct():
                         if LEQ_DEBUG:
                             print "Adding loop insert"
-                        unifier.add_insert(A.e1[a_index], B.first_edge())
+                            print A
+                            print B
+                        unifier.add_insert(A.e1[a_index], Sum(B.e1[b_index:]).first_edge())
                         a_index += 1
                         continue
 
@@ -1069,7 +1070,7 @@ def leq_internal_wrapper(A, B, options):
                             # anyway --- it's better not to trigger the above case if we
                             # can avoid it, since that introduces new edges, and this shares
                             # existing edges.
-                        sub_unifier = leq_internal(Sum(A.e1[a_index:]), B, options)
+                        sub_unifier = leq_internal(Sum(A.e1[a_index:]), Sum(B.e1[b_index:]).normalize(), options)
                         if sub_unifier is not None:
                             unifier.unify_with(sub_unifier)
                             a_index = len(A.e1)

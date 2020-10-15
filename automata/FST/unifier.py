@@ -446,7 +446,7 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
         # difficult to disable I think...
         assert insert.first_edge() is not None
         for edge in insert.first_edge():
-            for character in symbol_lookup_1[edge]:
+            for character in symbol_lookup_2[edge]:
                 # This could definitely be moved up to the part before state_lookup is
                 # solidified.
                 if character in state_lookup:
