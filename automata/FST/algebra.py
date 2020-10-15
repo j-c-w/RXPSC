@@ -178,7 +178,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 print("For node " + str(node))
                 print("Algebra stack is: ")
                 # This is too big to print for some things.
-                # print([[str(i) for i in x] for x in algebra_stack])
+                print([[str(i) for i in x] for x in algebra_stack])
                 print("Algebra stack indexes are:")
                 print(algebra_stack_counts)
                 print("Node stack is: ")
@@ -307,18 +307,24 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                         assert not elemn.isbranch()
                         pass
 
-                loop_algebra = Branch(branch_elems)
+                loop_algebra = Product(Branch(branch_elems)).normalize()
                 if ALG_DEBUG:
                     print "Generated loop algebra is:"
+                    print "(From node ", node, ")"
                     print(loop_algebra)
 
-                algebra = algebra_stack[-1][algebra_stack_counts[-1] - 1]
-                algebra_stack[-1][algebra_stack_counts[-1] - 1] = Sum([algebra, Product(loop_algebra)]).normalize()
+                # Increment the stack with this loop algebra on top.:
+                algebra_stack.append([loop_algebra])
+                algebra_stack_counts.append(1)
+                algebra_stack_nodes.append(node)
 
             # If this branch is a dead-end, add that
             # to the result equation:
             if len(non_loops_from_this_node) == 0:
+                if ALG_DEBUG:
+                    print "Non-loops from this node is 0, getting ready to compress"
                 try_to_compress = True
+
                 if node in end_states:
                     # Save an end state onto the stack.
                     algebra = algebra_stack[-1][algebra_stack_counts[-1] - 1]
@@ -334,6 +340,9 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             # Dunno how often this case comes up, since things should
             # be compressed.  Might happen for the  start node anyway
             if len(non_loops_from_this_node) == 1:
+                if ALG_DEBUG:
+                    print "Non loops from this node is 1 --- continuing"
+
                 new_linalg = linear_algebra_for(non_loops_from_this_node[0], accept_states)
                 # Persist that algebra into the stack.
                 current_stack = algebra_stack[-1][algebra_stack_counts[-1] - 1]
@@ -344,6 +353,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
 
             # If this is a branch, go deeper in the algebra stack.
             if len(non_loops_from_this_node) > 1:
+                if ALG_DEBUG:
+                    print "Non-loops from this node gt 1, getting ready to expand search"
                 branches_count = len(non_loops_from_this_node)
 
                 # This keeps track of how many branches there
@@ -414,16 +425,23 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
 
                     return algebra
 
+                node_we_finished = algebra_stack_nodes[-1]
+                del algebra_stack_nodes[-1]
 
                 if CACHE_ENABLED:
                     # Cache the resutls in the local cache 
                     # if we are not returning.
-                    node_we_finished = algebra_stack_nodes[-1]
-                    if ALG_DEBUG:
-                        print "Node finished :", node_we_finished
-                        # print "Has algebra", str(algebra)
-                    computed_algebras[node_we_finished] = algebra.normalize()
-                del algebra_stack_nodes[-1]
+                    # Don't put this into the cache unless
+                    # it is the last time we need to compress
+                    # for this node:
+                    if node_we_finished not in algebra_stack_nodes:
+                        if ALG_DEBUG:
+                            print "Node finished :", node_we_finished
+                            print "Has algebra", str(algebra)
+                            print "Entering in cache..."
+                        computed_algebras[node_we_finished] = algebra.normalize()
+                    else:
+                        print "Call was finished and compressed, but node ", node_we_finished, " still has work to be done."
                 # We have 'completed' a branch here.
                 # Combine the algebra we computed with the last algebra
                 # on the stack.

@@ -19,6 +19,16 @@ class AlgebraTest(unittest.TestCase):
         algebra = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 3), (3, 4), (1, 4), (4, 4)], 0, [4], EmptyOptions)
         self.assertEqual("1 + {2, 1} + a + (1 + a)*", str(algebra))
 
+    def test_trailing_product_3(self):
+        nodes = [4, 5, 6, 7, 0, 8, 11]
+        edges =  [(4, 5), (4, 6), (5, 6), (6, 7), (7, 8), (0, 4), (7, 11), (7, 7)]
+        accepting = [11]
+        start = 0
+        algebra = alg.generate(nodes, edges, start, accepting, EmptyOptions)
+        print algebra
+        self.assertEqual(str(algebra), "1 + {2, 1} + 1 + (1)* + {1 + e, 1 + a + e}")
+
+
     def test_simpleTest(self):
         simple = alg.generate([0, 1, 2, 3], [(0, 1), (1, 2), (2, 3)], 0, [3], EmptyOptions)
         self.assertEquals("3 + a + e", str(simple))
