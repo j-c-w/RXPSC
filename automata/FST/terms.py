@@ -21,6 +21,7 @@ class DepthEquation(object):
         self._cached_branches_count = None
         self._cached_loop_count = None
         self._cached_all_edges = None
+        self._cached_first_node = None
 
     def isproduct(self):
         return False
@@ -173,6 +174,10 @@ class DepthEquation(object):
             self._cached_loop_count = self._loops_count()
             return self._cached_loop_count
 
+    def get_first_node(self):
+        if self._cached_first_node is None:
+            self_cached_first_node = self._get_first_node()
+        return self._cached_first_node
 
 class Product(DepthEquation):
     def __init__(self, e1):
@@ -243,6 +248,9 @@ class Product(DepthEquation):
 
         self._last_node = self.e1.get_last_node()
         return self._last_node
+
+    def _get_first_node(self):
+        return self.e1.get_first_node()
 
     def isproduct(self):
         return True
@@ -437,11 +445,23 @@ class Sum(DepthEquation):
         index = len(self.e1) - 1
         while found_last_node is None and index >= 0:
             found_last_node = self.e1[index].get_last_node()
+            if found_last_node is None and self.e1[index].isend():
+                self._last_node = None
+                return None
 
             index -= 1
 
         self._last_node = found_last_node
         return self._last_node
+
+    def get_first_node(self):
+        found_first_node = None
+        index = 0
+        while found_first_node is None and index < len(self.e1):
+            found_first_node = self.e1[index].get_first_node()
+
+            index += 1
+        return found_first_node
 
     def issum(self):
         return True
@@ -632,6 +652,12 @@ class Const(DepthEquation):
         else:
             return None
 
+    def get_first_node(self):
+        if len(self.edges) > 0:
+            return self.edges[0][0]
+        else:
+            return NOne
+
     def str_with_lookup(self, lookup):
         edges_val = [[chr(y) for y in lookup[x]] for x in self.edges if x in lookup]
         return str(self.val) + " " + str(edges_val)
@@ -760,6 +786,9 @@ class Branch(DepthEquation):
         return True
 
     def get_last_node(self):
+        return None
+
+    def _get_first_node(self):
         return None
 
     def str_with_lookup(self, lookup):
@@ -958,6 +987,9 @@ class Accept(DepthEquation):
         return "a"
 
     def get_last_node(self):
+        return None
+
+    def _get_first_node(self):
         return None
 
     def normalize(self):
