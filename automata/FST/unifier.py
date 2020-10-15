@@ -345,6 +345,9 @@ class Modifications(object):
     def all_modifications(self):
         return self.branches + self.inserts
 
+    def __str__(self):
+        return "[" + ','.join([str(x) for x in self.all_modifications()]) + ']'
+
 class Modification(object):
     def __init__(self, algebra, edges_after):
         self.algebra = algebra
