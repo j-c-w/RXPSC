@@ -37,7 +37,7 @@ class UnifierTest(unittest.TestCase):
         }
         u = alg.leq_unify(Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 1)])), Const(2, [(1, 2), (2, 3)]), Accept(), End()]).normalize(), Sum([Const(3, [(0, 1), (1, 2), (2, 3)]), Accept(), End()]).normalize(), EmptyOptions)
         self.assertEqual(len(u), 1)
-        generated = u[0].unify_single_state(l1, l2, EmptyOptions)
+        generated = u[0].unify_single_state(l2, l1, EmptyOptions)
         self.assertEqual(generated.modifications.all_modifications()[0].edges_after, [(1, 2)])
 
     def test_simple_sinlge_state(self):
