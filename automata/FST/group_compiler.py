@@ -369,7 +369,14 @@ def generate_base_automata_for(groups, assignments, options):
 
         if DEBUG_GENERATE_BASE:
             print "Pre modification", sc.compute_depth_equation(automata, options)
-            print "Making ", len(structural_additions[i]), "modifications"
+            print "Modifications are:"
+            mod_count = 0
+            for addition in structural_additions[i]:
+                for mod in addition.all_modifications():
+                    mod_count += 1
+                    print mod.algebra
+            print "Making ", mod_count, "modifications"
+
         result.append(alg.apply_structural_transformations(automata, structural_additions[i], options))
         if DEBUG_GENERATE_BASE:
             print "Post-mofication", sc.compute_depth_equation(result[-1], options)
@@ -466,18 +473,24 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
                 print "Suprisise! Failed to convert machines"
                 print source.algebra
                 print target.algebra
+                # These are ommitted by default because they
+                # might be really big..
+                # print "They have graphs"
+                # sgraph = sjss.automata_to_nodes_and_edges(source.automata)
+                # dgraph = sjss.automata_to_nodes_and_edges(target.automata)
                 print "WHen we were promised to be able to"
                 print "Original assignment was from:"
                 print source.algebra
                 assign = assignments[i][j]
+                print "Required ", len(assign.modifications), "modifications"
                 ti, tj = assign.i, assign.j
                 print groups[ti][tj].algebra
-            assert conversion_machine is not None
+            # assert conversion_machine is not None
             # This can't be the case --- we are just about to
             # create a final hardware assignment, if there are
             # structural additions, they should be dealt with
             # before this function.
-            assert not conversion_machine.has_structural_additions()
+            # assert not conversion_machine.has_structural_additions()
 
             translators[target_accel_index].add_automata(source.automata, conversion_machine)
 
@@ -524,6 +537,18 @@ def groups_from_components(automata_components, options):
                 print "Compiling equation from group ", group_index
                 print "Equation index", equation_index
             depth_eqn = sc.compute_depth_equation(cc, options)
+            simple_graph = sjss.automata_to_nodes_and_edges(cc).edges
+
+            edges_not_in_graph = False
+            for edge in depth_eqn.all_edges():
+                if edge not in simple_graph:
+                    edges_not_in_graph = True
+                    print "Edge", edge, "not in graph"
+            if edges_not_in_graph:
+                print "Graph", simple_graph
+                print "Equation", depth_eqn
+                assert False
+
             if not depth_eqn:
                 # Means that the graph was too big for the current
                 # setup.
