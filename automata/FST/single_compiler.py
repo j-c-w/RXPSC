@@ -42,10 +42,10 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
     unification = algebra.leq_unify(eqn_from, eqn_to, options)
 
     if unification is None:
-        return None
+        return None, generate_fst.GenerationFailureReason("Structural Failure")
     else:
         # Use the unification to generate an FST if possible.
-        result = generate_fst.generate(unification, automata_to, automata_from, options)
+        result, failure_reason = generate_fst.generate(unification, automata_to, automata_from, options)
         if result:
             # Debugging issues with which accelerator is which.
             # for option in result.modifications.all_modifications():
@@ -55,7 +55,7 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
 
             if options.verify:
                 verify_fst(automata_to, automata_from, result, options)
-        return result
+        return result, failure_reason
 
 
 # Ensure that the expected outputs are the same as the

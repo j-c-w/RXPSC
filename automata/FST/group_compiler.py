@@ -208,7 +208,7 @@ def compute_compiles_for(args):
                 print "(Hash)", str(source_automata.algebra.structural_hash())
                 print " and, ", str(target_automata.algebra)
                 print "(Hash)", str(target_automata.algebra.structural_hash())
-            conversion_machine = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata, options)
+            conversion_machine, failure_reason = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata, options)
 
             if conversion_machine:
                 if options.dump_comparison_cache:
@@ -465,7 +465,7 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
             source = groups[i][j]
             
             # Now, generate the unifier for this compilation:
-            conversion_machine = sc.compile_from_algebras(source.algebra, source.automata, target.algebra, target.automata, options)
+            conversion_machine, failure_reason = sc.compile_from_algebras(source.algebra, source.automata, target.algebra, target.automata, options)
             # I think that this is going to have to succeed.
             # There are ways around it, but it suggests that
             # some approximation was used if it fails.
@@ -473,6 +473,7 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
                 print "Suprisise! Failed to convert machines"
                 print source.algebra
                 print target.algebra
+                print "The failure reason was", failure_reason.reason
                 # These are ommitted by default because they
                 # might be really big..
                 # print "They have graphs"

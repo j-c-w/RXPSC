@@ -1,5 +1,10 @@
 import sys
 import FST
+from unifier import Modifications
+
+class GenerationFailureReason(object):
+    def __init__(self, reason):
+        self.reason = reason
 
 def expand_ranges(ranges):
     ranges = list(ranges)
@@ -33,16 +38,19 @@ def generate(unification, to_atma, from_atma, options):
 
     best_result = None
     best_structural_modification_count = 1000000
+    unifiers_attempted = 0
     for unifier in unification:
         if not unifier:
             continue
+        else:
+            unifiers_attempted += 1
 
         if options.target == 'single-state':
             result = unifier.unify_single_state(from_edge_lookup, to_edge_lookup, options)
         elif options.target == 'symbol-only-reconfiguration':
             result = unifier.unify_symbol_only_reconfigutaion(to_edge_lookup, from_edge_lookup, options)
         elif options.target == 'perfect-unification':
-            result = FST.AllPowerfulUnifier()
+            result = FST.AllPowerfulUnifier(Modifications(unifier.inserts, unifier.branches, from_edge_lookup))
         else:
             print "Unkown target " + options.target
             sys.exit(1)
@@ -53,9 +61,14 @@ def generate(unification, to_atma, from_atma, options):
         structural_modification_count = unifier.structural_modification_count()
         if result and structural_modification_count == 0:
             # Auto-return if we get an answer with 0 modification
-            return result
+            return result, None
         elif result and structural_modification_count < best_structural_modification_count:
             best_result = result
             best_structural_modification_count = structural_modification_count
 
-    return best_result
+    if best_result is not None:
+        return best_result, None
+    elif unifiers_attempted > 0:
+        return None, GenerationFailureReason("Unification Failure")
+    elif unifiers_attempted == 0:
+        return None, GenerationFailureReason("Structural Failure")
