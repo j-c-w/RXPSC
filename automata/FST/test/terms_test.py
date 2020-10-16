@@ -19,5 +19,9 @@ class TermsTest(unittest.TestCase):
     def test_split_last(self):
         self.assertEqual(str(Sum([Const(2, [(0, 1), (1, 2)]), End()]).split_last(1)[1]), "1 + e")
 
+    def test_parse(self):
+        termsstring = "4 + {1 + (1)* + 1, 1} + {1 + (1)* + 1 + a + e, 1 + a + e}"
+        self.assertEqual(str(parse_terms(termsstring)), str(termsstring))
+
 if __name__ == "__main__":
     unittest.main()

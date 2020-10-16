@@ -1069,3 +1069,61 @@ class End(DepthEquation):
 
     def structural_hash(self):
         return -2
+
+# this just has to be unique for the parser.
+total_edge_count = 0
+def parse_terms(string):
+    def generate_edges(count):
+        global total_edge_count
+        edges = []
+        for i in range(count):
+            edges.append(total_edge_count)
+            total_edge_count += 1
+        return edges
+    in_number = False
+    number = ''
+    last_elts = [[]]
+    branch_options = []
+
+    for character in string:
+        if character == ' ':
+            continue
+
+        if character in '0123456789':
+            number += character
+            in_number = True
+        elif in_number:
+            last_elts[-1].append(Const(int(number), generate_edges(int(number))))
+            in_number = False
+            number = ''
+
+        if character == '(':
+            last_elts.append([])
+
+        if character == ')':
+            continue
+        if character == '*':
+            last_elts[-2].append(Product(Sum(last_elts[-1])))
+            del last_elts[-1]
+
+        if character == '{':
+            branch_options.append(1)
+            last_elts.append([])
+        if character == ',':
+            branch_options[-1] += 1
+            last_elts.append([])
+        if character == '}':
+            opt_count = branch_options[-1]
+            opts = []
+            for i in range(opt_count):
+                opts.append(Sum(last_elts[-1]))
+                del last_elts[-1]
+            del branch_options[-1]
+            last_elts[-1].append(Branch(opts[::-1]))
+        if character == 'a':
+            last_elts[-1].append(Accept())
+        if character == 'e':
+            last_elts[-1].append(End())
+
+    assert len(last_elts) == 1
+    return Sum(last_elts[-1]).normalize()
