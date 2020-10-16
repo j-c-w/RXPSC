@@ -810,34 +810,37 @@ def leq_internal_wrapper(A, B, options):
             # So, we can check whether we can compile every
             # individual branch, and if it does, then we can
             # disable the other options.
-            opt_unifier = None
-            selected_unifier = None
+            opt_unifiers = []
+            selected_unifiers = []
             for opt in B.options:
                 sub_unifier = leq_internal(A, opt, options)
                 if sub_unifier is not None:
-                    opt_unifier = opt
-                    selected_unifier = sub_unifier
-                    break
+                    opt_unifiers.append(opt)
+                    selected_unifiers.append(sub_unifier)
 
             # Note that there is some possibility for more
             # generality here, because one of these branch
             # options might be unifiable, while the others
             # may not be.  We've just picked the first, but
             # a simple heuristic may be more than possible.
-            if opt_unifier is not None:
+            if len(opt_unifiers) > 0:
                 # Create the unifier.
-                unifier = selected_unifier
-                for opt in B.options:
-                    if opt != opt_unifier:
-                        # Unify the first edge with None.
-                        # Note that there is also scope here for
-                        # more flexibility, because we are really
-                        # interested in ensuring that it doesn't
-                        # get to an unwanted accepting state.
-                        first_edges = opt.first_edge()
-                        if first_edges:
-                            unifier.add_disabled_edges(first_edges)
+                for i in range(len(selected_unifiers)):
+                    this_unifier = selected_unifiers[i]
+                    for opt in B.options:
+                        if opt != opt_unifiers[i]:
+                            # Unify the first edge with None.
+                            # Note that there is also scope here for
+                            # more flexibility, because we are really
+                            # interested in ensuring that it doesn't
+                            # get to an unwanted accepting state.
+                            first_edges = opt.first_edge()
+                            if first_edges:
+                                this_unifier.add_disabled_edges(first_edges)
                 result = True
+                unifier = UnifierList([])
+                for u in selected_unifiers:
+                    unifier.append_unifiers(u)
             else:
                 # No branch unified.
                 unifier = None
@@ -922,84 +925,62 @@ def leq_internal_wrapper(A, B, options):
         # a single special case that requires a lot of fine-tuning.
         # Sorry.
         elif A.isconst() and B.issum():
+            # I'm not sure how correct this case is --- what if it is called as part of a larger check?  How can we just
+            # disable the outgoing edges correctly?
+            if LEQ_DEBUG:
+                print "Const to sum conversion.."
             # There are a few cases we consider here --- consider this as a
             # base-case for A.issum and B.issum().
             elts = B.e1
             # This should be true because we should have normalized things.
             assert len(elts) > 1
-            # Because we know that A won't have any products in it, we can delete those.
-            non_product_elements = []
-            product_elements_to_be_disabled = []
-            # However, we don't need to disable /all/ the product elements, just
-            # the ones that come before the first non_product_edge that is gong
-            # to be disabled, so we pretend only those exist.
-            const_edges_added = 0
-            for element in B.e1:
-                if element.isproduct():
-                    # After two const edges are added, we know we will (a)
-                    # have a match, and (b) be able to disable.
-                    # There are other cases that warrant disabling here, like
-                    # branches, but I'm not considering that for the moment.
-                    # I expect that to be too much of an edge case.
-                    if const_edges_added < 2:
-                        product_elements_to_be_disabled.append(element)
-                else:
-                    non_product_elements.append(element)
+            unifier = leq_internal(A, B.e1[0], options)
+            if unifier:
+                result = True
 
-                    if element.isconst():
-                        const_edges_added += 1
+                if LEQ_DEBUG and unifier:
+                    print "Unifier survived disabling of product edges"
 
-            if LEQ_DEBUG:
-                print "Trying to unify a const to some of the elements in the list"
-                print "Found ", len(non_product_elements), "non product elements"
-                print "And ", len(product_elements_to_be_disabled), "product elements that will need to be disabled (omitting from comaprison)"
+                # Only need to disable subsequent edges if they actually exist.
+                # Disable the next edge if it is there:
+                next_edges = Sum(B.e1[1:]).normalize()
+                first_edge = next_edges.first_edge()
+                if first_edge:
+                    unifier.add_disabled_edges(first_edge)
 
-            if len(non_product_elements) >= 1:
-                if LEQ_DEBUG:
-                    print "There is at least one non-const object"
-                unifier = leq_internal(A, non_product_elements[0], options)
-                if unifier:
-                    result = True
-
-                    # Need to disable the first ununsed non_product edge.
-                    for elt in product_elements_to_be_disabled:
-                        # We can't do anything with a loop if there is an accept.
-                        if elt.has_accept_before_first_edge():
-                            if LEQ_DEBUG:
-                                print "elt has accept before first edge"
-                            unifier = None
-
-                        if unifier and elt.first_edge():
-                            # disable the first edge.
-                            unifier.add_disabled_edges(elt.first_edge())
-
-                    if LEQ_DEBUG and unifier:
-                        print "Unifier survived disabling of product edges"
-
-                    # Only need to disable subsequent edges if they actually exist.
-                    if unifier and len(non_product_elements) > 1:
-                        # Disable the next edge if it is there:
-                        next_edges = Sum(B.e1[1:]).normalize()
-                        first_edge = next_edges.first_edge()
-                        if first_edge:
-                            unifier.add_disabled_edges(first_edge)
-
-                        if next_edges.has_accept_before_first_edge():
-                            # In this case, we can't actually do this unification.
-                            unifier = None
-                            result = False
-                    if LEQ_DEBUG and unifier:
-                        print "Unifier survived disabling of outgoing edges (trim property)"
-                else: # if unifier
+                if next_edges.has_accept_before_first_edge():
+                    # In this case, we can't actually do this unification.
+                    unifier = None
                     result = False
+                if LEQ_DEBUG:
+                    print "Unifier survived disabling of outgoing edges (trim property)"
+            else: # if unifier
+                result = False
+
             if not result:
                 compilation_statistics.const_to_sum_failed += 1
         elif A.issum() and B.isconst():
             # This is the equivalent base-case, but doesn't have anywhere near as many options in it.
+            # Check if we are just inserting a loop, which we
+            # can do :)
+            if options.use_structural_change and len(A.e1) == 3:
+                    if len(A.e1) == 3 and \
+                            A.e1[0].isconst() and \
+                            A.e1[1].isproduct() and \
+                            A.e1[1].e1.isconst() and \
+                            A.e1[2].isconst():
+                        #This is a loop :)
+                        unifier = Unifier()
+                        unifier.add_insert(A, B.edges[0])
+                        result = True
+                    else:
+                        failed_loop_insertion = True
+            else:
+                result = False
+                compilation_statistics.sum_to_const_failed += 1
+
             if LEQ_DEBUG:
                 print "Hit a case converting a sum to a const, not implemented"
-            result = False
-            compilation_statistics.sum_to_const_failed += 1
         elif A.issum() and B.issum():
             if LEQ_DEBUG:
                 print "Both are sums: unifying subsums"
@@ -1023,12 +1004,17 @@ def leq_internal_wrapper(A, B, options):
             else:
                 still_equal = True
                 unifier = UnifierList([Unifier()])
+                result = True # Needs to be set to false whereever this fails.
 
                 a_index = 0
                 b_index = 0
                 # We don't need equality up to the end here, due
                 # the the (trim) rule (i.e. e <= x (provided x != a))
                 while still_equal and a_index < len(A.e1) and b_index < len(B.e1):
+                    if ALG_DEBUG:
+                        print "Remaining algebras for next iteration are:"
+                        print Sum(A.e1[a_index:])
+                        print Sum(B.e1[b_index:])
                     # The algorithm here is to progressively increase
                     # the range of terms over which we unify in A to the
                     # first element in B.  If that doesn't work, then
@@ -1052,18 +1038,6 @@ def leq_internal_wrapper(A, B, options):
                         print "The indexes are:"
                         print a_index, b_index
 
-                    # If we are structurally modifying the accelerators, then we can inject products into
-                    # B.  Clearly if there was a product at the start of A, and there was not a product
-                    # at the start of B, these were not going to unify.
-                    if options.use_structural_change and A.e1[a_index].isproduct() and not B.e1[b_index].isproduct():
-                        if LEQ_DEBUG:
-                            print "Adding loop insert"
-                            print A
-                            print B
-                        unifier.add_insert(A.e1[a_index], Sum(B.e1[b_index:]).first_edge())
-                        a_index += 1
-                        continue
-
                     # The expanding algorithm works well for a lot of things, but for picking up this
                     # case, it doens't work very well.  This makes sure that we trigger the
                     # branch addition case if we are using structural change.
@@ -1081,6 +1055,23 @@ def leq_internal_wrapper(A, B, options):
                             unifier.unify_with(sub_unifier)
                             a_index = len(A.e1)
                             break
+
+                    # Check if we need to insert a loop, and
+                    # make that recursive call if nessecary.
+                    if options.use_structural_change and \
+                            len(A.e1) >= a_index + 3 and len(B.e1) >= b_index + 2 and A.e1[a_index].isconst() and \
+                            A.e1[a_index + 1].isproduct() and A.e1[a_index + 1].e1.isconst() and A.e1[a_index + 2].isconst() and \
+                            not B.e1[b_index + 1].isproduct() and \
+                            B.e1[b_index].isconst():
+                        # There is no way were are going to be able to 
+                        # unify the next element in A.  See if we
+                        # can create the branch instead:
+                        sub_unifier = leq_internal(Sum(A.e1[a_index:a_index + 3]).normalize(), B.e1[b_index], options)
+                        if sub_unifier is not None:
+                            unifier.unify_with(sub_unifier)
+                            a_index += 3
+                            b_index += 1
+                            continue
 
                     if A.e1[a_index].isconst() and B.e1[b_index].isconst():
                         # Unify and continue:
@@ -1118,23 +1109,26 @@ def leq_internal_wrapper(A, B, options):
                     else:
                         # Otherwise, try matching more things of B to
                         # the first element of A.
-                        last_element_of_b = len(B.e1)
+                        element_index = b_index + 1
                         found_match_expanding_b = False
 
-                        while not found_match_expanding_b and last_element_of_b > b_index:
-                            smaller_elements = Sum(B.e1[b_index:last_element_of_b]).normalize(flatten=False)
+                        while not found_match_expanding_b and element_index <= len(B.e1):
+                            smaller_elements = Sum(B.e1[b_index:element_index]).normalize(flatten=False)
                             sub_unifier = leq_internal(A.e1[a_index], smaller_elements, options)
 
                             if sub_unifier is not None:
                                 if LEQ_DEBUG:
                                     print "Found match expanding B"
+                                    print "Match was between "
+                                    print A.e1[a_index]
+                                    print Sum(B.e1[b_index:element_index])
                                 found_match_expanding_b = True
                             else:
-                                last_element_of_b -= 1
+                                element_index += 1
 
                         if found_match_expanding_b:
                             unifier.unify_with(sub_unifier)
-                            b_index = last_element_of_b - 1
+                            b_index = element_index
                             a_index += 1
                         else:
                             # No matches found, so termiate
@@ -1261,20 +1255,14 @@ def leq_internal_wrapper(A, B, options):
                 compilation_statistics.branch_to_branch_failure += 1
 
         else:
-            if options.use_structural_change and A.isproduct():
-                result = True
-                unifier = Unifier()
-                # Insert before the first edge of B.
-                unifier.add_insert(A, B.first_edge())
-            else:
-                compilation_statistics.types_differ += 1
-                result = False
-                if LEQ_DEBUG:
-                    print "Types differ: unification failed"
-                    print "Types were", A.type(), B.type()
+            compilation_statistics.types_differ += 1
+            result = False
+            if LEQ_DEBUG:
+                print "Types differ: unification failed"
+                print "Types were", A.type(), B.type()
 
         global_variables['comparison_cache'][cache_pointer] = unifier
-        if result is None:
+        if unifier is None:
             if LEQ_DEBUG:
                 print "Failed to produce a comparison for:"
                 print A
@@ -1351,26 +1339,30 @@ def apply_structural_transformations_internal(simple_graph, additions, options):
                 print "Adding:"
                 print "(of ", len(modification_set), " additions)"
                 print addition
-            # Get the edges that this has to be before
-            edges_after = addition.edges_after
-            # Now, get the node that leads to the 'edges after',
-            # and insert this one before all the edges after.
-            nodes_before = list(sjss.get_node_before_edges(edges_after))
-
-            # I don't think we currently support adding things
-            # with many different start nodes --- not sure how
-            # that would work.
-            assert len(nodes_before) == 1
-
             # Then, insert this by generating new edge numbers and
             # putting it in with the appropriate symbol set.
-            new_graph, _ = graph_for(addition.algebra, modification_set.symbol_lookup)
+            new_graph, last_nodes = graph_for(addition.algebra, modification_set.symbol_lookup)
 
             # check that we are only inserting things.
             og = old_graph.clone()
             # And insert it into the graph:
-            in_edges_before = False
-            old_graph = sjss.splice(og, nodes_before[0], new_graph)
+            if addition.isinsert():
+                # Get the nodes around which we insert this:
+                (before, after) = addition.edge
+                old_graph = sjss.splice_between(og, before, after, new_graph, last_nodes)
+            else:
+                # Get the edges that this has to be before
+                edges_after = addition.edges_after
+                # Now, get the node that leads to the 'edges after',
+                # and insert this one before all the edges after.
+                nodes_before = list(sjss.get_node_before_edges(edges_after))
+
+                # I don't think we currently support adding things
+                # with many different start nodes --- not sure how
+                # that would work.
+                assert len(nodes_before) == 1
+
+                old_graph = sjss.splice_after(og, nodes_before[0], new_graph)
 
             if group_compiler.DEBUG_GENERATE_BASE:
                 # Ensure that all the new lookups are in the new
