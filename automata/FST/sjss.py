@@ -11,7 +11,7 @@ import time
 import generate_fst
 from automata.automata_network import Automatanetwork
 
-DEBUG_COMPUTE_BRANCHES = True
+DEBUG_COMPUTE_BRANCHES = False
 
 # This file computes an SJSS graph from a non-SJSS input graph.
 
@@ -522,6 +522,63 @@ def get_node_before_edges(target_edges):
             result.add(edge[0])
     return result
 
+def splice_between(source_graph, before_node, after_node, splice_graph, last_nodes_in_splice_graph):
+    max_node_number = max(source_graph.nodes)
+
+    new_splice_graph, node_mapping = relabel_from(max_node_number + 1, splice_graph.clone(), return_mapping=True)
+
+    # Convert the last nodes list to the same numbering system.
+    for i in range(len(last_nodes_in_splice_graph)):
+        last_nodes_in_splice_graph[i] = node_mapping[last_nodes_in_splice_graph[i]]
+
+    # Now, we go through, and replace any reference to the start node with before_node,
+    # and any reference to any last_nodes_in_splice_graph with after_node
+    # Then we combine all the fields.
+    for i in range(len(new_splice_graph.nodes) - 1, -1, -1):
+        # Just delete the node --- it won't exist anymore.
+        if new_splice_graph.start_state == new_splice_graph.nodes[i]:
+            del new_splice_graph.nodes[i]
+        if new_splice_graph.nodes[i] in last_nodes_in_splice_graph:
+            del new_splice_graph.nodes[i]
+
+    # Edges and the edge-symbol lookup.
+    for i in range(len(new_splice_graph.edges)):
+        (from_node, to_node) = new_splice_graph.edges[i]
+        if from_node == new_splice_graph.start_state:
+            from_node = before_node
+        elif from_node in last_nodes_in_splice_graph:
+            from_node = after_node
+        if to_node == new_splice_graph.start_state:
+            to_node = before_node
+        elif to_node in last_nodes_in_splice_graph:
+            to_node = after_node
+
+        # Reconfigure the edge-symbol lookup
+        new_edge = (from_node, to_node)
+        # Only change things if the edge changes.
+        if new_edge != new_splice_graph.edges[i]:
+            new_splice_graph.symbol_lookup[new_edge] = new_splice_graph.symbol_lookup[new_splice_graph.edges[i]]
+            del new_splice_graph.symbol_lookup[new_splice_graph.edges[i]]
+            new_splice_graph.edges[i] = new_edge
+
+    # Accept states
+    for i in range(len(new_splice_graph.accepting_states)):
+        if new_splice_graph.accepting_states[i] == new_splice_graph.start_state:
+            new_splice_graph.accepting_states[i] = before_node
+        if new_splice_graph.accepting_states[i] in last_nodes_in_splice_graph:
+            new_splice_graph.accepting_states[i] = after_node
+
+    # Now that we have the rebuilt graph, we just need to splice it into the current graph:
+    result_nodes = source_graph.nodes + new_splice_graph.nodes
+    result_edges = source_graph.edges + new_splice_graph.edges
+    result_symbol_lookup = dict(source_graph.symbol_lookup)
+    for edge in new_splice_graph.edges:
+        result_symbol_lookup[edge] = new_splice_graph.symbol_lookup[edge]
+
+    result_accepting_states = source_graph.accepting_states + new_splice_graph.accepting_states
+
+    return simple_graph.SimpleGraph(result_nodes, result_edges, result_symbol_lookup, result_accepting_states, source_graph.start_state)
+
 # Splice a graph into another graph at a given node --- this works
 # by (1) renumbering all the new graph nodes so they are unique
 # then (2) by replacing the start node of the input graph
@@ -530,7 +587,7 @@ def get_node_before_edges(target_edges):
 # for the first graph.
 # Returns: the new nodes, the new edges, the new accepting states
 # and the
-def splice(source_graph, target_node, splice_graph):
+def splice_after(source_graph, target_node, splice_graph):
     # First, get the max node number, and just add onto that:
     max_node_number = max(source_graph.nodes)
 
@@ -576,7 +633,7 @@ def splice(source_graph, target_node, splice_graph):
 
     return simple_graph.SimpleGraph(result_nodes, result_edges, result_symbol_lookup, result_accepting_states, source_graph.start_state)
 
-def relabel_from(new_lowest_number, graph):
+def relabel_from(new_lowest_number, graph, return_mapping=False):
     node_label_mapping = {}
     # Construct a mapping for the old numbers to the new ones.
     for node in graph.nodes:
@@ -595,7 +652,10 @@ def relabel_from(new_lowest_number, graph):
         graph.accepting_states[i] = node_label_mapping[graph.accepting_states[i]]
     graph.start_state = node_label_mapping[graph.start_state]
 
-    return graph
+    if return_mapping:
+        return graph, node_label_mapping
+    else:
+        return graph
 
 
 # Given an AutomataNetwork object from grapefruit, get

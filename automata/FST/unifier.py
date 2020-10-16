@@ -36,9 +36,9 @@ class UnifierList(object):
 
         self.trim_unifier_list()
 
-    def add_insert(self, insert, edges_after):
+    def add_insert(self, insert, edge_to_snip):
         for unifier in self.unifiers:
-            unifier.add_insert(insert, edges_after)
+            unifier.add_insert(insert, edge_to_snip)
 
     def add_branch(self, branch, edges_after):
         for unifier in self.unifiers:
@@ -139,11 +139,11 @@ class Unifier(object):
     # to the automata we are going to accelerate,
     # the edges after corresponds to the automata we have an
     # accelerator for
-    def add_insert(self, insert, edges_after):
+    def add_insert(self, insert, edge_to_snip):
         assert not insert.has_accept_before_first_edge()
         assert insert.first_edge() is not None
 
-        self.inserts.append(Modification(insert, edges_after))
+        self.inserts.append(InsertModification(insert, edge_to_snip))
 
     def add_branch(self, branch, edges_after):
         assert not branch.has_accept_before_first_edge()
@@ -271,7 +271,7 @@ class Unifier(object):
             print self.algebra_to.str_with_lookup(symbol_lookup_1)
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
-            if self.algebra_from.equals(self.algebra_to, symbol_lookup_2, symbol_lookup_1):
+            if self.algebra_from.equals(self.algebra_to, symbol_lookup_1, symbol_lookup_2):
                 print "Algebras are actually exactly the same..."
                 for i in range(len(self.from_edges)):
                     if symbol_lookup_1[self.from_edges[i]] != symbol_lookup_2[self.to_edges[i]]:
@@ -348,6 +348,17 @@ class Modifications(object):
     def __str__(self):
         return "[" + ','.join([str(x) for x in self.all_modifications()]) + ']'
 
+class InsertModification(object):
+    def __init__(self, algebra, edge):
+        self.algebra = algebra
+        self.edge = edge
+
+    def __str__(self):
+        return str(self.algebra) + " Inserted over " + str(self.edge)
+
+    def isinsert(self):
+        return True
+
 class Modification(object):
     def __init__(self, algebra, edges_after):
         self.algebra = algebra
@@ -355,6 +366,9 @@ class Modification(object):
 
     def __str__(self):
         return str(self.algebra) + " Inserted before " + str(self.edges_after)
+
+    def isinsert(self):
+        return False
 
 # Given a set of input edges and output edges, generate a set
 # of input/output assignments that /does not double-map any symbol/
@@ -429,55 +443,7 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
         if i not in matching_symbol:
             disabling_symbols.add(i)
 
-    for modification in inserts:
-        insert = modification.algebra
-        edges_after = modification.edges_after
-        # Only handle small inserts.
-        if insert.size() > 2:
-            return None, None
-
-        if len(disabling_symbols) == 0:
-            return None, None
-        # We first need to pick the characterset for the insert --- use
-        # all the characters in the first edge of the insert.
-        insert_characterset = set()
-        # The first edges can't be none if this was added
-        # as an insert --- that would mean this is going to be
-        # difficult to disable I think...
-        assert insert.first_edge() is not None
-        for edge in insert.first_edge():
-            for character in symbol_lookup_1[edge]:
-                # This could definitely be moved up to the part before state_lookup is
-                # solidified.
-                if character in state_lookup:
-                    for c in state_lookup[character]:
-                        insert_characterset.add(c)
-                else:
-                    # assume that we will map character to itself.
-                    insert_characterset.add(character)
-
-        # Now, make sure that we can disable that edge in normal use of
-        # the accelerator.  We do that by mapping the contents of that edge
-        # to one of the non_matching symbols.
-        for character in insert_characterset:
-            # Try to map this character to one of the disabled characters:
-            if character in state_lookup:
-                existing_set = state_lookup[character]
-                new_set = disabling_symbols.intersection(existing_set)
-                if len(new_set) == 0:
-                    return None, None
-                else:
-                    state_lookup[character] = new_set
-
-                # TODO --- Need to disable one of the characters in
-                # the new_set from the matching_set.   this is actually
-                # broken until that happens.
-            else:
-                state_lookup[character] = [sorted(list(disabling_symbols))[0]]
-                # this is now a symbol that matches this edge.
-                # TODO -- need to make clear that the disabling set is for this
-                # particular structure.
-                matching_symbol[(sorted(list(disabling_symbols))[0])] = True
+    # TODO --- Sort out the inserts
 
     return state_lookup, matching_symbol
 

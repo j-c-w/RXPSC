@@ -584,6 +584,12 @@ def graph_for(algebra, symbol_lookup):
                 accept_states.append(last_node)
             elif obj.isend():
                 last_nodes.append(last_node)
+            elif obj.isproduct() and obj.e1.isconst():
+                edges.append((last_node, last_node))
+
+                result_lookup[(last_node, last_node)] = symbol_lookup[obj.e1.edges[0]]
+
+                last_node = new_node
             else:
                 # We could support the generation of a graph
                 # from more complex algebras, but choose
@@ -592,6 +598,7 @@ def graph_for(algebra, symbol_lookup):
                 # of the benefit from supporting small
                 # extensions anyway.
                 raise UnsupportedAlgebraException()
+        end_nodes = [last_node]
     elif algebra.isconst():
         # Return a two-node graph.
         next_node = node_counter
@@ -723,9 +730,6 @@ def leq_internal_fails_on_heuristics(A, B, options):
     if A.branches_count() > 1.5 * B.branches_count():
         return True
 
-    if A.loops_count() > 1.5 * B.loops_count():
-        return True
-
     return False
 
 # This MUST support multithreaded operation.
@@ -770,6 +774,8 @@ def leq_internal_wrapper(A, B, options):
         if LEQ_DEBUG:
             print "Entering a new comparison"
             print "Types are ", A.type(), " and ", B.type()
+            print A
+            print B
             this_call_id = global_variables['leq_internal_id']
             global_variables['leq_internal_id'] += 1
             print "Entering call ID: " + str(this_call_id)

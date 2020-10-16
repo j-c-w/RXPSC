@@ -110,6 +110,39 @@ class AlgebraTest(unittest.TestCase):
         self.assertEqual(str(res), "{2, 2} + 1 + {1 + e, 1 + e}")
 
 class UnificationTest(unittest.TestCase):
+    def test_complex_unification_3(self):
+        t1 = Sum([Const(1, [1]), Branch([Sum([Const(1, [4]), Product(Const(1, [5])), Const(1, [6])]), Const(1, [7])]), Const(2, [8, 9]), Accept(), End()]).normalize()
+        t2 = Sum([Branch([Sum([Product(Const(1, [4])), Branch([Sum([Const(1, [5]), Branch([Sum([Const(1, [6]), Product(Const(1, [7])), Const(1, [8])]), Const(1, [9])]), Const(2, [10, 11]), Accept(), End()]), Sum([Const(1, [12]), Accept(), End()])])])])]).normalize()
+        print t1
+        print t2
+        EmptyOptions.use_structural_change = False
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        EmptyOptions.use_structural_change = True
+        print res
+
+    def test_complex_unification_2(self):
+        t1 = Sum([Const(2, [1, 2]), Product(Const(1, [7])), Branch([Sum([Const(1, [8]), Product(Const(1, [9])), Const(1, [10])]), Const(1, [11])]), Branch([Sum([Const(1, [12]), Product(Const(1, [13])), Const(1, [14]), Accept(), End()]), Sum([Const(1, [15]), Accept(), End()])])]).normalize()
+        print t1
+        t2 = Sum([Const(1, [1]), Product(Const(1, [5])), Const(1, [6]), Branch([Sum([Const(1, [9]), Product(Const(1, [10])), Const(1, [11])]), Const(1, [12])]), Branch([Sum([Const(1, [12]), Product(Const(1, [13])), Branch([Sum([Const(1, [14]), Accept(), End()]), Sum([Const(1, [15]), Accept(), End()])])]), Sum([Const(1, [15]), Accept(), End()])])]).normalize()
+        print t2
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        self.assertTrue(len(res) == 0)
+
+    def test_complex_unification(self):
+        t1 = Sum([Const(5, [1, 2, 3, 4, 5]), Product(Const(1, [6])), Branch([Sum([Const(1, [7]), Product(Const(1, [8]))]), Sum([Const(1, [9]), Accept(), End()])])]).normalize()
+        t2 = Sum([Const(5, [101, 102, 103, 104, 105]), Product(Const(1, [106])), Const(1, [107]), Accept(), End()]).normalize()
+        print t1
+        print t2
+        res = alg.leq_unify(t1, t2, EmptyOptions)
+        self.assertEqual(res, [])
+        res = alg.leq_unify(t2, t1, EmptyOptions)
+        # Need at least one of these to have no structural additions
+        no_branches = False
+        for u in res:
+            if len(u.branches) == 0:
+                no_branches = True
+        self.assertTrue(no_branches)
+
     def test_simple_unifier(self):
         res = alg.leq_unify(Const(1, [(1, 2)]), Const(1, [(2, 3)]), EmptyOptions)[0]
         self.assertEqual(res.from_edges, [(1, 2)])
@@ -185,7 +218,7 @@ class UnificationTest(unittest.TestCase):
         t1 = Sum([Const(1, [1]), Const(1, [2])])
         t2 = Sum([Const(1, [1]), Product(Const(1, [2])), Const(1, [3])])
 
-        res = alg.leq_unify(t1, t2, EmptyOptions)
+        res = alg.leq_unify(t2, t1, EmptyOptions)
         res = [x for x in res if x is not None]
         self.assertNotEqual(res, [])
 
@@ -198,7 +231,7 @@ class UnificationTest(unittest.TestCase):
 
     def test_unifier_const_to_branch_in_sum(self):
         t1 = Const(1, [1])
-        t2 = Sum([Product(Const(1, [1])), Branch([Const(1, [1]), Const(1, [1])])])
+        t2 = Sum([Branch([Const(1, [1]), Const(1, [1])])]).normalize()
 
         res = alg.leq_unify(t1, t2, EmptyOptions)
         self.assertNotEqual(res, [])
@@ -207,12 +240,21 @@ class UnificationTest(unittest.TestCase):
         t1 = Sum([ Product(Const(1, [1])), Const(1, [1])])
         t2 = Sum([ Const(1, [2])])
 
+        # Can't do these due to homogeneity --- that is,
+        # the product will have the same inputs as the enxt
+        # element so will fail unification.
         res = alg.leq_unify(t1, t2, EmptyOptions)
-        self.assertNotEqual(res, [])
+        self.assertEqual(res, [])
         res = alg.leq_unify(t2, t1, EmptyOptions)
-        self.assertNotEqual(res, [])
+        self.assertEqual(res, [])
 
 class TestDeconstruction(unittest.TestCase):
+    def test_graph_for_extended_loop(self):
+        graph, end_nodes = alg.graph_for(Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])]), {(0, 1): 'a', (1, 2): 'b', (2, 3): 'c'})
+        self.assertEqual(end_nodes, [2])
+        self.assertEqual(len(graph.edges), 3)
+        print graph.edges
+
     def test_graph_for_const(self):
         graph, end_nodes = alg.graph_for(Const(1, [(0, 1)]), {(0, 1): 'a'})
         self.assertEqual(graph.edges, [(0, 1)])
@@ -241,6 +283,17 @@ class StructuralTransformations(unittest.TestCase):
         result = alg.apply_structural_transformations_internal(graph, additions, EmptyOptions)
         self.assertTrue((1, 1) in result.edges)
         self.assertEqual(result.symbol_lookup[(1, 1)], 'c')
+
+    def test_apply_branch(self):
+        graph, _ = alg.graph_for(Sum([Const(1, [(0, 1)]), Const(1, [(1, 2)]), Const(1, [(2, 3)])]), {(0, 1): 'a', (1, 2): 'b', (2, 3): 'c'} )
+        slookup = {
+                (0, 1): 'd'
+                }
+        additions = [
+                Modifications([Modification(Sum([Const(1, [(0, 1)]), Accept(), End()]), [(1, 2)])], [], slookup)
+                ]
+        result = alg.apply_structural_transformations_internal(graph, additions, EmptyOptions)
+        self.assertTrue((1, 5) in result.edges)
 
 if __name__ == "__main__":
     unittest.main()
