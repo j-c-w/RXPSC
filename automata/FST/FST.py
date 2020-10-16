@@ -56,8 +56,11 @@ class SymbolReconfiguration(object):
 # This is an empty unifier for statistics gathering under
 # the assumption that our unifier is all-powerful.
 class AllPowerfulUnifier(object):
-    def __init__(self):
-        pass
+    def __init__(self, modifications):
+        self.modifications = modifications
+
+    def has_structural_additions(self):
+        return len(self.modifications) > 0
 
     def isempty(self):
         return False
