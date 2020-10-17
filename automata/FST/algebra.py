@@ -17,7 +17,7 @@ except:
     pass
 
 ALG_DEBUG = True
-LEQ_DEBUG = False
+LEQ_DEBUG = True
 # This should probably be enabled for most things, it
 # drastically helps avoid exponential blowup for non-SJSS
 # graphs.
@@ -676,11 +676,6 @@ def leq_unify(A, B, options):
     return result
 
 def leq_fails_on_heuristics(A, B, options):
-    if A.size() > options.size_difference_cutoff_factor * B.size():
-        if LEQ_DEBUG:
-            print "Skipping due to size difference"
-        return True
-
     a_loop_sizes = A.loop_sizes()
     b_loop_sizes = set(B.loop_sizes())
     for loop_size in a_loop_sizes:
@@ -934,29 +929,6 @@ def leq_internal_wrapper(A, B, options):
             elts = B.e1
             # This should be true because we should have normalized things.
             assert len(elts) > 1
-            unifier = leq_internal(A, B.e1[0], options)
-            if unifier:
-                result = True
-
-                if LEQ_DEBUG and unifier:
-                    print "Unifier survived disabling of product edges"
-
-                # Only need to disable subsequent edges if they actually exist.
-                # Disable the next edge if it is there:
-                next_edges = Sum(B.e1[1:]).normalize()
-                first_edge = next_edges.first_edge()
-                if first_edge:
-                    unifier.add_disabled_edges(first_edge)
-
-                if next_edges.has_accept_before_first_edge():
-                    # In this case, we can't actually do this unification.
-                    unifier = None
-                    result = False
-                if LEQ_DEBUG:
-                    print "Unifier survived disabling of outgoing edges (trim property)"
-            else: # if unifier
-                result = False
-
             if not result:
                 compilation_statistics.const_to_sum_failed += 1
         elif A.issum() and B.isconst():
