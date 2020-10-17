@@ -943,7 +943,7 @@ def leq_internal_wrapper(A, B, options):
                             A.e1[2].isconst():
                         #This is a loop :)
                         unifier = Unifier()
-                        unifier.add_insert(A, B.edges[0])
+                        unifier.add_between_nodes(A, B.edges[0])
                         result = True
                     else:
                         failed_loop_insertion = True
@@ -966,7 +966,7 @@ def leq_internal_wrapper(A, B, options):
                     A.e1[0].isconst() and A.e1[1].isaccept() and A.e1[2].isend() and \
                     not (len(B.e1) >= 3 and B.e1[0].isconst() and B.e1[1].isaccept() and B.e1[2].isend()):
                 unifier = Unifier()
-                unifier.add_branch(A, B.first_edge())
+                unifier.add_from_node(A, B.first_edge())
                 result = True
             # It would be good if we could handle this case, but it is a bit more
             # complicated, becuase it requires a bit more complex structural change.
@@ -1277,7 +1277,7 @@ def leq_internal_wrapper(A, B, options):
                 all_edges_set = A.all_edges()
                 if u.all_from_edges_count() != len(all_edges_set):
                     print "Error, lengths differ: ", len(u.from_edges), len(all_edges_set)
-                    print [str(x) for x in u.inserts]
+                    print [str(x) for x in u.additions_between_nodes]
                     print u.from_edges
                     print all_edges_set
                     print A

@@ -36,13 +36,13 @@ class UnifierList(object):
 
         self.trim_unifier_list()
 
-    def add_insert(self, insert, edge_to_snip):
+    def add_between_nodes(self, insert, edge_to_snip):
         for unifier in self.unifiers:
-            unifier.add_insert(insert, edge_to_snip)
+            unifier.add_between_nodes(insert, edge_to_snip)
 
-    def add_branch(self, branch, edges_after):
+    def add_from_node(self, branch, edges_after):
         for unifier in self.unifiers:
-            unifier.add_branch(branch, edges_after)
+            unifier.add_from_node(branch, edges_after)
 
     def trim_unifier_list(self):
         if len(self.unifiers) > MAX_UNIFIERS:
@@ -115,8 +115,8 @@ class Unifier(object):
         self.ununified_terms = []
         # What modifications have to be made to the underlying automata
         # for a successful conversion?
-        self.inserts = []
-        self.branches = []
+        self.additions_between_nodes = []
+        self.additions_from_node = []
 
     # Return a count of all the edges represented in the 'from'
     # portion of this unifier.
@@ -125,31 +125,31 @@ class Unifier(object):
 
     def all_from_edges(self):
         result = set(self.from_edges)
-        for mod in self.inserts + self.branches:
+        for mod in self.additions_between_nodes + self.additions_from_node:
             result = result.union(mod.algebra.all_edges())
         return result
 
     def structural_modification_count(self):
-        return len(self.inserts) + len(self.branches)
+        return len(self.additions_between_nodes) + len(self.additions_from_node)
 
     def has_structural_additions(self):
-        return len(self.inserts) > 0 or len(self.branches) > 0
+        return len(self.additions_between_nodes) > 0 or len(self.additions_from_node) > 0
 
-    # Note taht for this and teh branches, the 'insert' corresponds
+    # Note taht for this and teh additions_from_node, the 'insert' corresponds
     # to the automata we are going to accelerate,
     # the edges after corresponds to the automata we have an
     # accelerator for
-    def add_insert(self, insert, edge_to_snip):
+    def add_between_nodes(self, insert, edge_to_snip):
         assert not insert.has_accept_before_first_edge()
         assert insert.first_edge() is not None
 
-        self.inserts.append(InsertModification(insert, edge_to_snip))
+        self.additions_between_nodes.append(InsertModification(insert, edge_to_snip))
 
-    def add_branch(self, branch, edges_after):
+    def add_from_node(self, branch, edges_after):
         assert not branch.has_accept_before_first_edge()
         assert branch.first_edge() is not None
 
-        self.branches.append(Modification(branch, edges_after))
+        self.additions_from_node.append(Modification(branch, edges_after))
 
     def deep_clone(self):
         result = Unifier()
@@ -159,8 +159,8 @@ class Unifier(object):
         result.disabled_edges = self.disabled_edges[:]
         result.cost = self.cost
         result.ununified_terms = self.ununified_terms[:]
-        result.branches = self.branches[:]
-        result.inserts = self.inserts[:]
+        result.additions_from_node = self.additions_from_node[:]
+        result.additions_between_nodes = self.additions_between_nodes[:]
         # We don't deep clone this because it's immutable from
         # the perspective of a unifier.
         result.algebra_from = self.algebra_from
@@ -198,8 +198,8 @@ class Unifier(object):
         self.from_edges += other.from_edges
         self.to_edges += other.to_edges
         self.cost += other.cost
-        self.branches += other.branches
-        self.inserts += other.inserts
+        self.additions_from_node += other.additions_from_node
+        self.additions_between_nodes += other.additions_between_nodes
         self.ununified_terms.append(other.ununified_terms)
 
     def unify_symbol_only_reconfigutaion(self, symbol_lookup_1, symbol_lookup_2, options):
@@ -297,7 +297,7 @@ class Unifier(object):
         # modifications:  this just has to be an approximation, because
         # we don't really use this to unify, just to guide decisions
         # for a later reconstruction pass.
-        state_lookup, matching_symbol = generate_additions_mapping(state_lookup, matching_symbol, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, self.inserts, self.branches, options)
+        state_lookup, matching_symbol = generate_additions_mapping(state_lookup, matching_symbol, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, self.additions_between_nodes, self.additions_from_node, options)
 
         if state_lookup is None:
             compilation_statistics.ssu_additions_failed += 1
@@ -312,7 +312,7 @@ class Unifier(object):
             # supposed to activate.
             # Go through and get all the valid activating symbols
             # together
-            state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges())
+            state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges(), options)
 
             if state_lookup is None:
                 compilation_statistics.ssu_disable_edges_failed += 1
@@ -331,20 +331,20 @@ class Unifier(object):
             print "Returning a real result"
         compilation_statistics.ssu_success += 1
 
-        modifications = Modifications(self.branches, self.inserts, symbol_lookup_1)
+        modifications = Modifications(self.additions_from_node, self.additions_between_nodes, symbol_lookup_1)
         return FST.SingleStateTranslator(state_lookup, modifications, unifier=self)
 
 class Modifications(object):
-    def __init__(self, branches, inserts, symbol_lookup):
-        self.branches = branches
-        self.inserts = inserts
+    def __init__(self, additions_from_node, additions_between_nodes, symbol_lookup):
+        self.additions_from_node = additions_from_node
+        self.additions_between_nodes = additions_between_nodes
         self.symbol_lookup = symbol_lookup
 
     def __len__(self):
-        return len(self.branches) + len(self.inserts)
+        return len(self.additions_from_node) + len(self.additions_between_nodes)
 
     def all_modifications(self):
-        return self.branches + self.inserts
+        return self.additions_from_node + self.additions_between_nodes
 
     def __str__(self):
         return "[" + ','.join([str(x) for x in self.all_modifications()]) + ']'
