@@ -505,8 +505,8 @@ def compute_non_matching_symbol(matching):
 
     return non_matching
 
-def disable_edges(state_lookup, non_matching, disabled_edges):
-    if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation:
+def disable_edges(state_lookup, non_matching, disabled_edges, options):
+    if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation and options.correct_mapping:
         if DEBUG_UNIFICATION:
             print "Unification failed due to required edge disabling that cannot be achieved"
         return None
@@ -630,9 +630,16 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
 
         if len(new_symbols) == 0:
             # We failed to add any character that could activate this edge.
-            if DEBUG_UNIFICATION:
-                print "Failed due to unnessecarily activated edges"
-            return None
+            if options.correct_mapping:
+                if DEBUG_UNIFICATION:
+                    print "Failed due to unnessecarily activated edges"
+                return None
+            else:
+                # Pick a single symbol anyway --- it is OK to activate
+                # some other edges to get the right edge activation.
+                # This is obviously an approximation here -- it would be better
+                # to pick the character that activates the fewest non-desired edges.
+                new_symbols.add(list(targets)[0])
         state_lookup[i] = new_symbols
         if DEBUG_UNIFICATION:
             print "Successfully reduced edges for character ", i
