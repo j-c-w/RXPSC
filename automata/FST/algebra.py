@@ -1010,6 +1010,25 @@ def leq_internal_wrapper(A, B, options):
                         print "The indexes are:"
                         print a_index, b_index
 
+                    # If we have overapproximation, we don't care
+                    # if there is a loop here that is non-existent
+                    # in A.
+                    if not options.correct_mapping and B.e1[b_index].isproduct() and not A.e1[a_index].isproduct():
+                        # Just move B forward --- we can ignore
+                        # the product, which will trigger, but
+                        # which will be part of the overapproximation.
+                        # May want to keep track of this if we want to do something
+                        # like estimating the error rate.
+                        b_index += 1
+                        continue
+                    # If we have structural modificaton /and/ overapproximation, we can insert a loop from
+                    # A into the algebra (that will hopefully be picked up bu the above case
+                    # when we need it to.
+                    if not options.correct_mapping and options.use_structural_change and A.e1[a_index].isproduct() and not B.e1[b_index].isproduct() and B.e1[b_index].first_edge():
+                        unifier.add_from_node(A.e1[a_index], B.e1[b_index].first_edge())
+                        a_index += 1
+                        continue
+
                     # The expanding algorithm works well for a lot of things, but for picking up this
                     # case, it doens't work very well.  This makes sure that we trigger the
                     # branch addition case if we are using structural change.
