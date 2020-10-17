@@ -28,7 +28,7 @@ class Options(object):
         self.algebra_size_threshold = 2000
         self.max_branching_factor = 150
 
-        self.size_difference_cutoff_factor = 2.0
+        self.size_difference_cutoff_factor = 5.0
         self.memory_debug = False
         self.time = False
         self.size_limit = None
@@ -110,7 +110,7 @@ def add_to_parser(parser):
     parser.add_argument('--max-branching-factor', default=150, dest='max_branching_factor', type=int, help='Maximum branching factor for graphs before omitting.')
     parser.add_argument('--algebra-size-threshold', default=2000, dest='algebra_size_threshold', type=int)
     parser.add_argument('--cross-compilation-threading', default=0,dest='cross_compilation_threading', help='How many threads should be used for genreating comparisons. 0 disables the thread pool entirely.', type=int)
-    parser.add_argument('--size-difference-cutoff-factor', default=2.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
+    parser.add_argument('--size-difference-cutoff-factor', default=5.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
     parser.add_argument('--no-leq-heuristics', default=False, dest='no_leq_heuristics', action='store_true', help='Use heuristics to skip some of the comparisons that seem likely to fail anyway')
     parser.add_argument('--compile-only', default=False, dest='compile_only', action='store_true', help="Don't  run any cross-compilation commands, just compile the algebras")
     parser.add_argument('--max-unifiers', default=20, dest='max_unifiers', type=int, help='Maximum number of unifiers to consider for any particular pair of equations')
