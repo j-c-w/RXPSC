@@ -230,7 +230,7 @@ class Unifier(object):
                 # we are not double mapping.
                 # Check that nothing that needs to be mapped
                 # is not already.
-                for character in symbol_lookup_1[from_edge]:
+                for character in symbol_lookup_2[from_edge]:
                     # If the table is already set, then
                     # we need to make sure we are not changing
                     # the table:
@@ -240,7 +240,7 @@ class Unifier(object):
                         return None
                 # Also check that none of the already-mapped
                 # symbols should not be.
-                compilation_character_set = set(symbol_lookup_1[from_edge])
+                compilation_character_set = FastSet(symbol_lookup_2[from_edge])
                 for character in lookup:
                     if character not in compilation_character_set:
                         if PRINT_UNIFICATION_FAILURE_REASONS or DEBUG_UNIFICATION:
@@ -249,12 +249,13 @@ class Unifier(object):
 
             else:
                 lookup = {}
-                for character in symbol_lookup_1[from_edge]:
+                for character in symbol_lookup_2[from_edge]:
                     lookup[character] = True
 
                 state_lookup[dest_state] = lookup
 
-        return FST.SymbolReconfiguration(state_lookup)
+        modifications = Modifications(self.additions_from_node, self.additions_between_nodes, symbol_lookup_2)
+        return FST.SymbolReconfiguration(state_lookup, modifications)
 
     # There may be some issues surrounding the naming convention
     # of what is 'from' and what is 'to' in this function (and

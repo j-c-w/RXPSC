@@ -50,8 +50,15 @@ class SingleStateTranslator(object):
         return ''.join(output)
 
 class SymbolReconfiguration(object):
-    def __init__(self, lookup):
+    def __init__(self, lookup, modifications):
         self.lookup = lookup
+        self.modifications = modifications
+
+    def has_structural_additions(self):
+        return len(self.modifications) > 0
+
+    def isempty(self):
+        return False
 
 # This is an empty unifier for statistics gathering under
 # the assumption that our unifier is all-powerful.
