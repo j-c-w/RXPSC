@@ -19,7 +19,7 @@ def expand_ranges(ranges):
         assert len(left) == 1
         assert len(right) == 1
         result += range(left[0], right[0] + 1)
-    return result
+    return set(result)
 
 def edge_label_lookup_generate(atma):
     edges = list(atma.get_edges(data=True))
@@ -40,7 +40,9 @@ def generate(unification, to_atma, from_atma, options):
     best_structural_modification_count = 1000000
     unifiers_attempted = 0
     for unifier in unification:
-        if not unifier:
+        if not unifier or unifier.structural_modification_count() >= best_structural_modification_count:
+            # No need to rerun a unifier that we already know works
+            # if it has the same unification count.
             continue
         else:
             unifiers_attempted += 1
@@ -50,7 +52,7 @@ def generate(unification, to_atma, from_atma, options):
         elif options.target == 'symbol-only-reconfiguration':
             result = unifier.unify_symbol_only_reconfigutaion(to_edge_lookup, from_edge_lookup, options)
         elif options.target == 'perfect-unification':
-            result = FST.AllPowerfulUnifier(Modifications(unifier.inserts, unifier.branches, from_edge_lookup))
+            result = FST.AllPowerfulUnifier(Modifications(unifier.additions_between_nodes, unifier.additions_from_node, from_edge_lookup))
         else:
             print "Unkown target " + options.target
             sys.exit(1)
