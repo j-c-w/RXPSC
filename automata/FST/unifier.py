@@ -588,21 +588,19 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
     base_active_edge_mapping = {}
 
     for i in range(0, 256):
-        active_set = set()
-        for edge in to_edges:
-            if i in symbol_lookup_2[edge]:
-                active_set.add(edge)
-        accelerator_active_edges[i] = active_set
+        accelerator_active_edges[i] = set()
+        base_active_edge_mapping[i] = set()
+
+    for j in range(len(from_edges)):
+        from_edge = from_edges[j]
+        to_edge = to_edges[j]
+
+        for i in symbol_lookup_2[to_edge]:
+            accelerator_active_edges[i].add(to_edge)
 
         # Aldo so the same thing for tbe base_active_edges:
-        active_set = set()
-        for j in range(len(from_edges)):
-            from_edge = from_edges[j]
-            to_edge = to_edges[j]
-
-            if i in symbol_lookup_1[from_edge]:
-                active_set.add(to_edge)
-        base_active_edge_mapping[i] = active_set
+        for i in symbol_lookup_1[from_edge]:
+            base_active_edge_mapping[i].add(to_edge)
 
     # Now we have a set of edges that have to be active for
     # each character, and a set of edges that are activated
@@ -619,17 +617,15 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
         # We need to make sure this doesn't activate anything
         # we don't want, so compute the set of all activated nodes
         # for each character in targets:
-        activated_edges = {}
-        for character in targets:
-            activated_edges[character] = set(accelerator_active_edges[character])
 
         # Compute the edges we can't activate:
         edges_inactive = set()
         edges_active = base_active_edge_mapping[i] # edges the must be active
-        for character in targets:
-            for edge in activated_edges[character]:
-                if edge not in edges_active:
-                    edges_inactive.add(edge)
+        all_activated = set().union(*[accelerator_active_edges[x] for x in targets])
+
+        for edge in all_activated:
+            if edge not in edges_active:
+                edges_inactive.add(edge)
 
         if DEBUG_UNIFICATION:
             print "Active edges is "
@@ -641,18 +637,14 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
         # 1: remove all the characters in the unactive set
         # 2: see if the remaining characters can cover the active set.
         # 1: build the inactive set --- the characters we can't use.
-        invalid_symbols = set()
-        for edge in edges_inactive:
-            activating_symbols = symbol_lookup_2[edge]
-            for symbol in activating_symbols:
-                invalid_symbols.add(symbol)
+        invalid_symbols = set().union(*[symbol_lookup_2[edge] for edge in edges_inactive])
 
         if DEBUG_UNIFICATION:
             print "Invalid symbols is"
             print invalid_symbols
 
         # 2: find the active set --- the characters that activate things.
-        new_symbols = set()
+        new_symbols = FastSet()
         for character in targets:
             if character not in invalid_symbols:
                 new_symbols.add(character)
