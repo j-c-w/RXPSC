@@ -2,6 +2,7 @@ import automata as atma
 import sjss
 import algebra
 import time
+import unifier
 import generate_fst
 import compilation_statistics
 import simple_graph
@@ -81,7 +82,11 @@ def verify_fst(accelerator, automata, translator, options):
             print "Original answer is", original
             print "Accelerated answer is", accelerated
 
-            assert original == accelerated
+            if options.correct_mapping:
+                assert original == accelerated
+            else: # In overapproximation mode
+                if original:
+                    assert accelerated
 
 
 depth_equation_computation_index = 0
