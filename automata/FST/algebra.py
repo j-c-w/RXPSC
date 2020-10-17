@@ -1298,7 +1298,11 @@ def leq_internal_wrapper(A, B, options):
 
 # Yield every cpermustations of i numbers up to j.
 def permutations(i, j):
-    return itertools.product(j, repeat=i)
+    # This used to be product, by the thing is, the
+    # number of examples that actually unify with
+    # multiple arms to one branch or vice-versa
+    # is extremely small.
+    return itertools.permutations(j, i)
 
 # Given an automata, and a list of additions, inject the additions
 # into the automata.
