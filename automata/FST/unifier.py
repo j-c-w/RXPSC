@@ -445,36 +445,50 @@ def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_look
 
     return state_lookup, matching_symbol
 
-def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, inserts, branches, options):
+def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, additions_between_nodes, additions_from_node, options):
     # As an approximation, we need to make sure that we can disable any
     # of the edges that have to be added when running the original automaton.
     # We could look at the cost of adding a translator to the original automata too,
     # but we're not interested in that right now.
-    for modification in branches:
+    unmodified_matching_symbol = dict(matching_symbol)
+    for modification in additions_from_node + additions_between_nodes:
         branch = modification.algebra
-        edges_after = modification.edges_after
-        # Only handle the 1 + a + e branches for the time being.
-        if not branch.issum() and not branch.e1[0].isconst() and not branch.e1[1].isaccept() and \
-                not branch.e1[2].isend():
-            return None, None
 
-        # Need to be able to disable the first edge of the branch:
-        target_symbolset = set()
-        for edge in branch.first_edge():
-            # Get the target symbolset from the first edge:
-            source_characterset = symbol_lookup_1[edge]
-            for char in source_characterset:
-                if char in state_lookup:
-                    target_symbolset.add
-                else:
-                    target_symbolset.add(char)
+        # We should check whether we will be able to do completeness:
+        # That is; can we map the input symbols for the added
+        # edge to one of themselves?
+        incoming_symbols = symbol_lookup_1[branch.first_edge()[0]]
+        for symbol in incoming_symbols:
+            if symbol in state_lookup:
+                targets = state_lookup[symbol]
+            else:
+                targets = FastSet(range(256))
+                matching_symbol[symbol] = True
+            new_targets = FastSet(targets)
+            for target in targets:
+                if not target in incoming_symbols:
+                    if DEBUG_UNIFICATION:
+                        print "Removing symbol", target, "from the potential targets..."
+                    new_targets.remove(target)
+                    if len(new_targets) == 0:
+                        if DEBUG_UNIFICATION:
+                            print "Failed to unify because we cannot target the new edge appropriately."
+                        compilation_statistics.ssu_addition_completeness_fail
+                        return None, matching_symbol
+            state_lookup[symbol] = new_targets
 
-    disabling_symbols = set()
-    for i in range(0, 256):
-        if i not in matching_symbol:
-            disabling_symbols.add(i)
-
-    # TODO --- Sort out the inserts
+        # And, if required, correctness.
+        if options.correct_mapping:
+            # We need to check that the incoming edge to this node
+            # can be disabled.
+            assert len(branch.first_edge()) == 1
+            incoming_symbols = symbol_lookup_1[branch.first_edge()[0]]
+            for symbol in incoming_symbols:
+                if symbol in unmodified_matching_symbol:
+                    if DEBUG_UNIFICATION:
+                        print "Failed to unify because we cannot disable edge on addition"
+                    compilation_statistics.ssu_addition_correctness_fail += 1
+                    return None, matching_symbol
 
     return state_lookup, matching_symbol
 
