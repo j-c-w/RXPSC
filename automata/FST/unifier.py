@@ -8,6 +8,38 @@ PRINT_UNIFICATION_FAILURE_REASONS = False
 # The maximum number of unifiers to keep in the unifier lists.
 MAX_UNIFIERS = 20
 
+# This is a fast set for sets of 255 elements --- like the ones
+# we use below.
+class FastSet(object):
+    def __init__(self, preset=[]):
+        self.elements = [False] * 256
+        for x in preset:
+            self.elements[x] = True
+        self.elt_count = len(preset)
+
+    def __contains__(self, elt):
+        return self.elements[elt] == True
+
+    def add(self, elt):
+        self.elements[elt] = True
+        self.elt_count += 1
+
+    def remove(self, elt):
+        if self.elements[elt]:
+            self.elt_count -= 1
+            self.elements[elt] = False
+
+    def __list__(self):
+        return self.elements
+
+    def __len__(self):
+        return self.elt_count
+
+    def __iter__(self):
+        for i in range(256):
+            if self.elements[i]:
+                yield i
+
 # This class is a stupid abstrction that we need because I designed
 # the algebra.leq functions around a single unifier, then I realized
 # that the abstraction where we separate structural equality and
@@ -286,12 +318,13 @@ class Unifier(object):
             compilation_statistics.ssu_complete_mapping_failed += 1
             return None
 
-        if options.correct_mapping:
-            # Make that mapping correct. (i.e. not an overapproximation)
-            state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
-            if state_lookup is None:
-                compilation_statistics.ssu_correct_mapping_failed += 1
-                return None
+        # Make that mapping correct. (i.e. not an overapproximation)
+        # Even if we aren't required to do this, it is good
+        # to reduce the overapproximation error rate.
+        state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
+        if state_lookup is None:
+            compilation_statistics.ssu_correct_mapping_failed += 1
+            return None
 
         # Check that we would be able to unify with the structural
         # modifications:  this just has to be an approximation, because
@@ -392,10 +425,7 @@ def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_look
 
         for from_char in from_chars:
             if from_char in state_lookup:
-                overlap_set = set()
-                for character in state_lookup[from_char]:
-                    if character in to_chars:
-                        overlap_set.add(character)
+                overlap_set = to_chars.intersection(state_lookup[from_char])
 
                 if len(overlap_set) == 0:
                     if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
@@ -453,7 +483,7 @@ def compute_non_matching_symbol(matching):
     # that symbols should be mapped to things that don't match
     # any edges.
     non_matching = None
-    non_matching_set = set()
+    non_matching_set = FastSet()
     for i in range(0, 256):
         if i not in matching:
             non_matching_set.add(i)
