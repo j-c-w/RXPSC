@@ -298,6 +298,10 @@ class Unifier(object):
         state_lookup = {}
         matching_symbol = {}
 
+        if options.use_unification_heuristics and mapping_heuristic_fail(self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options):
+            compilation_statistics.ssu_heuristic_fail += 1
+            return None
+
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Starting new unification between "
             print self.algebra_from.str_with_lookup(symbol_lookup_2)
@@ -403,6 +407,31 @@ class Modification(object):
 
     def isinsert(self):
         return False
+
+def mapping_heuristic_fail(from_edges, to_edges, symbol_lookup_from, symbol_lookup_to, options):
+    # Go through the mappings and look at the ones that don't
+    # require set operations to refute --- much faster than the
+    # full unificadtion set-based algorithm.
+    # This is an effective heuristic, but it doesn't save much
+    # time --- it gets rid of the things that would be quickly
+    # discounted by the complete mapping generator anyway.
+    single_mappings = {}
+    for edge_index in range(len(from_edges)):
+        from_set = symbol_lookup_from[from_edges[edge_index]]
+        to_set = symbol_lookup_to[to_edges[edge_index]]
+
+        # The size of the from_set here is just trading off computation
+        # time spinning in this loop for every state vs
+        # things we could reject that would get through.
+        if len(to_set) == 1 and len(from_set) < 10:
+            to_elt = list(to_set)[0]
+
+            for from_elt in from_set:
+                if from_elt in single_mappings and single_mappings[from_elt] != to_elt:
+                    return True
+                single_mappings[from_elt] = to_elt
+
+    return False
 
 # Given a set of input edges and output edges, generate a set
 # of input/output assignments that /does not double-map any symbol/
