@@ -39,6 +39,9 @@ def generate(unification, to_atma, from_atma, options):
     best_result = None
     best_structural_modification_count = 1000000
     unifiers_attempted = 0
+
+    unification = sorted(unification, key=lambda u: u.structural_modification_count())
+
     for unifier in unification:
         if not unifier or unifier.structural_modification_count() >= best_structural_modification_count:
             # No need to rerun a unifier that we already know works
