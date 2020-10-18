@@ -4,11 +4,10 @@ import automata.FST.simple_graph
 # simple testing of the automata to make sure that the conversion
 # machines behave correctly.
 
-# Pretend this is a start at the beginning automata and see what happens.
-def accepts(graph, string, trace=True):
+def accepts(graph, string, trace=False):
     active_states = set([graph.start_state])
     neighbors = generate_neighbors_lookup(graph)
-    if str(type(graph.symbol_lookup[graph.edges[0]][0])) == "<type 'int'>" and str(type(string)) == "<type 'str'>":
+    if str(type(list(graph.symbol_lookup[graph.edges[0]])[0])) == "<type 'int'>" and str(type(string)) == "<type 'str'>":
         # Translate the char stream to an int stream:
         string = [ord(x) for x in string]
     
@@ -16,12 +15,12 @@ def accepts(graph, string, trace=True):
         if trace:
             print "Read symbol ", character
             print "In states ", active_states
-        next_states = set()
+        next_states = set([graph.start_state])
         for current_state in active_states:
             neighbor_states = neighbors[current_state]
 
             for next_state in neighbor_states:
-                assert type(character) == type(graph.symbol_lookup[(current_state, next_state)][0])
+                assert type(character) == type(list(graph.symbol_lookup[(current_state, next_state)])[0])
 
                 if character in graph.symbol_lookup[(current_state, next_state)]:
                     next_states.add(next_state)
