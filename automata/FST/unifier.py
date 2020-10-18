@@ -40,6 +40,17 @@ class FastSet(object):
             if self.elements[i]:
                 yield i
 
+    @staticmethod
+    def big_intersection(sets):
+        result = FastSet()
+        for i in range(256):
+            result.add(i)
+            for s in sets:
+                if i not in s:
+                    result.remove(i)
+                    break
+        return result
+
 # This class is a stupid abstrction that we need because I designed
 # the algebra.leq functions around a single unifier, then I realized
 # that the abstraction where we separate structural equality and
@@ -438,7 +449,8 @@ def mapping_heuristic_fail(from_edges, to_edges, symbol_lookup_from, symbol_look
 # (return None, None if it does double-map a symbol).
 def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, options):
     state_lookup = {}
-    matching_symbol = {}
+    uncompressed_state_lookup = {}
+    matching_symbol = FastSet()
     for i in range(len(from_edges)):
         if DEBUG_UNIFICATION:
             print "Trying to unify edges: "
@@ -453,24 +465,24 @@ def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_look
         to_chars = symbol_lookup_2[to_edges[i]]
 
         for from_char in from_chars:
-            if from_char in state_lookup:
-                overlap_set = to_chars.intersection(state_lookup[from_char])
+            if from_char in uncompressed_state_lookup:
+                uncompressed_state_lookup[from_char].append(to_chars)
+            else:
+                uncompressed_state_lookup[from_char] = [to_chars]
 
-                if len(overlap_set) == 0:
-                    if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
-                        print "Unification failed due to double-mapped state"
-                        print "(" + str(from_char) + ") already mapped to " + str(state_lookup[from_char]) + " when something in " + str(to_chars) + " is required"
-                    return None, None
-                else:
-                    # The overlap set is non-zero, but may
-                    # still be smaller than it was before.
-                    state_lookup[from_char] = overlap_set
-            else: # Fromchar not in state lookup.
-                state_lookup[from_char] = to_chars
+        for char in to_chars:
+            matching_symbol.add(char)
 
-        if to_chars:
-            for char in to_chars:
-                matching_symbol[char] = True
+    for char in uncompressed_state_lookup:
+        # overlap_set = uncompressed_state_lookup[char][0].intersection(*uncompressed_state_lookup[char])
+        overlap_set = FastSet.big_intersection(uncompressed_state_lookup[char])
+
+        if len(overlap_set) == 0:
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Unification failed due to double-mapped state"
+                print "(" + str(char) + ") needs to be mapped to " + str(overlap_set) + "which is not possible"
+            return None, None
+        state_lookup[char] = overlap_set
 
     return state_lookup, matching_symbol
 
@@ -479,7 +491,7 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
     # of the edges that have to be added when running the original automaton.
     # We could look at the cost of adding a translator to the original automata too,
     # but we're not interested in that right now.
-    unmodified_matching_symbol = dict(matching_symbol)
+    unmodified_matching_symbol = FastSet(matching_symbol)
     for modification in additions_from_node + additions_between_nodes:
         branch = modification.algebra
 
@@ -492,7 +504,7 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
                 targets = state_lookup[symbol]
             else:
                 targets = FastSet(range(256))
-                matching_symbol[symbol] = True
+                matching_symbol.add(symbol)
             new_targets = FastSet(targets)
             for target in targets:
                 if not target in incoming_symbols:
