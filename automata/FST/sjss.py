@@ -577,7 +577,10 @@ def splice_between(source_graph, before_node, after_node, splice_graph, last_nod
 
     result_accepting_states = source_graph.accepting_states + new_splice_graph.accepting_states
 
-    return simple_graph.SimpleGraph(result_nodes, result_edges, result_symbol_lookup, result_accepting_states, source_graph.start_state)
+    graph = simple_graph.SimpleGraph(result_nodes, result_edges, result_symbol_lookup, result_accepting_states, source_graph.start_state)
+
+    assert is_homogenous(graph)
+    return graph
 
 # Splice a graph into another graph at a given node --- this works
 # by (1) renumbering all the new graph nodes so they are unique
@@ -631,7 +634,9 @@ def splice_after(source_graph, target_node, splice_graph):
 
     result_accepting_states = source_graph.accepting_states + new_splice_graph.accepting_states
 
-    return simple_graph.SimpleGraph(result_nodes, result_edges, result_symbol_lookup, result_accepting_states, source_graph.start_state)
+    graph = simple_graph.SimpleGraph(result_nodes, result_edges, result_symbol_lookup, result_accepting_states, source_graph.start_state)
+    assert is_homogenous(graph)
+    return graph
 
 def relabel_from(new_lowest_number, graph, return_mapping=False):
     node_label_mapping = {}
@@ -656,6 +661,25 @@ def relabel_from(new_lowest_number, graph, return_mapping=False):
         return graph, node_label_mapping
     else:
         return graph
+
+
+# Given an input graph, determine whether it is homogenous
+def is_homogenous(simple_graph):
+    input_lookup = generate_input_lookup(simple_graph.nodes, simple_graph.edges)
+
+    for node in simple_graph.nodes:
+        input_edges = input_lookup[node]
+
+        for i in range(len(input_edges)):
+            if simple_graph.symbol_lookup[(input_edges[0], node)] != simple_graph.symbol_lookup[(input_edges[i], node)]:
+                print "Edges are"
+                print input_edges[0], node
+                print input_edges[i], node
+                print simple_graph.symbol_lookup[(input_edges[0], node)]
+                print simple_graph.symbol_lookup[(input_edges[i], node)]
+                return False
+
+    return True
 
 
 # Given an AutomataNetwork object from grapefruit, get
