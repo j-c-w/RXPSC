@@ -43,6 +43,7 @@ class Options(object):
         self.dump_comparison_cache = None
         self.compile_ony = False
         self.print_leq_failure_reasons = False
+        self.print_unification_failure_reasons = False
 
 def create_from_args(args):
     algebra.LEQ_DEBUG = args.debug_leq
@@ -51,6 +52,7 @@ def create_from_args(args):
     terms.TERMS_DEBUG = args.debug_terms
     unifier.DEBUG_UNIFICATION = args.debug_unification
     unifier.MAX_UNIFIERS = args.max_unifiers
+    unifier.PRINT_UNIFICATION_FAILURE_REASONS = args.print_unification_failure_reasons
     group_compiler.DEBUG_COMPUTE_COMPAT_MATRIX = args.debug_compute_compat_matrix
     group_compiler.DEBUG_GENERATE_BASE = args.debug_generate_base
 
@@ -130,6 +132,7 @@ def add_to_parser(parser):
     parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
+    parser.add_argument('--print-unification-failure-reasons', default=False, dest='print_unification_failure_reasons', action='store_true', help='Print reasons that unifiers fail within the single state unification method.')
     parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
     parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
     parser.add_argument('--verify', default=False, dest='verify', help='Do a verification --- the inputs are line-by-line in the file that is provided as argument.')
