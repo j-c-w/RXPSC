@@ -1125,5 +1125,7 @@ def parse_terms(string):
         if character == 'e':
             last_elts[-1].append(End())
 
+    if in_number:
+        last_elts[-1].append(Const(int(number), generate_edges(int(number))))
     assert len(last_elts) == 1
     return Sum(last_elts[-1]).normalize()
