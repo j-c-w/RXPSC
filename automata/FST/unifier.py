@@ -364,7 +364,8 @@ class Unifier(object):
         # modifications:  this just has to be an approximation, because
         # we don't really use this to unify, just to guide decisions
         # for a later reconstruction pass.
-        state_lookup, matching_symbol = generate_additions_mapping(state_lookup, matching_symbol, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, self.additions_between_nodes, self.additions_from_node, options)
+        all_to_edges = symbol_lookup_2.keys()
+        state_lookup, matching_symbol = generate_additions_mapping(state_lookup, matching_symbol, self.from_edges, self.to_edges, all_to_edges, symbol_lookup_1, symbol_lookup_2, self.additions_between_nodes, self.additions_from_node, options)
 
         if state_lookup is None:
             compilation_statistics.ssu_additions_failed += 1
@@ -518,7 +519,13 @@ def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_look
 
     return state_lookup, matching_symbol
 
-def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edges, symbol_lookup_1, symbol_lookup_2, additions_between_nodes, additions_from_node, options):
+
+# Note that while this check is correct in isolation, it is possible
+# for muliple regexes to be unified to the same underlying accelerator,
+# and this generate_additions makes no promises about some third regex
+# being unified.  IMO it's a relatively minor problem, but it is one
+# to keep in mind.
+def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edges, all_to_edges, symbol_lookup_1, symbol_lookup_2, additions_between_nodes, additions_from_node, options):
     # As an approximation, we need to make sure that we can disable any
     # of the edges that have to be added when running the original automaton.
     # We could look at the cost of adding a translator to the original automata too,
@@ -532,7 +539,7 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
         # the automata editing stage.
         # i.e., we don't actually require that the labelling on
         # these edges stays as-is --- it would be beneficial
-        # if they
+        # if we could relabel things within the added branch.
         if modification.is_between_nodes():
             # The last edge will have the same edge value
             # as the ones going into the last node.
@@ -548,17 +555,17 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
             # Then, find an underlying accelerator edge
             # coming into the target node --- need to make
             # sure the symbol set on that is the same.
-            for (from_e, to_e) in to_edges:
+            for (from_e, to_e) in all_to_edges:
                 if to_e == last_node:
-                    # Get the symbol set
                     other_last_symbol_set = symbol_lookup_2[(from_e, to_e)]
                     if inserted_last_symbol_set != other_last_symbol_set:
                         if PRINT_UNIFICATION_FAILURE_REASONS or DEBUG_UNIFICATION:
                             print "Failed due to insert symbols not lining up"
                         compilation_statistics.ssu_structural_addition_homogeneity_fail += 1
 
-                        return False
-                    break
+                        return None, state_lookup
+                    break # Assume underlying graph is homogenous, no need to check
+                    # more than once.
         else:
             # If this is a loop, need to check that it has the same
             # input symol as the loop it is attached to.

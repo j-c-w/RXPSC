@@ -1049,6 +1049,8 @@ def leq_internal_wrapper(A, B, options):
 
                     # Check if we need to insert a loop, and
                     # make that recursive call if nessecary.
+                    # This can't be the last element --- I can't remember whether that's actually going to cause
+                    # problems or would just need a special case.
                     if options.use_structural_change and \
                             len(A.e1) >= a_index + 3 and len(B.e1) >= b_index + 2 and A.e1[a_index].isconst() and \
                             A.e1[a_index + 1].isproduct() and A.e1[a_index + 1].e1.isconst() and A.e1[a_index + 2].isconst() and \
@@ -1402,7 +1404,7 @@ def apply_structural_transformations_internal(simple_graph, additions, options):
                 # graph:
 
                 for edge in new_graph.edges:
-                    assert edge in old_graph.symbol_lookup
+                    assert edge in new_graph.symbol_lookup
     if group_compiler.DEBUG_GENERATE_BASE:
         if modification_count > 0:
             print "Applied", modification_count, "transformations to the graph"
