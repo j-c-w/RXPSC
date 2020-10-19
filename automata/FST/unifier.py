@@ -40,6 +40,19 @@ class FastSet(object):
             if self.elements[i]:
                 yield i
 
+    def __str__(self):
+        result = "(" + ",".join([x for x in range(0, 256) if self.elements[x]]) + ")"
+        return result
+
+    def __eq__(self, other):
+        if self.elt_count != other.elt_count:
+            return False
+
+        for i in range(0, 256):
+            if self.elements[i] != other.elements[i]:
+                return False
+        return True
+
     @staticmethod
     def big_intersection(sets):
         result = FastSet()
@@ -311,9 +324,11 @@ class Unifier(object):
 
         if options.use_unification_heuristics and mapping_heuristic_fail(self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options):
             compilation_statistics.ssu_heuristic_fail += 1
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Failed matching heursitic..."
             return None
 
-        if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+        if DEBUG_UNIFICATION:
             print "Starting new unification between "
             print self.algebra_from.str_with_lookup(symbol_lookup_2)
             print self.algebra_to.str_with_lookup(symbol_lookup_1)
@@ -331,6 +346,8 @@ class Unifier(object):
         state_lookup, matching_symbol = generate_complete_mapping(self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
         if state_lookup is None:
             compilation_statistics.ssu_complete_mapping_failed += 1
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Failing due to completeness fail"
             return None
 
         # Make that mapping correct. (i.e. not an overapproximation)
@@ -339,6 +356,8 @@ class Unifier(object):
         state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
         if state_lookup is None:
             compilation_statistics.ssu_correct_mapping_failed += 1
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Failing due to generate correct fail"
             return None
 
         # Check that we would be able to unify with the structural
@@ -349,6 +368,8 @@ class Unifier(object):
 
         if state_lookup is None:
             compilation_statistics.ssu_additions_failed += 1
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Failing due to generate additions failed"
             return None
 
         # This is correctness, not completeness related:
@@ -364,6 +385,8 @@ class Unifier(object):
 
             if state_lookup is None:
                 compilation_statistics.ssu_disable_edges_failed += 1
+                if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                    print "Failing due to disable edge fail"
                 return None
 
         # Collapse any symbol sets that are still more than one element,
@@ -372,6 +395,8 @@ class Unifier(object):
         state_lookup = collapse_and_complete_state_lookup(state_lookup, non_matching, options)
 
         if state_lookup is None:
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Failing due to disabled symbols fail"
             compilation_statistics.ssu_disable_symbols_failed += 1
             return None
 
@@ -408,6 +433,9 @@ class InsertModification(object):
     def isinsert(self):
         return True
 
+    def is_between_nodes(self):
+        return True
+
 class Modification(object):
     def __init__(self, algebra, edges_after):
         self.algebra = algebra
@@ -417,6 +445,9 @@ class Modification(object):
         return str(self.algebra) + " Inserted before " + str(self.edges_after)
 
     def isinsert(self):
+        return False
+
+    def is_between_nodes(self):
         return False
 
 def mapping_heuristic_fail(from_edges, to_edges, symbol_lookup_from, symbol_lookup_to, options):
@@ -481,6 +512,7 @@ def generate_complete_mapping(from_edges, to_edges, symbol_lookup_1, symbol_look
             if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                 print "Unification failed due to double-mapped state"
                 print "(" + str(char) + ") needs to be mapped to " + str(overlap_set) + "which is not possible"
+                print 'u'.join([str(x) for x in uncompressed_state_lookup[char]])
             return None, None
         state_lookup[char] = overlap_set
 
@@ -494,6 +526,46 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
     unmodified_matching_symbol = FastSet(matching_symbol)
     for modification in additions_from_node + additions_between_nodes:
         branch = modification.algebra
+
+        # TODO --- We should really be able to just translate ---
+        # this requies some co-behaviour between this stage and
+        # the automata editing stage.
+        # i.e., we don't actually require that the labelling on
+        # these edges stays as-is --- it would be beneficial
+        # if they
+        if modification.is_between_nodes():
+            # The last edge will have the same edge value
+            # as the ones going into the last node.
+            last_node = modification.edge[1]
+
+            # Make sure that the two input symbols are the same:
+            inserted_last_symbol_set = None
+            for (from_e, to_e) in branch.all_edges():
+                if to_e == branch.get_last_node():
+                    inserted_last_symbol_set = symbol_lookup_1[(from_e, to_e)]
+            assert inserted_last_symbol_set is not None
+
+            # Then, find an underlying accelerator edge
+            # coming into the target node --- need to make
+            # sure the symbol set on that is the same.
+            for (from_e, to_e) in to_edges:
+                if to_e == last_node:
+                    # Get the symbol set
+                    other_last_symbol_set = symbol_lookup_2[(from_e, to_e)]
+                    if inserted_last_symbol_set != other_last_symbol_set:
+                        if PRINT_UNIFICATION_FAILURE_REASONS or DEBUG_UNIFICATION:
+                            print "Failed due to insert symbols not lining up"
+                        compilation_statistics.ssu_structural_addition_homogeneity_fail += 1
+
+                        return False
+                    break
+        else:
+            # If this is a loop, need to check that it has the same
+            # input symol as the loop it is attached to.
+            # Not currently implemented because I think this should
+            # happen due to homogeneity of all input graphs involved,
+            # but it would be a good check.
+            pass
 
         # We should check whether we will be able to do completeness:
         # That is; can we map the input symbols for the added
@@ -548,7 +620,7 @@ def compute_non_matching_symbol(matching):
 
 def disable_edges(state_lookup, non_matching, disabled_edges, options):
     if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation and options.correct_mapping:
-        if DEBUG_UNIFICATION:
+        if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Unification failed due to required edge disabling that cannot be achieved"
         return None
     elif non_matching is not None:
@@ -576,7 +648,7 @@ def collapse_and_complete_state_lookup(state_lookup, non_matching, options):
                 state_lookup[i] = i
             else:
                 # We have to fail.
-                if DEBUG_UNIFICATION:
+                if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                     print "Failed due to inability to disable input character."
                 return None
     return state_lookup
@@ -664,7 +736,7 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
         if len(new_symbols) == 0:
             # We failed to add any character that could activate this edge.
             if options.correct_mapping:
-                if DEBUG_UNIFICATION:
+                if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                     print "Failed due to unnessecarily activated edges"
                 return None
             else:

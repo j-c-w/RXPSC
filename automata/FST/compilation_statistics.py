@@ -11,6 +11,7 @@ ssu_success = 0
 ssu_addition_correctness_fail = 0
 ssu_addition_completeness_fail = 0
 ssu_heuristic_fail = 0
+ssu_structural_addition_homogeneity_fail = 0
 
 unifier_trimming_events = 0
 unifiers_returned = 0
