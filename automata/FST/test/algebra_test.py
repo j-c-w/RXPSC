@@ -110,6 +110,39 @@ class AlgebraTest(unittest.TestCase):
         self.assertEqual(str(res), "{2, 2} + 1 + {1 + e, 1 + e}")
 
 class UnificationTest(unittest.TestCase):
+    def test_loop_skipping_2(self):
+        t1 = parse_terms("4 + {1, 1 + (1)* + 1} + 1 + (1)* + 1 + {24 + a + e, 1 + a + e}")
+        t2 = parse_terms("5 + (1)* + 4 + a + e")
+
+        EmptyOptions.correct_mapping = False
+        res = alg.leq_unify(t2, t1, EmptyOptions)
+        EmptyOptions.correct_mapping = True
+        assert len(res) > 0
+
+    def test_loop_skipping(self):
+        t1 = parse_terms("1 + {1, 1 + (1)* + 1} + 1 + a + e")
+        t2 = parse_terms("3 + a + e")
+        EmptyOptions.correct_mapping = False
+        res = alg.leq_unify(t2, t1, EmptyOptions)
+        EmptyOptions.correct_mapping = True
+        assert len(res) > 0
+
+    def test_complex_unification_5(self):
+        t1 = parse_terms("3 + {{{{{{{{{{{{{{{{{{{2, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1 } + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + 1, 1} + {6 + a + (1 + a)*, 6 + a + (1 + a)*, 5 + a + (1 + a)*, 5 + a + (1 + a)*, 5 + a + (1 + a)*, 5 + a + e}                        ")
+        res = alg.leq_unify(t1, t1, EmptyOptions)
+        print res
+
+    def test_complex_unification_4(self):
+        t1 = parse_terms("7 + (1)* + 5 + (1)* + 1 + {9 + a + {2 + a + e, 1 + a + e}, 5 + {{2, 1} + 1, 1} + 1 + {{2, 1} + 1, 1} + 1 + a + {2 + a + e, 1 + a + e}, 7 + {{2, 1} + 1 , 1} + 1 + a + {2 + a + e, 1 + a + e}, 9 + {{2, 1} + 1, 1} + 1 + a + {2 + a + e, 1 + a + e}, 13 + a + {2 + a + e, 1 + a + e}, 1 + {3, 3, 3} + 1 + {{2, 1} + 1, 1} + 1 + {{2, 1} + 1, 1} + 1 + a + {2 + a + e, 1 + a + e}}")
+        EmptyOptions.use_structural_change = False
+        res = alg.leq_unify(t1, t1, EmptyOptions)
+        for r in res:
+            self.assertTrue(not r.has_structural_additions())
+        EmptyOptions.use_structural_change = True
+
+        for unifier in res:
+            unifier.unify_single_state
+
     def test_complex_unification_3(self):
         t1 = Sum([Const(1, [1]), Branch([Sum([Const(1, [4]), Product(Const(1, [5])), Const(1, [6])]), Const(1, [7])]), Const(2, [8, 9]), Accept(), End()]).normalize()
         t2 = Sum([Branch([Sum([Product(Const(1, [4])), Branch([Sum([Const(1, [5]), Branch([Sum([Const(1, [6]), Product(Const(1, [7])), Const(1, [8])]), Const(1, [9])]), Const(2, [10, 11]), Accept(), End()]), Sum([Const(1, [12]), Accept(), End()])])])])]).normalize()

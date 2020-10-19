@@ -1064,6 +1064,8 @@ def leq_internal_wrapper(A, B, options):
                             b_index += 1
                             continue
 
+                    # This is an approximation that speeds things up significantly, e.g.
+                    # by unifying long sequences of 1 + 1 + 1...
                     if A.e1[a_index].isconst() and B.e1[b_index].isconst():
                         # Unify and continue:
                         sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
@@ -1073,6 +1075,42 @@ def leq_internal_wrapper(A, B, options):
                             a_index += 1
                             b_index += 1
                             continue
+
+                    # Loops from Grapefruit internals are of the format:
+                    #   {1, 1 + (1)* + 1} -- unfortunately, this makes for poor
+                    # matching for straight-line code when over approximation
+                    # is enabled because the longest match for 1 + 1 will be 1 + (1)* + 1 --- we probably want 1 + 1
+                    # to match the 1 branch instead.
+                    if len(A.e1) > a_index + 1 and A.e1[a_index].isconst() and not A.e1[a_index + 1].isproduct() and \
+                            B.e1[b_index].isbranch() and len(B.e1[b_index].options) == 2:
+                        if LEQ_DEBUG:
+                            print "Attempting to apply branch shortlink approximation..."
+                        opt1 = B.e1[b_index].options[0]
+                        opt2 = B.e1[b_index].options[1]
+
+                        check_for_optimization = True
+                        if opt1.isconst():
+                            other_opt = opt2
+                            other_branch_index = 1
+                        elif opt2.isconst():
+                            other_opt = opt1
+                            other_branch_index = 0
+                        else:
+                            check_for_optimization = False
+
+                        if check_for_optimization and \
+                                other_opt.issum() and len(other_opt.e1) == 3 and \
+                                other_opt.e1[0].isconst() and other_opt.e1[1].isproduct() and \
+                                other_opt.e1[1].e1.isconst() and \
+                                other_opt.e1[2].isconst():
+                            # Try a shortcut where we unify A.e1[0]
+                            # to the short option rather than the long option.
+                            sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
+                            if sub_unifier is not None:
+                                unifier.unify_with(sub_unifier)
+                                a_index += 1
+                                b_index += 1
+                                continue
 
                     last_element_of_a = len(A.e1)
                     found_match_expanding_a = False
