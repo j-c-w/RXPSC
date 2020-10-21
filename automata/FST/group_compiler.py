@@ -1,6 +1,7 @@
 import single_compiler as sc
 import compilation_statistics
 from multiprocessing import Pool
+import generate_fst
 import tqdm
 import time
 import sjss
@@ -77,13 +78,16 @@ class AutomataContainer(object):
 # Store an automata to be implemented, and a set of translators
 # to link up to it as a CCGroup (ConnectedComponent Group)
 class CCGroup(object):
-    def __init__(self, physical_automata):
+    def __init__(self, physical_automata, physical_algebra=None):
         self.physical_automata = physical_automata
+        self.physical_algebra = physical_algebra
         self.supported_automata = []
+        self.supported_algebras = []
         self.translators = []
 
-    def add_automata(self, automata, translator):
+    def add_automata(self, automata, algebra, translator):
         self.supported_automata.append(automata)
+        self.supported_algebras.append(algebra)
         self.translators.append(translator)
 
 # Given a group, compute a 3D array representing the cross
@@ -402,6 +406,14 @@ def compile(automata_components, options):
     else:
         dump_comparison_cache = None
 
+    if options.no_groups:
+        # Flatten the automata compoenents into a single list of componenets.
+        new_acs = []
+        for group in automata_components:
+            for elt in group:
+                new_acs.append([elt])
+        automata_components = new_acs
+
     if options.group_size_distribution:
         group_sizes = []
         for group in automata_components:
@@ -441,6 +453,18 @@ def compile(automata_components, options):
     if options.dump_comparison_cache:
         dump_comparison_cache.dump_to_file(options.dump_comparison_cache)
 
+    if options.print_successful_conversions:
+        for group in result:
+            if len(group.supported_algebras) > 1:
+                print "Group with physical algebra "
+                print group.physical_algebra
+                print "Supports algebras:"
+                print '\n'.join([str(x) for x in group.supported_algebras])
+                print '\n'.join([x.str_with_lookup(generate_fst.edge_label_lookup_generate(y)) for (x, y) in zip(group.supported_algebras, group.supported_automata)])
+                print "Translators are:"
+                print '\n'.join([str(t) for t in group.translators])
+                
+
     if options.print_compile_time:
         total_time = time.time() - start_time
         print "Total taken is:", total_time, "seconds"
@@ -455,7 +479,7 @@ def compile(automata_components, options):
 def generate_translators(base_accelerators, groups, mapping, assignments, options):
     translators = []
     for accelerator in base_accelerators:
-        translators.append(CCGroup(accelerator.automata))
+        translators.append(CCGroup(accelerator.automata, accelerator.algebra))
 
     for i in range(len(groups)):
         for j in range(len(groups[i])):
@@ -471,8 +495,12 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
             # some approximation was used if it fails.
             if conversion_machine is None:
                 print "Suprisise! Failed to convert machines"
-                print source.algebra
-                print target.algebra
+                # print source.algebra.str_with_lookup(generate_fst.edge_label_lookup_generate(source.automata))
+                print "(lookup)"
+                # print generate_fst.edge_label_lookup_generate(source.automata)
+                # print target.algebra.str_with_lookup(generate_fst.edge_label_lookup_generate(target.automata))
+                print "(lookup)"
+                # print generate_fst.edge_label_lookup_generate(target.automata)
                 print "The failure reason was", failure_reason.reason
                 # These are ommitted by default because they
                 # might be really big..
@@ -493,7 +521,7 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
             # before this function.
             # assert not conversion_machine.has_structural_additions()
 
-            translators[target_accel_index].add_automata(source.automata, conversion_machine)
+            translators[target_accel_index].add_automata(source.automata, source.algebra, conversion_machine)
 
     return translators
 
@@ -540,6 +568,11 @@ def groups_from_components(automata_components, options):
             depth_eqn = sc.compute_depth_equation(cc, options)
             simple_graph = sjss.automata_to_nodes_and_edges(cc).edges
 
+            if not depth_eqn:
+                # Means that the graph was too big for the current
+                # setup.
+                continue
+
             edges_not_in_graph = False
             for edge in depth_eqn.all_edges():
                 if edge not in simple_graph:
@@ -550,10 +583,6 @@ def groups_from_components(automata_components, options):
                 print "Equation", depth_eqn
                 assert False
 
-            if not depth_eqn:
-                # Means that the graph was too big for the current
-                # setup.
-                continue
             if options.print_algebras:
                 print depth_eqn
                 print "Hash: ", depth_eqn.structural_hash()

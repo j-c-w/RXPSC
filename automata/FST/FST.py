@@ -31,6 +31,9 @@ class SingleStateTranslator(object):
         self.modifications = modifications
         self.unifier = unifier
 
+    def __str__(self):
+        return str(self.lookup)
+
     def has_structural_additions(self):
         return self.modification_count > 0
 

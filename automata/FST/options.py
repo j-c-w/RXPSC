@@ -13,6 +13,7 @@ class Options(object):
         self.print_compile_time = False
         self.correct_mapping = True
         self.verify = None
+        self.no_groups = False
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -23,6 +24,7 @@ class Options(object):
         self.print_file_info = False
         self.print_unification_statistics = False
         self.dump_nodes_and_edges = None
+        self.print_successful_conversions = False
 
         self.graph_size_threshold = 2000
         self.cross_compilation_threading = 0
@@ -61,6 +63,7 @@ def create_from_args(args):
     opts.disabled_edges_approximation = args.disabled_edges_approximation
     opts.correct_mapping = not args.allow_overapproximation
     opts.verify = args.verify
+    opts.no_groups = args.no_groups
     opts.print_algebras = args.print_derived
     opts.profile = args.profile
     opts.leq_iterations_file = args.leq_iterations_file
@@ -72,6 +75,7 @@ def create_from_args(args):
     opts.print_file_info = args.print_file_info
     opts.print_unification_statistics = args.print_unification_statistics
     opts.dump_nodes_and_edges = args.dump_nodes_and_edges
+    opts.print_successful_conversions = args.print_successful_conversions
 
     opts.graph_size_threshold = args.graph_size_threshold
     opts.cross_compilation_threading = args.cross_compilation_threading
@@ -99,6 +103,7 @@ def create_from_args(args):
 def add_to_parser(parser):
     parser.add_argument('--tail-approximation', default=False, dest='tail_approximation', action='store_true', help='Use the Tail Cutoff approximation in conversions.')
     parser.add_argument('--allow-overapproximation', default=False, dest='allow_overapproximation', action='store_true', help='Allow overapproximation of automata when compiling (completeness but not correctness)')
+    parser.add_argument('--no-groups', default=False, dest='no_groups', action='store_true', help='Don\'t use the input groups --- assume every regex can compile to every other regex.')
     parser.add_argument('--disabled-edges-approximation', default=False, dest='disabled_edges_approximation', action='store_true', help='Do not require edges to be disabled.')
     parser.add_argument('--print-algebras', default=False, dest='print_derived',
             help='Print Derived Algebras', action='store_true')
@@ -133,6 +138,7 @@ def add_to_parser(parser):
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
     parser.add_argument('--print-unification-failure-reasons', default=False, dest='print_unification_failure_reasons', action='store_true', help='Print reasons that unifiers fail within the single state unification method.')
+    parser.add_argument('--print-successful-conversions', default=False, dest='print_successful_conversions', action='store_true', help='Print successful conversions between algebras.')
     parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
     parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
     parser.add_argument('--verify', default=False, dest='verify', help='Do a verification --- the inputs are line-by-line in the file that is provided as argument.')
