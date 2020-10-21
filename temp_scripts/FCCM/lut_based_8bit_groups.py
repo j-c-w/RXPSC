@@ -14,9 +14,12 @@ import automata.FST.compilation_statistics as compilation_statistics
 
 sys.setrecursionlimit(25000)
 
-def process(file_groups, name, print_compression_stats=False, options=None):
+def process(file_groups, name, file_input=False, print_compression_stats=False, options=None):
     start_time = time.time()
-    file_groups = [os.path.join(file_groups, f) for f in os.listdir(file_groups) if os.path.isfile(os.path.join(file_groups, f))]
+    if file_input:
+        file_groups = [file_groups]
+    else:
+        file_groups = [os.path.join(file_groups, f) for f in os.listdir(file_groups) if os.path.isfile(os.path.join(file_groups, f))]
     print "Extracting ", len(file_groups), " groups"
     # Output is: HDL file with the important automata
     # selected + table programming.
@@ -71,6 +74,10 @@ def process(file_groups, name, print_compression_stats=False, options=None):
         print "Single state structural modifications unification failed", compilation_statistics.ssu_additions_failed
         print "Single state disable edges failed", compilation_statistics.ssu_disable_edges_failed
         print "Single state disable symbols failed", compilation_statistics.ssu_disable_symbols_failed
+        print "Single state structural additon completeness fail", compilation_statistics.ssu_addition_completeness_fail
+        print "Single state disable addition symbols failed", compilation_statistics.ssu_addition_correctness_fail
+        print "Single state addition failures due to homogeneity preservation", compilation_statistics.ssu_structural_addition_homogeneity_fail
+        print "Single state comparisons avoided with heuristics", compilation_statistics.ssu_heuristic_fail
         print "Single state successes", compilation_statistics.ssu_success
 
     if options.print_leq_failure_reasons:
@@ -95,10 +102,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('name')
     parser.add_argument('anml_file_groups')
+    parser.add_argument('-f', default=False, action='store_true', dest='file_input', help='Use a file as input rather than a folder.')
     parser.add_argument('--compression-stats', default=False, dest='compression_stats', action='store_true')
 
     options.add_to_parser(parser)
 
     args = parser.parse_args()
 
-    process(args.anml_file_groups, args.name, args.compression_stats, options.create_from_args(args))
+    process(args.anml_file_groups, args.name, args.file_input, args.compression_stats, options.create_from_args(args))
