@@ -445,7 +445,7 @@ def compile(automata_components, options):
         options.use_structural_change = False
 
     # (4) - regenerate the base automata algebras in case these changed.
-    options.no_size_limits = True # Need to disable limits --- the graphs may have grown when they
+    options.use_size_limits = False # Need to disable limits --- the graphs may have grown when they
     # were being structurally modified.
     base_automata_algebras = compile_to_fixed_structures([base_automata_components], options)[0]
     assert len(base_automata_algebras) == len(base_automata_components)
