@@ -103,6 +103,10 @@ class UnifierList(object):
     def trim_unifier_list(self):
         if len(self.unifiers) > MAX_UNIFIERS:
             compilation_statistics.unifier_trimming_events += 1
+            # Sort by the structural modification count to get ride
+            # of the unifiers that require more structural modification
+            # first.
+            self.unifiers = sorted(self.unifiers, key=lambda u: u.structural_modification_count())
             self.unifiers = self.unifiers[:MAX_UNIFIERS]
 
     def as_list(self):

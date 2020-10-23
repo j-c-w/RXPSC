@@ -1239,6 +1239,11 @@ def leq_internal_wrapper(A, B, options):
             found_match = None
             assert unifier is None
             unifier = UnifierList([])
+            # Tried the heuristics, because the unifier list is limited
+            # in length, that turned out to be the true limit here.
+            # Might come back to this, but ISTM that the real benefit
+            # would be in better heurisitics for trimming unifier lists.
+            # heuristic_perms = list(permutations_with_heuristics(matches))
             for combination in permutations(len(elements_A), range(len(elements_B))):
                 perm_count += 1
                 if perm_count > PERMUTATION_THRESHOLD:
@@ -1343,6 +1348,30 @@ def permutations(i, j):
     # multiple arms to one branch or vice-versa
     # is extremely small.
     return itertools.permutations(j, i)
+
+# Yield the permutations we should try and unify between two different
+# lists in an heuristic order, sorted by the most likely options.
+def permutations_with_heuristics(cross_compilatiion_matrix):
+    # Keep track of which elts_B each elt_A is likely to map to.
+    # --- just use size to do this.
+    likely_to_map = []
+    for _ in cross_compilatiion_matrix:
+        likely_to_map.append([])
+
+    for a_i in range(len(cross_compilatiion_matrix)):
+        for b_i in rotate(range(len(cross_compilatiion_matrix[a_i])), a_i):
+            if cross_compilatiion_matrix[a_i][b_i]:
+                likely_to_map[a_i].append(b_i)
+
+    for map in likely_to_map:
+        if len(map) == 0:
+            return []
+
+    # Now, we just need to generate a list of all combinations
+    # where elts_A[i] is only mapped to elts_B[i] iff
+    # there is an appropriate size difference.
+    result = itertools.slide(itertools.product(*likely_to_map), PERMUTATION_THRESHOLD)
+    return result
 
 # Given an automata, and a list of additions, inject the additions
 # into the automata.
