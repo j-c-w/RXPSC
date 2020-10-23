@@ -26,6 +26,7 @@ class Options(object):
         self.dump_nodes_and_edges = None
         self.print_successful_conversions = False
 
+        self.use_size_limits = True
         self.graph_size_threshold = 2000
         self.cross_compilation_threading = 0
         self.algebra_size_threshold = 2000
@@ -76,6 +77,7 @@ def create_from_args(args):
     opts.print_unification_statistics = args.print_unification_statistics
     opts.dump_nodes_and_edges = args.dump_nodes_and_edges
     opts.print_successful_conversions = args.print_successful_conversions
+    opts.use_size_limits = not args.no_size_limits
 
     opts.graph_size_threshold = args.graph_size_threshold
     opts.cross_compilation_threading = args.cross_compilation_threading
@@ -143,6 +145,7 @@ def add_to_parser(parser):
     parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
     parser.add_argument('--verify', default=False, dest='verify', help='Do a verification --- the inputs are line-by-line in the file that is provided as argument.')
     parser.add_argument('--no-cache', default=False, dest='no_cache', action='store_true', help='Disable the computation caches --- this makes things /much/ shlower.')
+    parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')

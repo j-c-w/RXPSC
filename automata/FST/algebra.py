@@ -158,7 +158,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
             # Set the top of stack to this node
             # and try to compress
             algebra = computed_algebras[node]
-            if options.algebra_size_threshold and algebra.size() > options.algebra_size_threshold:
+            if options.use_size_limits and options.algebra_size_threshold and algebra.size() > options.algebra_size_threshold:
                 raise AlgebraGenerationException("The algebra we returned from the cache was too big (see --algebra-size-threshold flag)")
 
             current_tail = algebra_stack[-1][algebra_stack_counts[-1] - 1]
@@ -240,8 +240,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 # automata, how many nested loops will there be?
                 # I figure not many.
                 loop_algebra = generate_internal(sub_nodes, sub_edges, branch[0], accept_states, end_states, sub_branches_analysis, sub_loops_analysis, options)
-                if options.algebra_size_threshold and loop_algebra.size():
-                    if options.algebra_size_threshold < loop_algebra.size():
+                if options.use_size_limits and options.algebra_size_threshold and loop_algebra.size():
+                    if options.use_size_limits and options.algebra_size_threshold < loop_algebra.size():
                         raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
 
                 if ALG_DEBUG:
@@ -358,7 +358,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                 # Persist that algebra into the stack.
                 current_stack = algebra_stack[-1][algebra_stack_counts[-1] - 1]
                 new_alg = new_linalg if current_stack is None else Sum([current_stack, new_linalg]).normalize()
-                if options.algebra_size_threshold and new_alg.size() > options.algebra_size_threshold:
+                if options.use_size_limits and options.algebra_size_threshold and new_alg.size() > options.algebra_size_threshold:
                     raise AlgebraGenerationException("Algebra was too big (nonloops is 1 case)")
                 algebra_stack[-1][algebra_stack_counts[-1] - 1] = new_alg
 
@@ -386,7 +386,7 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     branch_algebras.append(alg)
                     added_count += 1
 
-                if added_count > options.max_branching_factor:
+                if options.use_size_limits and added_count > options.max_branching_factor:
                     # Basically, this was causing exponential blowup in memory usage that was leading to OOM errors.
                     # I think that these errors aren't inherint
                     # to the algebra, but rather to the delayed normalization process.
@@ -422,8 +422,8 @@ def generate_internal(nodes, edges, start, accept_states, end_states, branches_a
                     algebra = Branch(algebra).normalize()
                 del algebra_stack[-1]
 
-                if options.algebra_size_threshold and algebra.size():
-                    if options.algebra_size_threshold < algebra.size():
+                if options.use_size_limits and options.algebra_size_threshold and algebra.size():
+                    if options.use_size_limits and options.algebra_size_threshold < algebra.size():
                         raise AlgebraGenerationException("Algebra was too big, detected in an intermediate step and aborted.")
 
 
