@@ -110,6 +110,21 @@ class AlgebraTest(unittest.TestCase):
         self.assertEqual(str(res), "{2, 2} + 1 + {1 + e, 1 + e}")
 
 class UnificationTest(unittest.TestCase):
+    def test_loop_insert_2(self):
+        t1 = parse_terms("9 + (1)* + 1 + {1 + (1)* + 1, 1} + (1)* + 1 + (1)* + 1 + (1)* + 1 + (1)* + 1 + a + e")
+        t2 = parse_terms("8 + (1)* + 1 + {1 + (1)* + 1, 1} + (1)* + 1 + (1)* + 1 + (1)* + 1 + (1)* + 1 + a + e")
+        EmptyOptions.correct_mapping = False
+        res = alg.leq_unify(t2, t1, EmptyOptions)
+        EmptyOptions.correct_mapping = True
+        for r in res:
+            pass
+
+    def test_loop_insert(self):
+        t1 = parse_terms("{1 + (1)* + 1, 1} + 1 + a + e")
+        t2 = parse_terms("{1 + (1)* + 1, 1} + 1 + a + e")
+        res = alg.leq_unify(t2, t1, EmptyOptions)
+        assert len(res) > 0
+
     def test_loop_skipping_2(self):
         t1 = parse_terms("4 + {1, 1 + (1)* + 1} + 1 + (1)* + 1 + {24 + a + e, 1 + a + e}")
         t2 = parse_terms("5 + (1)* + 4 + a + e")
@@ -172,7 +187,7 @@ class UnificationTest(unittest.TestCase):
         # Need at least one of these to have no structural additions
         no_branches = False
         for u in res:
-            if len(u.branches) == 0:
+            if len(u.additions_from_node) == 0:
                 no_branches = True
         self.assertTrue(no_branches)
 
@@ -240,13 +255,6 @@ class UnificationTest(unittest.TestCase):
         res = alg.leq_unify(t1, t2, EmptyOptions)
         self.assertNotEqual(res, [])
 
-    def test_unifier_sum_const(self):
-        t1 = Const(1, [1])
-        t2 = Sum([Const(1, [1]), Const(1, [1])])
-        res = alg.leq_unify(t1, t2, EmptyOptions)
-        res = [x for x in res if x is not None]
-        self.assertNotEqual(res, [])
-
     def test_unifier_sum_sum(self):
         t1 = Sum([Const(1, [1]), Const(1, [2])])
         t2 = Sum([Const(1, [1]), Product(Const(1, [2])), Const(1, [3])])
@@ -256,10 +264,12 @@ class UnificationTest(unittest.TestCase):
         self.assertNotEqual(res, [])
 
     def test_unifier_sum_product_const(self):
-        t1 = Const(1, [1])
+        t1 = Sum([Const(1, [1]), Accept(), End()])
         t2 = Sum([Const(1, [1]), Product(Const(1, [2])), Const(1, [1]), Accept(), End()])
 
+        EmptyOptions.correct_mapping = False
         res = alg.leq_unify(t1, t2, EmptyOptions)
+        EmptyOptions.correct_mapping = True
         self.assertNotEqual(res, [])
 
     def test_unifier_const_to_branch_in_sum(self):
@@ -308,22 +318,27 @@ class StructuralTransformations(unittest.TestCase):
     def test_apply_structural_transformations(self):
         graph, _ = alg.graph_for(Sum([Const(1, [(0, 1)]), Const(1, [(1, 2)])]), {(0, 1): 'a', (1, 2): 'b'} )
         slookup = {
-                (0, 0): 'c'
+                (0, 0): 'a'
                 }
+        mod = Modification(Product(Const(1, [(0, 0)])), [(1, 2)])
+        mod.symbol_lookup = slookup
+
         additions = [
-                Modifications([], [Modification(Product(Const(1, [(0, 0)])), [(1, 2)])], slookup)
+                Modifications([], [mod])
                 ]
         result = alg.apply_structural_transformations_internal(graph, additions, EmptyOptions)
         self.assertTrue((1, 1) in result.edges)
-        self.assertEqual(result.symbol_lookup[(1, 1)], 'c')
+        self.assertEqual(result.symbol_lookup[(1, 1)], 'a')
 
     def test_apply_branch(self):
         graph, _ = alg.graph_for(Sum([Const(1, [(0, 1)]), Const(1, [(1, 2)]), Const(1, [(2, 3)])]), {(0, 1): 'a', (1, 2): 'b', (2, 3): 'c'} )
         slookup = {
                 (0, 1): 'd'
                 }
+        mod = Modification(Sum([Const(1, [(0, 1)]), Accept(), End()]), [(1, 2)])
+        mod.symbol_lookup = slookup
         additions = [
-                Modifications([Modification(Sum([Const(1, [(0, 1)]), Accept(), End()]), [(1, 2)])], [], slookup)
+                Modifications([mod], [])
                 ]
         result = alg.apply_structural_transformations_internal(graph, additions, EmptyOptions)
         self.assertTrue((1, 5) in result.edges)

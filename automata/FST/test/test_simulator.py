@@ -16,7 +16,8 @@ class TestSim(unittest.TestCase):
         simple_automata = simple_graph.SimpleGraph(nodes, edges, symbol_lookup, accepting_states, start_state)
 
         self.assertTrue(sim.accepts(simple_automata, 'abbbbc'))
-        self.assertFalse(sim.accepts(simple_automata, 'bac'))
+        self.assertTrue(sim.accepts(simple_automata, 'bac'))
+        self.assertFalse(sim.accepts(simple_automata, 'caa'))
         self.assertTrue(sim.accepts(simple_automata, 'ac'))
 
 
