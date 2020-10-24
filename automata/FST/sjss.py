@@ -4,6 +4,7 @@ from automata.elemnts.element import StartType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import list_to_packed_set 
 from automata.elemnts.ste import S_T_E
+from unifier import FastSet
 import generate_fst
 import automata.elemnts.ste
 import networkx as nx
@@ -744,8 +745,8 @@ def nodes_and_edges_to_automata(simple_graph):
         to_ste = node_lookup[to_n]
 
         # Need to make sure that these are actually the same...
-        reslookup = generate_fst.expand_ranges(automata.elemnts.ste.list_to_packed_set(set(simple_graph.symbol_lookup[(from_n, to_n)]), ints=True))
-        assert reslookup ==  simple_graph.symbol_lookup[(from_n, to_n)]
+        reslookup = FastSet(generate_fst.expand_ranges(automata.elemnts.ste.list_to_packed_set(set(simple_graph.symbol_lookup[(from_n, to_n)]), ints=True)))
+        assert set(reslookup) ==  set(simple_graph.symbol_lookup[(from_n, to_n)])
 
         graph.add_edge(from_ste, to_ste, symbol_set=automata.elemnts.ste.list_to_packed_set(simple_graph.symbol_lookup[(from_n, to_n)], ints=True))
     max_node_val = max(graph.nodes)

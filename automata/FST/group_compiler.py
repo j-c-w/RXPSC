@@ -285,7 +285,7 @@ def assign_hardware(compiles_from, compiles_to, options):
 
         # Assign this peice of hardware to itself:
         hardware_i, hardware_j = index
-        assigned_hardware[hardware_i][hardware_j] = CompilationIndex(hardware_i, hardware_j, None, unifier.Modifications([], [], {}))
+        assigned_hardware[hardware_i][hardware_j] = CompilationIndex(hardware_i, hardware_j, None, unifier.Modifications([], []))
 
         # Now, we (a) put that in hardware, we need to
         # assign other automata that are part of different

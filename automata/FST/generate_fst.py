@@ -55,7 +55,7 @@ def generate(unification, to_atma, from_atma, options):
         elif options.target == 'symbol-only-reconfiguration':
             result = unifier.unify_symbol_only_reconfigutaion(to_edge_lookup, from_edge_lookup, options)
         elif options.target == 'perfect-unification':
-            result = FST.AllPowerfulUnifier(Modifications(unifier.additions_between_nodes, unifier.additions_from_node, from_edge_lookup))
+            result = FST.AllPowerfulUnifier(Modifications(unifier.additions_between_nodes, unifier.additions_from_node))
         else:
             print "Unkown target " + options.target
             sys.exit(1)

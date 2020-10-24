@@ -2,7 +2,7 @@ import FST
 import compilation_statistics
 # We need a value to indicate that an edges should not match
 # anything.
-DEBUG_UNIFICATION = False
+DEBUG_UNIFICATION = True
 PRINT_UNIFICATION_FAILURE_REASONS = False
 
 # The maximum number of unifiers to keep in the unifier lists.
@@ -24,6 +24,15 @@ class FastSet(object):
         self.elements[elt] = True
         self.elt_count += 1
 
+    def intersection(self, other):
+        self.elt_count = 0
+        for i in range(256):
+            self.elements[i] = self.elements[i] and i in other
+            if self.elements[i]:
+                self.elt_count += 1
+
+        return self
+
     def remove(self, elt):
         if self.elements[elt]:
             self.elt_count -= 1
@@ -41,7 +50,7 @@ class FastSet(object):
                 yield i
 
     def __str__(self):
-        result = "(" + ",".join([x for x in range(0, 256) if self.elements[x]]) + ")"
+        result = "(" + ",".join([str(x) for x in range(0, 256) if self.elements[x]]) + ")"
         return result
 
     def __eq__(self, other):
@@ -314,7 +323,7 @@ class Unifier(object):
 
                 state_lookup[dest_state] = lookup
 
-        modifications = Modifications(self.additions_from_node, self.additions_between_nodes, symbol_lookup_2)
+        modifications = Modifications(self.additions_from_node, self.additions_between_nodes)
         return FST.SymbolReconfiguration(state_lookup, modifications)
 
     # There may be some issues surrounding the naming convention
@@ -334,11 +343,12 @@ class Unifier(object):
 
         if DEBUG_UNIFICATION:
             print "Starting new unification between "
-            print self.algebra_from.str_with_lookup(symbol_lookup_2)
-            print self.algebra_to.str_with_lookup(symbol_lookup_1)
+            if self.algebra_from and self.algebra_to:
+                print self.algebra_from.str_with_lookup(symbol_lookup_2)
+                print self.algebra_to.str_with_lookup(symbol_lookup_1)
 
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
-            if self.algebra_from.equals(self.algebra_to, symbol_lookup_1, symbol_lookup_2):
+            if self.algebra_from and self.algebra_from.equals(self.algebra_to, symbol_lookup_1, symbol_lookup_2):
                 print "Algebras are actually exactly the same..."
                 for i in range(len(self.from_edges)):
                     if symbol_lookup_1[self.from_edges[i]] != symbol_lookup_2[self.to_edges[i]]:
@@ -386,7 +396,7 @@ class Unifier(object):
             # supposed to activate.
             # Go through and get all the valid activating symbols
             # together
-            state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges(), options)
+            state_lookup = disable_edges(state_lookup, non_matching, self.get_disabled_edges(), symbol_lookup_2, options)
 
             if state_lookup is None:
                 compilation_statistics.ssu_disable_edges_failed += 1
@@ -409,14 +419,17 @@ class Unifier(object):
             print "Returning a real result"
         compilation_statistics.ssu_success += 1
 
-        modifications = Modifications(self.additions_from_node, self.additions_between_nodes, symbol_lookup_1)
+        # Assign each modification appropriately translated symbols.
+        # There is no return value --- the results are set in each addition.
+        modification_state_assigment(state_lookup, symbol_lookup_1, symbol_lookup_2, self.additions_from_node, self.additions_between_nodes, options)
+
+        modifications = Modifications(self.additions_from_node, self.additions_between_nodes)
         return FST.SingleStateTranslator(state_lookup, modifications, unifier=self)
 
 class Modifications(object):
-    def __init__(self, additions_from_node, additions_between_nodes, symbol_lookup):
+    def __init__(self, additions_from_node, additions_between_nodes):
         self.additions_from_node = additions_from_node
         self.additions_between_nodes = additions_between_nodes
-        self.symbol_lookup = symbol_lookup
 
     def __len__(self):
         return len(self.additions_from_node) + len(self.additions_between_nodes)
@@ -431,9 +444,16 @@ class InsertModification(object):
     def __init__(self, algebra, edge):
         self.algebra = algebra
         self.edge = edge
+        # Assigned by the unification process.
+        self.symbol_lookup = None
 
     def __str__(self):
-        return str(self.algebra) + " Inserted over " + str(self.edge)
+        if self.symbol_lookup is not None:
+            alg_str = self.algebra.str_with_lookup(self.symbol_lookup)
+        else:
+            alg_str = str(self.algebra)
+
+        return alg_str + " Inserted over " + str(self.edge)
 
     def isinsert(self):
         return True
@@ -447,7 +467,12 @@ class Modification(object):
         self.edges_after = edges_after
 
     def __str__(self):
-        return str(self.algebra) + " Inserted before " + str(self.edges_after)
+        if self.symbol_lookup is not None:
+            alg_str = self.algebra.str_with_lookup(self.symbol_lookup)
+        else:
+            alg_str = str(self.algebra)
+
+        return alg_str + " Inserted before " + str(self.edges_after)
 
     def isinsert(self):
         return False
@@ -562,18 +587,37 @@ def generate_additions_mapping(state_lookup, matching_symbol, from_edges, to_edg
             for (from_e, to_e) in all_to_edges:
                 if to_e == last_node:
                     other_last_symbol_set = symbol_lookup_2[(from_e, to_e)]
-                    if inserted_last_symbol_set != other_last_symbol_set:
+                    maps_correctly = True
+                    # It needs to be the same /after/ translation:
+                    for symbol in inserted_last_symbol_set:
+                        if symbol in state_lookup:
+                            # Need to restrict the translation set
+                            # to something that activates the edge in the physical accelerator.
+                            targets = state_lookup[symbol]
+                            valid_targets = targets.intersection(other_last_symbol_set)
+                            if len(valid_targets) == 0:
+                                if DEBUG_UNIFICATION:
+                                    print "Failed to find a valid symbol target, source sets were"
+                                    print targets
+                                    print other_last_symbol_set
+                                maps_correctly = False
+                            else:
+                                state_lookup[symbol] = valid_targets
+                        else:
+                            state_lookup[symbol] = FastSet(other_last_symbol_set)
+
+                    if not maps_correctly:
                         if PRINT_UNIFICATION_FAILURE_REASONS or DEBUG_UNIFICATION:
                             print "Failed due to insert symbols not lining up"
                         compilation_statistics.ssu_structural_addition_homogeneity_fail += 1
 
-                        return None, state_lookup
+                        return None, None
                     break # Assume underlying graph is homogenous, no need to check
                     # more than once.
         else:
             # If this is a loop, need to check that it has the same
             # input symol as the loop it is attached to.
-            # Not currently implemented because I think this should
+            # Not currently implemented because I think this shouldn't
             # happen due to homogeneity of all input graphs involved,
             # but it would be a good check.
             pass
@@ -629,14 +673,17 @@ def compute_non_matching_symbol(matching):
 
     return non_matching
 
-def disable_edges(state_lookup, non_matching, disabled_edges, options):
+def disable_edges(state_lookup, non_matching, disabled_edges, symbol_lookup_2, options):
     if non_matching is None and len(disabled_edges) != 0 and not options.disabled_edges_approximation and options.correct_mapping:
         if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
             print "Unification failed due to required edge disabling that cannot be achieved"
         return None
     elif non_matching is not None:
         for disable in disabled_edges:
-            state_lookup[disable] = non_matching
+            for char in symbol_lookup_2[disable]:
+                assert char not in state_lookup # Not a valid unification if so --- should
+                # have been caught by the previous stage.
+                state_lookup[char] = [non_matching]
 
     return state_lookup
 
@@ -761,3 +808,41 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
             print "Successfully reduced edges for character ", i
             print "Had", len(targets), "options before, and ", len(new_symbols), "options now"
     return state_lookup
+
+
+# The unification process assigns values to edges within
+# each addition.  The particular values chosen are important
+# to remember because they are chosen to (a) enable unification
+# and (b) preserve homogeneity.
+# Record the choices that the additive structures should take.
+def modification_state_assigment(state_lookup, symbol_lookup_1, symbol_lookup_2, mods_from_nodes, mods_to_nodes, options):
+    for mod in mods_from_nodes + mods_to_nodes:
+        result_symbol_lookup = {}
+        for edge in mod.algebra.all_edges():
+            current_symb_set = symbol_lookup_1[edge]
+
+            new_symb_set = set()
+            for character in current_symb_set:
+                new_symb_set.add(state_lookup[character])
+            
+            result_symbol_lookup[edge] = new_symb_set
+
+        # Need to also make sure that the last edge has
+        # an apprpriately assigned symbol if this regions.
+        if mod.is_between_nodes():
+            # Get the edge it goes over:
+            over_edge = mod.edge
+
+            # The symbol set for the last edge of the
+            # inserted algebra has to be the same as the 
+            # one for the 'over_edge'.
+            over_edge_symbol_set = symbol_lookup_2[over_edge]
+
+            last_node = mod.algebra.get_last_node()
+            for (from_node, to_node) in mod.algebra.all_edges():
+                if to_node == last_node:
+                    for x in result_symbol_lookup[edge]:
+                        assert x in over_edge_symbol_set
+                    result_symbol_lookup[edge] = over_edge_symbol_set
+
+        mod.symbol_lookup = result_symbol_lookup
