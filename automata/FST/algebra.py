@@ -902,6 +902,14 @@ def leq_internal_wrapper(A, B, options):
             # could be, e.g. that B is also end
             if first_edges is not None:
                 unifier.add_disabled_edges(first_edges)
+
+            # Can't have an accept before the first edge though.
+            # We can have an accept before the first edge if we
+            # are overaccepting --- note that this might be a bad
+            # tradeoff of accuracy.
+            if options.correct_mapping and B.has_accept_before_first_edge():
+                result = False
+                unifier = None
         elif A.isaccept() and B.isaccept():
             if LEQ_DEBUG:
                 print "Both Accept"
@@ -1073,6 +1081,28 @@ def leq_internal_wrapper(A, B, options):
                         sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
                         if sub_unifier is not None:
                             # We can just go back around the loop:
+                            unifier.unify_with(sub_unifier)
+                            a_index += 1
+                            b_index += 1
+                            continue
+
+                    # This is also an approximation that speeds things
+                    # up significantly by unifier (1)* and (1)* both
+                    # at the head of large sums.
+                    if A.e1[a_index].isproduct() and B.e1[b_index].isproduct():
+                        sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
+                        if sub_unifier is not None:
+                            unifier.unify_with(sub_unifier)
+                            a_index += 1
+                            b_index += 1
+                            continue
+
+                    # This one is actually a correctness hack --- something about
+                    # the expanding algorithm means that branch-to-branch things aren't properly
+                    # unified.
+                    if A.e1[a_index].isbranch() and B.e1[b_index].isbranch():
+                        sub_unifier = leq_internal(A.e1[a_index], B.e1[b_index], options)
+                        if sub_unifier is not None:
                             unifier.unify_with(sub_unifier)
                             a_index += 1
                             b_index += 1
@@ -1318,8 +1348,10 @@ def leq_internal_wrapper(A, B, options):
             else:
                 unifiers = [unifier]
 
+            print "Checked edge lenghts before return!"
+            all_edges_set = A.all_edges()
+            print "Have unified ", len(all_edges_set), "edges"
             for u in unifiers:
-                all_edges_set = A.all_edges()
                 if u.all_from_edges_count() != len(all_edges_set):
                     print "Error, lengths differ: ", len(u.from_edges), len(all_edges_set)
                     print [str(x) for x in u.additions_between_nodes]
@@ -1405,7 +1437,7 @@ def apply_structural_transformations_internal(simple_graph, additions, options):
                 print addition
             # Then, insert this by generating new edge numbers and
             # putting it in with the appropriate symbol set.
-            new_graph, last_nodes = graph_for(addition.algebra, modification_set.symbol_lookup)
+            new_graph, last_nodes = graph_for(addition.algebra, addition.symbol_lookup)
 
             # check that we are only inserting things.
             og = old_graph.clone()

@@ -17,6 +17,7 @@ class ComparisonTest(unittest.TestCase):
         self.assertTrue(algebra.leq(Sum([Const(1, [(0, 1)]), Accept(), End()]),
                                     Sum([Const(1, [(0, 1)]), Accept(), Const(1, [(1, 2)]), End(), Accept()]).normalize(), EmptyOptions))
 
+    def test_compute_sum_2(self):
         self.assertFalse(algebra.leq(Sum([Const(1, [(0, 1)]), End()]),
                                     Sum([Const(1, [(0, 1)]), Accept(), Const(1, [(1, 2)]), End(), Accept()]), EmptyOptions))
 
