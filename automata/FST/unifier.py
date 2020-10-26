@@ -508,6 +508,12 @@ class InsertModification(object):
     def is_between_nodes(self):
         return True
 
+    def is_loop(self):
+        # Should always be false?  I didn't give anything
+        # the capacity to expand a loop out between two nodes...
+        assert not self.algebra.isproduct()
+        return False
+
 class Modification(object):
     def __init__(self, algebra, edges_after):
         self.algebra = algebra
@@ -526,6 +532,9 @@ class Modification(object):
 
     def is_between_nodes(self):
         return False
+
+    def is_loop(self):
+        return self.algebra.isproduct()
 
 def mapping_heuristic_fail(from_edges, to_edges, symbol_lookup_from, symbol_lookup_to, options):
     # Go through the mappings and look at the ones that don't
@@ -876,20 +885,39 @@ def modification_state_assigment(state_lookup, symbol_lookup_1, symbol_lookup_2,
 
         # Need to also make sure that the last edge has
         # an apprpriately assigned symbol if this regions.
-        if mod.is_between_nodes():
-            # Get the edge it goes over:
-            over_edge = mod.edge
+        if mod.is_between_nodes() or mod.is_loop():
+            if mod.is_between_nodes():
+                # Get the edge it goes over:
+                over_edge = mod.edge
 
-            # The symbol set for the last edge of the
-            # inserted algebra has to be the same as the 
-            # one for the 'over_edge'.
-            over_edge_symbol_set = symbol_lookup_2[over_edge]
+                # The symbol set for the last edge of the
+                # inserted algebra has to be the same as the 
+                # one for the 'over_edge'.
+                rejoining_edge_symbol_set = symbol_lookup_2[over_edge]
+            elif mod.is_loop():
+                incoming_node = mod.edges_after[0][0]
+
+                # This could definitely be more efficient...
+                rejoining_edge_symbol_set = None
+                for (from_node, to_node) in symbol_lookup_2:
+                    if to_node == incoming_node:
+                        rejoining_edge_symbol_set = symbol_lookup_2[(from_node, to_node)]
+                        break
+                # If this is none, it implies that there is no
+                # incoming edge to the node being inspected
+                # --- it must be the start node.  Not sure if that
+                # is allowed, and pretty sure it can't happen?
+                assert rejoining_edge_symbol_set is not None
+            else:
+                # Shouldn't be reachable?  Need to compute the symbol
+                # set for the rejoining node.
+                assert False
 
             last_node = mod.algebra.get_last_node()
             for (from_node, to_node) in mod.algebra.all_edges():
                 if to_node == last_node:
                     for x in result_symbol_lookup[edge]:
-                        assert x in over_edge_symbol_set
-                    result_symbol_lookup[edge] = over_edge_symbol_set
+                        assert x in rejoining_edge_symbol_set
+                    result_symbol_lookup[edge] = set(rejoining_edge_symbol_set)
 
         mod.symbol_lookup = result_symbol_lookup
