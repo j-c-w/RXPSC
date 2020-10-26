@@ -499,9 +499,11 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
                 print "Suprisise! Failed to convert machines"
                 # print source.algebra.str_with_lookup(generate_fst.edge_label_lookup_generate(source.automata))
                 print "(lookup)"
+                print source.algebra
                 # print generate_fst.edge_label_lookup_generate(source.automata)
                 # print target.algebra.str_with_lookup(generate_fst.edge_label_lookup_generate(target.automata))
                 print "(lookup)"
+                print target.algebra
                 # print generate_fst.edge_label_lookup_generate(target.automata)
                 print "The failure reason was", failure_reason.reason
                 # These are ommitted by default because they
