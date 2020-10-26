@@ -539,7 +539,7 @@ def splice_between(source_graph, before_node, after_node, splice_graph, last_nod
         # Just delete the node --- it won't exist anymore.
         if new_splice_graph.start_state == new_splice_graph.nodes[i]:
             del new_splice_graph.nodes[i]
-        if new_splice_graph.nodes[i] in last_nodes_in_splice_graph:
+        elif new_splice_graph.nodes[i] in last_nodes_in_splice_graph:
             del new_splice_graph.nodes[i]
 
     # Edges and the edge-symbol lookup.
