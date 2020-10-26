@@ -125,7 +125,7 @@ class SJSSTest(unittest.TestCase):
 
         target_node = 1
 
-        result = sjss.splice(
+        result = sjss.splice_after(
                 bgraph,
                 target_node,
                 igraph
