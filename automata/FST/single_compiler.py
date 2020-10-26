@@ -40,7 +40,20 @@ def compare(eqn_from, eqn_to):
 
 
 def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options):
-    unification = algebra.leq_unify(eqn_from, eqn_to, options)
+    # These optional lookup tables are a violation of the
+    # two-phase separation for unification --- they do a small
+    # amount of character-unification in the structural
+    # unification phase to help keep the length of the unifier
+    # lists down, by removing obviously impossible unifiers
+    # sooner rather than later.
+    if options.use_inline_unification_heuristics:
+        lookup_table_from = generate_fst.edge_label_lookup_generate(automata_from)
+        lookup_table_to = generate_fst.edge_label_lookup_generate(automata_to)
+    else:
+        lookup_table_from = None
+        lookup_table_to = None
+
+    unification = algebra.leq_unify(eqn_from, eqn_to, options, from_symbols_lookup=lookup_table_from, to_symbols_lookup=lookup_table_to)
 
     if unification is None:
         return None, generate_fst.GenerationFailureReason("Structural Failure")
@@ -80,6 +93,7 @@ def verify_fst(accelerator, automata, translator, options):
 
             print "For input ", input
             print "Original answer is", original
+            print "Translated stream is ", translated_input
             print "Accelerated answer is", accelerated
 
             if options.correct_mapping:

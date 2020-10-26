@@ -647,13 +647,13 @@ def graph_for(algebra, symbol_lookup):
 # The problem is that some of these things are massive,
 # so a recursive implementation would exceed stack limits
 # in python.
-def leq(A, B, options):
-    unifier = leq_unify(A, B, options)
+def leq(A, B, options, from_symbols_lookup=None, to_symbols_lookup=None):
+    unifier = leq_unify(A, B, options, from_symbols_lookup=from_symbols_lookup, to_symbols_lookup=to_symbols_lookup)
     return unifier is not None and unifier != []
 
 
 # This MUST support multithreaded operation.
-def leq_unify(A, B, options):
+def leq_unify(A, B, options, from_symbols_lookup=None, to_symbols_lookup=None):
     if LEQ_DEBUG:
         print "Starting new unification...."
         print "Comparing ", str(A), " and ", str(B)
@@ -665,7 +665,7 @@ def leq_unify(A, B, options):
 
     compilation_statistics.executed_comparisons += 1
 
-    unifier = leq_internal_wrapper(A, B, options)
+    unifier = leq_internal_wrapper(A, B, options, from_symbols_lookup=from_symbols_lookup, to_symbols_lookup=to_symbols_lookup)
     if unifier is not None and unifier.isunifierlist:
         result = unifier.as_list()
     elif unifier is not None:
@@ -728,7 +728,7 @@ def leq_internal_fails_on_heuristics(A, B, options):
     return False
 
 # This MUST support multithreaded operation.
-def leq_internal_wrapper(A, B, options):
+def leq_internal_wrapper(A, B, options, from_symbols_lookup=None, to_symbols_lookup=None):
     global_variables = {
             'comparison_cache': {},
             # This is a counter to help distinguish between calls.
@@ -738,8 +738,14 @@ def leq_internal_wrapper(A, B, options):
             # Keep track of the depth --- some of the equations are too big
             # for python to handle.
             'leq_depth': 0,
-            'solution_ID': hash(A) + hash(B)
+            'solution_ID': hash(A) + hash(B),
+            'from_symbols_lookup': from_symbols_lookup,
+            'to_symbols_lookup': to_symbols_lookup
     }
+
+    def internal_unifier_creation():
+        return Unifier(symbol_lookup_from=global_variables['from_symbols_lookup'],
+                        symbol_lookup_to=global_variables['to_symbols_lookup'])
 
     # Computes if A <= B, where A <= B means that we can
     # run A using automata B.
@@ -847,7 +853,7 @@ def leq_internal_wrapper(A, B, options):
                 print "to create structural equality between the two."
             # We can compile this, but require that every branch
             # of A compiles to B.
-            unifier = UnifierList([Unifier()])
+            unifier = UnifierList([internal_unifier_creation()])
             result = True
             for opt in A.options:
                 sub_unifier = leq_internal(opt, B, options)
@@ -872,12 +878,17 @@ def leq_internal_wrapper(A, B, options):
                     print len(B.edges)
                 if A.val == B.val:
                     result = True
-                    unifier = Unifier()
-                    unifier.add_edges(A.edges, B.edges)
+                    unifier = internal_unifier_creation()
+                    unifier.add_edges(A.edges, B.edges, options)
                 elif use_leq_on_constants and B.val < A.val:
+                    # This case shouldn't be in use right now --- 
+                    # I'm pretty sure it's not valid.
+                    assert False
                     result = True
+                    # If this case is re-activated, this should
+                    # use the internal_unifier_creation function.
                     unifier = Unifier(cost=A.val - B.val)
-                    unifier.add_edges(A.edges[:len(B.edges)], B.edges)
+                    unifier.add_edges(A.edges[:len(B.edges)], B.edges, options)
                 else:
                     result = False
             elif B.isproduct():
@@ -896,7 +907,7 @@ def leq_internal_wrapper(A, B, options):
             result = True
             # We can unify this, but we need to make sure that
             # we can 'disable' that edge.
-            unifier = Unifier()
+            unifier = internal_unifier_creation()
             first_edges = B.first_edge()
             # We don't always need to unify anything from this --- it
             # could be, e.g. that B is also end
@@ -914,7 +925,7 @@ def leq_internal_wrapper(A, B, options):
             if LEQ_DEBUG:
                 print "Both Accept"
             result = True
-            unifier = Unifier()
+            unifier = internal_unifier_creation()
         elif A.isproduct() and B.isproduct():
             if LEQ_DEBUG:
                 print "Both are products: Unifying subcomponents"
@@ -950,7 +961,7 @@ def leq_internal_wrapper(A, B, options):
                             A.e1[1].e1.isconst() and \
                             A.e1[2].isconst():
                         #This is a loop :)
-                        unifier = Unifier()
+                        unifier = internal_unifier_creation()
                         unifier.add_between_nodes(A, B.edges[0])
                         result = True
                     else:
@@ -973,7 +984,7 @@ def leq_internal_wrapper(A, B, options):
             if options.use_structural_change and len(A.e1) == 3 and \
                     A.e1[0].isconst() and A.e1[1].isaccept() and A.e1[2].isend() and \
                     not (len(B.e1) >= 3 and B.e1[0].isconst() and B.e1[1].isaccept() and B.e1[2].isend()):
-                unifier = Unifier()
+                unifier = internal_unifier_creation()
                 unifier.add_from_node(A, B.first_edge())
                 result = True
             # It would be good if we could handle this case, but it is a bit more
@@ -983,7 +994,7 @@ def leq_internal_wrapper(A, B, options):
                 pass
             else:
                 still_equal = True
-                unifier = UnifierList([Unifier()])
+                unifier = UnifierList([internal_unifier_creation()])
                 result = True # Needs to be set to false whereever this fails.
 
                 a_index = 0
@@ -1288,7 +1299,7 @@ def leq_internal_wrapper(A, B, options):
                 if is_match:
                     # Create the unifier with this sequence of
                     # assignments:
-                    this_branch_unifier = UnifierList([Unifier()])
+                    this_branch_unifier = UnifierList([internal_unifier_creation()])
                     used_branches = []
                     for i in range(len(combination)):
                         used_branches.append(combination[i])

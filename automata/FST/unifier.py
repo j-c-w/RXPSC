@@ -115,6 +115,7 @@ class UnifierList(object):
             # Sort by the structural modification count to get ride
             # of the unifiers that require more structural modification
             # first.
+            self.unifiers = [u for u in self.unifiers if not u.unifier_failed]
             self.unifiers = sorted(self.unifiers, key=lambda u: u.structural_modification_count())
             self.unifiers = self.unifiers[:MAX_UNIFIERS]
 
@@ -173,7 +174,7 @@ class UnifierList(object):
         return "[" + ", ".join([str(u) for u in self.unifiers]) + "]"
 
 class Unifier(object):
-    def __init__(self, algebra_from=None, algebra_to=None, cost=0):
+    def __init__(self, algebra_from=None, symbol_lookup_from=None, algebra_to=None, symbol_lookup_to=None, cost=0):
         self.isunifierlist = False
         self.from_edges = []
         self.to_edges = []
@@ -186,6 +187,10 @@ class Unifier(object):
         # for a successful conversion?
         self.additions_between_nodes = []
         self.additions_from_node = []
+        self.unifier_failed = False # Keep track of an early-fail heuristic to help when trimming unifier lists.
+        self.partial_mapping = {}
+        self.symbol_lookup_from = symbol_lookup_from
+        self.symbol_lookup_to = symbol_lookup_to
 
     # Return a count of all the edges represented in the 'from'
     # portion of this unifier.
@@ -243,8 +248,40 @@ class Unifier(object):
     def set_algebra_to(self, A):
         self.algebra_to = A
 
-    def add_edges(self, from_edges, to_edges):
+    def add_edges(self, from_edges, to_edges, options):
         assert len(from_edges) == len(to_edges)
+
+        if self.unifier_failed:
+            return
+
+        # These optional lookup tables are a violation of the
+        # two-phase separation for unification --- they do a small
+        # amount of character-unification in the structural
+        # unification phase to help keep the length of the unifier
+        # lists down, by removing obviously impossible unifiers
+        # sooner rather than later.  I think this improves
+        # performance within any particular MAX_UNIFIERS
+
+        # We can keep track of which unifiers
+        # should be kept at little cost when adding edges.
+        if options.use_inline_unification_heuristics and self.symbol_lookup_from is not None and \
+            self.symbol_lookup_to is not None and options.target == 'single-state':
+            for i in range(len(from_edges)):
+                to_set = self.symbol_lookup_to[to_edges[i]]
+                from_set = self.symbol_lookup_from[from_edges[i]]
+                if len(to_set) == 1 and len(from_set) < 10:
+                    to_char = list(to_set)[0]
+                    for char in from_set:
+                        # Check that the characters overlap --- we
+                        # need to make sure that any
+                        # one character isn't going to map to more
+                        # than one other character.
+                        if char in self.partial_mapping:
+                            if self.partial_mapping[char] != to_char:
+                                self.unifier_failed = True
+                                return
+
+                        self.partial_mapping[char] = to_set
 
         self.from_edges += from_edges
         self.to_edges += to_edges
@@ -270,8 +307,13 @@ class Unifier(object):
         self.additions_from_node += other.additions_from_node
         self.additions_between_nodes += other.additions_between_nodes
         self.ununified_terms.append(other.ununified_terms)
+        self.unifier_failed = self.unifier_failed or other.unifier_failed
 
     def unify_symbol_only_reconfigutaion(self, symbol_lookup_1, symbol_lookup_2, options):
+        if self.unifier_failed:
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Failed due to early-unification failure"
+            return None
         # In this unification method, we can unify each state individually ---
         # giving us much better compression.
         state_lookup = {}
@@ -331,6 +373,11 @@ class Unifier(object):
     # elsewhere tbh). Anyway, any issues with that should be aparent
     # even if a pain.
     def unify_single_state(self, symbol_lookup_1, symbol_lookup_2, options):
+        if self.unifier_failed:
+            compilation_statistics.ssu_pre_fail += 1
+            if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
+                print "Failed due to early unification failure"
+            return None
         # This unifies into a single state.
         state_lookup = {}
         matching_symbol = {}

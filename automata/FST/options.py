@@ -19,6 +19,7 @@ class Options(object):
         self.leq_calls_threshold = 100000
         self.no_leq_heuristics = True
         self.use_unification_heuristics = True
+        self.use_inline_unification_heuristics = True
 
         self.group_size_distribution = None
         self.print_file_info = False
@@ -71,6 +72,7 @@ def create_from_args(args):
     opts.leq_calls_threshold = args.leq_calls_threshold
     opts.use_structural_change = not args.no_structural_change
     opts.use_unification_heuristics = not args.no_unification_heuristics
+    opts.use_inline_unification_heuristics = not args.no_inline_unification_heuristics
 
     opts.group_size_distribution = args.group_size_distribution
     opts.print_file_info = args.print_file_info
@@ -124,6 +126,7 @@ def add_to_parser(parser):
     parser.add_argument('--size-difference-cutoff-factor', default=5.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
     parser.add_argument('--no-leq-heuristics', default=False, dest='no_leq_heuristics', action='store_true', help='Use heuristics to skip some of the comparisons that seem likely to fail anyway')
     parser.add_argument('--no-unification-heuristics', default=False, dest='no_unification_heuristics', action='store_true', help='Use heuristcs to help skip unifications likely to fail anyway.')
+    parser.add_argument('--no-inline-unification-heuristics', default=False, dest='no_inline_unification_heuristics', action='store_true', help='Use no inline heuristics')
     parser.add_argument('--compile-only', default=False, dest='compile_only', action='store_true', help="Don't  run any cross-compilation commands, just compile the algebras")
     parser.add_argument('--max-unifiers', default=20, dest='max_unifiers', type=int, help='Maximum number of unifiers to consider for any particular pair of equations')
     
