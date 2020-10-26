@@ -116,9 +116,9 @@ class SJSSTest(unittest.TestCase):
         bstart_state = 0
         bgraph = SimpleGraph(bnodes, bedges, blookup, baccepting_states, bstart_state)
 
-        inodes = [0, 1]
-        iedges = [(0, 1)]
-        ilookup = {(0, 1): 'a'}
+        inodes = [0, 1, 2]
+        iedges = [(0, 1), (1, 2)]
+        ilookup = {(0, 1): 'b', (1, 2): 'a'}
         iaccepting_states =[1]
         istart_state = 0
         igraph = SimpleGraph(inodes, iedges, ilookup, iaccepting_states, istart_state)
@@ -131,11 +131,25 @@ class SJSSTest(unittest.TestCase):
                 igraph
                 )
 
-        self.assertEqual(len(result.nodes), 3)
-        self.assertEqual(result.edges, [(0, 1), (1, 3)])
+        self.assertEqual(len(result.nodes), 4)
+        self.assertEqual(result.edges, [(0, 1), (1, 3), (3, 4)])
         self.assertTrue((0, 1) in result.symbol_lookup)
         self.assertTrue((1, 3) in result.symbol_lookup)
         self.assertEqual(len(result.accepting_states), 2)
+
+        igraph = SimpleGraph(inodes, iedges, ilookup, iaccepting_states, istart_state)
+        bgraph = SimpleGraph(bnodes, bedges, blookup, baccepting_states, bstart_state)
+
+        result = sjss.splice_between(
+                bgraph,
+                0, 1,
+                igraph,
+                [2]
+                )
+
+        self.assertEqual(len(result.nodes), 3)
+        self.assertEqual(result.edges, [(0, 1), (0, 3), (3, 1)])
+        self.assertEqual(result.accepting_states, [1, 3])
 
 
 if __name__ == "__main__":
