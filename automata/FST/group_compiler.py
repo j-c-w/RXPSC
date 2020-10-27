@@ -20,6 +20,7 @@ except:
     pass
 
 
+MODIFICATIONS_LIMIT = 10
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = True
 DEBUG_GENERATE_BASE = False
@@ -293,6 +294,11 @@ def assign_hardware(compiles_from, compiles_to, options):
         # with the fewest other options first.
         # We also try and pick the automata with the fewest
         # number of structural modifications.
+        # Cap the total number of structural modifications ---
+        # Automata undergoing a huge number of structural
+        # modifications just causes problems with the reunification
+        # tasks.
+        modifications_required = 0
         for i in range(len(compiles_to)):
             min_assigns = 100000000
             min_num_modifications = 10000000000
@@ -325,7 +331,9 @@ def assign_hardware(compiles_from, compiles_to, options):
             # j.  Can only assign one per group.
             # Could make this heuristic a bit better by deleting
             # entries from this list.
-            if min_assigns_index is not None:
+            if min_assigns_index is not None and MODIFICATIONS_LIMIT > modifications_required + num_modifications:
+                modifications_required += num_modifications
+
                 assigned_hardware[i][min_assigns_index] = CompilationIndex(index[0], index[1], min_assigns_object.conversion_machine, min_assigns_object.modifications)
 
     return assigned_hardware

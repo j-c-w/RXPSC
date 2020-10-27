@@ -59,6 +59,7 @@ def create_from_args(args):
     unifier.PRINT_UNIFICATION_FAILURE_REASONS = args.print_unification_failure_reasons
     group_compiler.DEBUG_COMPUTE_COMPAT_MATRIX = args.debug_compute_compat_matrix
     group_compiler.DEBUG_GENERATE_BASE = args.debug_generate_base
+    group_compiler.MODIFICATION_LIMIT = args.modification_limit
 
     opts = Options()
     opts.tail_approximation = args.tail_approximation
@@ -125,6 +126,7 @@ def add_to_parser(parser):
     parser.add_argument('--cross-compilation-threading', default=0,dest='cross_compilation_threading', help='How many threads should be used for genreating comparisons. 0 disables the thread pool entirely.', type=int)
     parser.add_argument('--size-difference-cutoff-factor', default=5.0, dest='size_difference_cutoff', help='If algebra X is this many times larger than algebra Y, then assume that X </= Y, 0 disables', type=float)
     parser.add_argument('--no-leq-heuristics', default=False, dest='no_leq_heuristics', action='store_true', help='Use heuristics to skip some of the comparisons that seem likely to fail anyway')
+    parser.add_argument('--modification-limit', default=10, dest='modification_limit', type=int, help='Limit the number of modifications to each accelerator')
     parser.add_argument('--no-unification-heuristics', default=False, dest='no_unification_heuristics', action='store_true', help='Use heuristcs to help skip unifications likely to fail anyway.')
     parser.add_argument('--no-inline-unification-heuristics', default=False, dest='no_inline_unification_heuristics', action='store_true', help='Use no inline heuristics')
     parser.add_argument('--compile-only', default=False, dest='compile_only', action='store_true', help="Don't  run any cross-compilation commands, just compile the algebras")
