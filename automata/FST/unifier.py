@@ -310,6 +310,10 @@ class Unifier(object):
         self.unifier_failed = self.unifier_failed or other.unifier_failed
 
     def unify_symbol_only_reconfigutaion(self, symbol_lookup_1, symbol_lookup_2, options):
+        # This just needs some updating to work with structural
+        # change.  Need to properly set the symbol lookups to work
+        # with any structural changes.
+        assert not options.use_structural_change
         if self.unifier_failed:
             if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                 print "Failed due to early-unification failure"
@@ -518,6 +522,7 @@ class Modification(object):
     def __init__(self, algebra, edges_after):
         self.algebra = algebra
         self.edges_after = edges_after
+        self.symbol_lookup = None
 
     def __str__(self):
         if self.symbol_lookup is not None:
