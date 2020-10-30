@@ -179,6 +179,9 @@ class DepthEquation(object):
             self_cached_first_node = self._get_first_node()
         return self._cached_first_node
 
+    def clone(self):
+        assert False
+
 class Product(DepthEquation):
     def __init__(self, e1):
         super(Product, self).__init__()
@@ -187,6 +190,9 @@ class Product(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def clone(self):
+        return Product(self.e1.clone())
 
     def _all_edges(self):
         return self.e1.all_edges()
@@ -299,6 +305,9 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def clone(self):
+        return Sum([x.clone() for x in self.e1])
 
     def _all_edges(self):
         result = set()
@@ -573,6 +582,9 @@ class Const(DepthEquation):
         self._size = None
         self.isnormal = val <= 1
 
+    def clone(self):
+        return Const(self.val, self.edges[:])
+
     def _all_edges(self):
         return set(self.edges)
 
@@ -690,6 +702,9 @@ class Branch(DepthEquation):
         self.isnormal = False
         self._size = None
         self.iscompressed = False
+
+    def clone(self):
+        return Branch([opt.clone() for opt in self.options])
 
     def _all_edges(self):
         result = set()
@@ -931,6 +946,9 @@ class Accept(DepthEquation):
         super(Accept, self).__init__()
         self.isnormal = True
 
+    def clone(self):
+        return Accept()
+
     def _all_edges(self):
         return set()
 
@@ -1006,6 +1024,9 @@ class End(DepthEquation):
     def __init__(self):
         super(End, self).__init__()
         self.isnormal = True
+
+    def clone(self):
+        return End()
 
     def _all_edges(self):
         return set()

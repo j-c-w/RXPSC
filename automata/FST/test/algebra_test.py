@@ -111,11 +111,13 @@ class AlgebraTest(unittest.TestCase):
 
 class UnificationTest(unittest.TestCase):
     def test_loop_insert_2(self):
-        t1 = parse_terms("9 + (1)* + 1 + {1 + (1)* + 1, 1} + (1)* + 1 + (1)* + 1 + (1)* + 1 + (1)* + 1 + a + e")
-        t2 = parse_terms("8 + (1)* + 1 + {1 + (1)* + 1, 1} + (1)* + 1 + (1)* + 1 + (1)* + 1 + (1)* + 1 + a + e")
+        t1 = parse_terms("1 + (1)* + 12 + (1)* + 3 + {1 + (1)* + 1, 1} + (1)* + 1 + (1)* + 1 + (1)* + 1 + (1)* + 1 + a + e")
+        t2 = parse_terms("1 + (1)* + 11 + (1)* + {1, 1 + (1)* + 1, 1 + (1)* + 1} + 2 + {1 + (1)* + 1, 1} + (1)* + 1 + (1)* + 1 + (1)* + 1 + (1)* + 1 + a + e")
         EmptyOptions.correct_mapping = False
+        EmptyOptions.use_structural_change = False
         res = alg.leq_unify(t2, t1, EmptyOptions)
         EmptyOptions.correct_mapping = True
+        EmptyOptions.use_structural_change = True
         for r in res:
             pass
 
@@ -342,6 +344,35 @@ class StructuralTransformations(unittest.TestCase):
                 ]
         result = alg.apply_structural_transformations_internal(graph, additions, EmptyOptions)
         self.assertTrue((1, 5) in result.edges)
+
+class PrefixTest(unittest.TestCase):
+    def test_simple(self):
+        s1 = {
+                (0, 1): [65],
+                (1, 2): [66],
+                (2, 3): [67],
+                (3, 4): [68]
+        }
+        t1 = Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(3, 4)])])
+        t2 = Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
+
+        prefix, alg_a, alg_b = alg.prefix_merge(t1, s1, t2, s1, EmptyOptions)
+        self.assertEqual(str(prefix), "1 + (1)*")
+        self.assertEqual(str(alg_a), "1")
+        self.assertEqual(str(alg_b), "1")
+
+    def test_branch_prefix_merge(self):
+        s1 = {
+                (0, 1): [65],
+                (1, 2): [66],
+                (2, 3): [67],
+                (3, 4): [68]
+        }
+        t1 = Branch([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
+        t2 = Branch([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
+
+        prefix, alg_a, alg_b = alg.prefix_merge(t1, s1, t2, s1, EmptyOptions)
+        self.assertEqual(alg_a, None)
 
 if __name__ == "__main__":
     unittest.main()

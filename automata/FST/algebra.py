@@ -18,6 +18,7 @@ except:
 
 ALG_DEBUG = True
 LEQ_DEBUG = True
+DEBUG_PREFIX_MERGE = True
 # This should probably be enabled for most things, it
 # drastically helps avoid exponential blowup for non-SJSS
 # graphs.
@@ -636,6 +637,115 @@ def graph_for(algebra, symbol_lookup):
                     del nodes[i]
         end_nodes = []
     return SimpleGraph(nodes, edges, result_lookup, accept_states, start_state), end_nodes
+
+
+# This implements prefix merging.  (See REduce).
+# That is, it returns three componenets:
+#   The algebra that can be prefix merged
+#   The first passed algebra
+#   The second passed algebra
+def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
+    if DEBUG_PREFIX_MERGE:
+        print "Trying to prefix merge"
+        print A.str_with_lookup(symbol_lookup_A)
+        print B.str_with_lookup(symbol_lookup_B)
+    if A.isconst() and B.isconst() and A.val == B.val:
+        last_equal_index = -1
+        for i in range(len(A.edges)):
+            if symbol_lookup_A[A.edges[i]] == symbol_lookup_B[B.edges[i]]:
+                last_equal_index = i
+            else:
+                break
+
+        prefix = Const(last_equal_index + 1, A.edges[:last_equal_index + 1])
+        post_A = Const(A.val - last_equal_index - 1, A.edges[last_equal_index + 1:])
+        post_B = Const(B.val - last_equal_index - 1, B.edges[last_equal_index + 1:])
+
+        if DEBUG_PREFIX_MERGE:
+            print "In const case"
+            print "Merged up to index ", last_equal_index
+            print prefix
+            print post_A
+            print post_B
+
+        if last_equal_index == -1:
+            return None, A, B
+        elif last_equal_index == A.val - 1:
+            return prefix, None, None
+        else:
+            return prefix, post_A, post_B
+    elif A.isend() and B.isend():
+        return End(), None, None
+    elif A.isaccept() and B.isaccept():
+        return Accept(), None, None
+    elif A.isproduct() and B.isproduct():
+        sub_prefix, tail_A, tail_B = prefix_merge(A.e1, symbol_lookup_A, B.e1, symbol_lookup_B, options)
+
+        if tail_A is None and tail_B is None:
+            return A.clone(), None, None
+        else:
+            return None, A, B
+    elif A.isbranch() and B.isbranch():
+        # We need every branch end to be a complete combination.
+        if len(A.options) != len(B.options):
+            return None, A, B
+
+        assignment_indicies = [None] * len(A.options)
+        for a_index in range(len(A.options)):
+            a_opt = A.options[a_index]
+            prefix_index = None
+
+            for b_index in range(len(B.options)):
+                b_opt = B.options[b_index]
+
+                prefix_unification, tail_a, tail_b = prefix_merge(a_opt, symbol_lookup_A, b_opt, symbol_lookup_B, options)
+
+                if tail_a is not None and tail_b is not None:
+                    assignment_indicies[a_index] = b_index
+        # Because we are just working with equality all the way
+        # through each branch, we don't have to worry about double
+        # assignments here.
+        for assignment in assignment_indicies:
+            if assignment is None:
+                return None, A, B
+            else:
+                return A.clone(), None, None
+    elif A.issum() and B.issum():
+        total_prefix = []
+        tail_A = None
+        tail_B = None
+        for elt in range(min(len(A.e1), len(B.e1))):
+            sub_prefix, sub_tail_A, sub_tail_B = prefix_merge(A.e1[elt], symbol_lookup_A, B.e1[elt], symbol_lookup_B, options)
+            if DEBUG_PREFIX_MERGE:
+                print "Result of sub-unification is (from", A.e1[elt], B.e1[elt], ")"
+                print sub_prefix
+                print sub_tail_A
+                print sub_tail_B
+            if sub_tail_A is None and sub_tail_B is None:
+                # keep going.
+                total_prefix.append(sub_prefix)
+            else:
+                if DEBUG_PREFIX_MERGE:
+                    print "No more element unification, computing tails"
+                # Do not keep unifying --- we reached the end.
+                tail_A = A.e1[elt:]
+                tail_B = B.e1[elt:]
+                break
+
+        if DEBUG_PREFIX_MERGE:
+            print "Reached end of sum unification, the total prefix extracted was ", total_prefix
+
+        if len(total_prefix) > 0:
+            if tail_A is None and tail_B is None:
+                return Sum(total_prefix).normalize(), None, None
+            else:
+                return Sum(total_prefix).normalize(), Sum(tail_A).normalize(), Sum(tail_B).normalize()
+        else:
+            return None, A, B
+    else:
+        # Types don't match.
+        return None, A, B
+
 
 # This is an implementation of the comparison operator ---
 # the concept is that if A < B, then  we can use the circuit
