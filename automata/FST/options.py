@@ -19,6 +19,7 @@ class Options(object):
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
+        self.prefix_size_threshold = 5
         self.no_leq_heuristics = True
         self.use_unification_heuristics = True
         self.use_inline_unification_heuristics = True
@@ -55,6 +56,7 @@ def create_from_args(args):
     algebra.LEQ_DEBUG = args.debug_leq
     algebra.ALG_DEBUG = args.debug_alg
     algebra.CACHE_ENABLED = not args.no_cache
+    algebra.DEBUG_PREFIX_MERGE = args.debug_prefix_merge
     terms.TERMS_DEBUG = args.debug_terms
     unifier.DEBUG_UNIFICATION = args.debug_unification
     unifier.MAX_UNIFIERS = args.max_unifiers
@@ -81,6 +83,7 @@ def create_from_args(args):
 
     opts.group_size_distribution = args.group_size_distribution
     opts.print_file_info = args.print_file_info
+    opts.prefix_size_threshold = args.prefix_size_threshold
     opts.print_unification_statistics = args.print_unification_statistics
     opts.dump_nodes_and_edges = args.dump_nodes_and_edges
     opts.print_successful_conversions = args.print_successful_conversions
@@ -144,6 +147,7 @@ def add_to_parser(parser):
     parser.add_argument('--debug-unification', default=False, dest='debug_unification', action='store_true')
     parser.add_argument('--debug-compute-compat-matrix', default=False, dest='debug_compute_compat_matrix', action='store_true')
     parser.add_argument('--debug-generate-base', default=False, dest='debug_generate_base', action='store_true')
+    parser.add_argument('--debug-prefix-merge', default=False, dest='debug_prefix_merge', action='store_true')
     parser.add_argument('--memory-debug', default=False, dest='memory_debug', action='store_true')
     parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
