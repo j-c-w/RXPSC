@@ -26,6 +26,10 @@ def process(file_groups, name, file_input=False, print_compression_stats=False, 
 
     automata_components = []
     index = 0
+
+    # State count of unoptimized regexes.
+    initial_state_count = 0
+
     for file in file_groups:
         if not file.endswith('.anml'):
             continue
@@ -39,28 +43,33 @@ def process(file_groups, name, file_input=False, print_compression_stats=False, 
         automatas.remove_ors()
         automata_components.append(automatas.get_connected_components_as_automatas())
 
+        for comp in automata_components:
+            for cc in comp:
+                initial_state_count += len(cc.nodes)
+
     assignments = gc.compile(automata_components, options)
 
     if print_compression_stats:
         self_compiles = len(assignments)
         other_compiles = 0
         nodes_required = 0
-        nodes_saved = 0
+        nodes_saved_by_sst = 0
         for assignment in assignments:
             other_compiles += len(assignment.translators)
-            nodes_required += len(assignment.physical_automata.nodes)
+            nodes_required += len(assignment.physical_automata.component.nodes)
             for supported_automata in assignment.supported_automata:
-                nodes_saved += len(supported_automata.nodes)
+                nodes_saved_by_sst += len(supported_automata.component.nodes)
         # Don't print the results of the comparison if we are doing --compile-only (which skips the comparisons)
         if not options.compile_only:
             print "COMPILATION STATISTICS: self compiles = ", self_compiles
             print "COMPILATION STATISTICS: other compiles = ", other_compiles
-            print "COMPILATION STATISTICS: reduction in regexes = ", other_compiles - self_compiles
+            print "COMPILATION STATISTICS: reduction in regexes (from translation) = ", other_compiles - self_compiles
             # The underlying hardware accelerator nodes
             # are double counted since it is also in the 'supported'
             # list.
             print "COMPILATION STATISTICS: total states required = ", nodes_required
-            print "COMPLIATION STATISTICS: total states saved = ", nodes_saved - nodes_required
+            print "COMPLIATION STATISTICS: total states saved = ", initial_state_count - nodes_required
+            print "COMPILATION STATISTICS: total states saved by translation = ", nodes_saved_by_sst - nodes_required
 
         print "COMPILATION STATISTICS: unifications = ", compilation_statistics.unification_successes
         print "COMPILATION STATISTICS: Of those,  ", compilation_statistics.exact_same_compilations, " were equal"
