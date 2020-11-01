@@ -564,8 +564,6 @@ def full_graph_for(algebra, symbol_lookup):
         (from_n, to_n) = edges[i]
 
         if from_n == start_state and start_state != 0:
-            print edges
-            print symbol_lookup
             symbol_lookup[(0, to_n)] = symbol_lookup[(from_n, to_n)]
             del symbol_lookup[(from_n, to_n)]
             from_n = 0
