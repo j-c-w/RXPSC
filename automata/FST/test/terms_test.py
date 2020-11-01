@@ -23,5 +23,9 @@ class TermsTest(unittest.TestCase):
         termsstring = "4 + {1 + (1)* + 1, 1} + {1 + (1)* + 1 + a + e, 1 + a + e}"
         self.assertEqual(str(parse_terms(termsstring)), str(termsstring))
 
+    def test_accepting_nodes(self):
+        t = Sum([Const(1, [(0, 1)]), Accept(), Product(Sum([Const(1, [(4, 5)]), Accept()]))])
+        self.assertEqual(t.get_accepting_nodes(), set([1, 5]))
+
 if __name__ == "__main__":
     unittest.main()
