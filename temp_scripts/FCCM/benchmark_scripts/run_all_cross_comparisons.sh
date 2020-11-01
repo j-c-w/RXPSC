@@ -14,7 +14,7 @@ results=$2
 
 bmarks=( Brill Bro217 ClamAV Custom Dotstar Dotstar03 Dotstar06 Dotstar09 EntityResolution ExactMath Fermi Hamming Levenshtein PowerEN Protomata RandomForest Ranges05 Ranges1 Snort SPM Synthetic TCP )
 optional_flags=( --allow-overapproximation --no-structural-change "--target symbol-only-reconfiguration" )
-other_flags="--no-groups --compression-stats"
+other_flags="--no-groups --cross-compile --compression-stats"
 
 flag_combinations=(
 	""
