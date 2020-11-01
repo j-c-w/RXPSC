@@ -14,6 +14,8 @@ class Options(object):
         self.correct_mapping = True
         self.verify = None
         self.no_groups = False
+        self.use_cross_compilation = True
+        self.use_prefix_merging = False
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -73,6 +75,8 @@ def create_from_args(args):
     opts.leq_calls_threshold = args.leq_calls_threshold
     opts.use_structural_change = not args.no_structural_change
     opts.use_unification_heuristics = not args.no_unification_heuristics
+    opts.use_prefix_merging = args.use_prefix_merging
+    opts.use_cross_compilation = args.cross_compile
     opts.use_inline_unification_heuristics = not args.no_inline_unification_heuristics
 
     opts.group_size_distribution = args.group_size_distribution
@@ -151,6 +155,9 @@ def add_to_parser(parser):
     parser.add_argument('--verify', default=False, dest='verify', help='Do a verification --- the inputs are line-by-line in the file that is provided as argument.')
     parser.add_argument('--no-cache', default=False, dest='no_cache', action='store_true', help='Disable the computation caches --- this makes things /much/ shlower.')
     parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
+    parser.add_argument('--use-prefix-merging', default=False, dest='use_prefix_merging', help="Use prefix merging (experimental only)", action='store_true')
+    parser.add_argument('--cross-compile', default=False, dest='cross_compile', help='Use cross compilation to compress regexes', action='store_true')
+    parser.add_argument('--prefix-size-threshold', default=5, dest='prefix_size_threshold', help='Smallest size of prefix to use.', type=int)
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')

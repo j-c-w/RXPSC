@@ -236,7 +236,19 @@ def compute_hardware_assignments_for(groups, options, read_comparison_cache, dum
         h = hpy()
         print(h.heap())
 
-    compiles_to, compiles_from = compute_cross_compatibility_matrix_for(groups, options, read_comparison_cache, dump_comparison_cache)
+    if options.use_cross_compilation:
+        compiles_to, compiles_from = compute_cross_compatibility_matrix_for(groups, options, read_comparison_cache, dump_comparison_cache)
+    else:
+        # Do not do cross compilation, so generate a compiles to/from list that just lets everything compile to itself.
+        compiles_to = []
+        compiles_from = []
+        for i in range(len(groups)):
+            compiles_to.append([])
+            compiles_from.append([])
+
+            for j in range(len(groups[i])):
+                compiles_to[i].append([])
+                compiles_from[i].append([])
     if options.memory_debug:
         print "Memory Usage after cross compat matrix"
         h = hpy()
