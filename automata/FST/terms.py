@@ -22,6 +22,7 @@ class DepthEquation(object):
         self._cached_loop_count = None
         self._cached_all_edges = None
         self._cached_first_node = None
+        self._cached_accepting_nodes = None
 
     def isproduct(self):
         return False
@@ -50,6 +51,17 @@ class DepthEquation(object):
             return result
 
     def _all_edges(self):
+        assert False
+
+    def get_accepting_nodes(self):
+        if self._cached_accepting_nodes is not None:
+            return self._cached_accepting_nodes
+        else:
+            result = self._get_accepting_nodes()
+            self._cached_accepting_nodes = result
+            return result
+
+    def _get_accepting_nodes(self):
         assert False
 
     def has_accept(self):
@@ -191,6 +203,9 @@ class Product(DepthEquation):
         self._size = None
         self._last_node = None
 
+    def _get_accepting_nodes(self):
+        return self.e1.get_accepting_nodes()
+
     def clone(self):
         return Product(self.e1.clone())
 
@@ -305,6 +320,25 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _get_accepting_nodes(self):
+        accepting_nodes = set()
+
+        last_elt = None
+        for elt in self.e1:
+            if elt.isaccept():
+                # Dunno why this would happen --- maybe a weird
+                # product situation?
+                assert last_elt is not None
+
+                accepting_nodes.add(last_elt.get_last_node())
+            elif not elt.isend():
+                accepting_nodes = accepting_nodes.union(elt.get_accepting_nodes())
+
+            last_elt = elt
+
+        return accepting_nodes
+
 
     def clone(self):
         return Sum([x.clone() for x in self.e1])
@@ -582,6 +616,9 @@ class Const(DepthEquation):
         self._size = None
         self.isnormal = val <= 1
 
+    def _get_accepting_nodes(self):
+        return set()
+
     def clone(self):
         return Const(self.val, self.edges[:])
 
@@ -668,7 +705,7 @@ class Const(DepthEquation):
         if len(self.edges) > 0:
             return self.edges[0][0]
         else:
-            return NOne
+            return None
 
     def str_with_lookup(self, lookup):
         edges_val = [[chr(y) for y in lookup[x]] for x in self.edges if x in lookup]
@@ -702,6 +739,10 @@ class Branch(DepthEquation):
         self.isnormal = False
         self._size = None
         self.iscompressed = False
+
+    def _get_accepting_nodes(self):
+        sub_accepting = [opt.get_accepting_nodes() for opt in self.options if opt]
+        return set().union(*sub_accepting)
 
     def clone(self):
         return Branch([opt.clone() for opt in self.options])
@@ -946,6 +987,9 @@ class Accept(DepthEquation):
         super(Accept, self).__init__()
         self.isnormal = True
 
+    def _get_accepting_nodes():
+        return set()
+
     def clone(self):
         return Accept()
 
@@ -1024,6 +1068,9 @@ class End(DepthEquation):
     def __init__(self):
         super(End, self).__init__()
         self.isnormal = True
+
+    def _get_accepting_nodes(self):
+        return set()
 
     def clone(self):
         return End()
