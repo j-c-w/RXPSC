@@ -18,7 +18,7 @@ except:
 
 ALG_DEBUG = True
 LEQ_DEBUG = True
-DEBUG_PREFIX_MERGE = True
+DEBUG_PREFIX_MERGE = False
 # This should probably be enabled for most things, it
 # drastically helps avoid exponential blowup for non-SJSS
 # graphs.
@@ -550,6 +550,35 @@ def linear_algebra_for(branch, accept_states):
 
     return sum_elt.normalize()
 
+# This is an alternative to the below algorithm taht supporst
+# generation of a full graph from an APA, but doesn't give you
+# the final node (expect that would not be hard to achieve)
+def full_graph_for(algebra, symbol_lookup):
+    edges = list(algebra.all_edges())
+    start_state = algebra.get_first_node()
+    nodes = set()
+    # Don't modify the symbol lookup in place
+    symbol_lookup = dict(symbol_lookup)
+
+    for i in range(len(edges)):
+        (from_n, to_n) = edges[i]
+
+        if from_n == start_state and start_state != 0:
+            print edges
+            print symbol_lookup
+            symbol_lookup[(0, to_n)] = symbol_lookup[(from_n, to_n)]
+            del symbol_lookup[(from_n, to_n)]
+            from_n = 0
+            edges[i] = (from_n, to_n)
+        nodes.add(to_n)
+        nodes.add(from_n)
+
+    accepting_states = algebra.get_accepting_nodes()
+    for edge in edges:
+        assert edge in symbol_lookup
+
+    return SimpleGraph(nodes, edges, symbol_lookup, accepting_states, start_state)
+
 # This generates a graph for a linear section of algebra.
 # It could be a full inverse to the algebra generation algorithm,
 # but it really doesn't need to be given that the current
@@ -732,10 +761,35 @@ def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
                 tail_B = B.e1[elt:]
                 break
 
+        # Can't just leave a + e, or + a at the beginning
+        # of the tail_A or tail_B, because those are actuall
+        # modifiers to the last const --- so if that's the case,
+        # then pull the last const out of the total prefix.
+        if tail_A and tail_B and (tail_A[0].isaccept() or tail_B[0].isaccept()):
+            assert len(total_prefix) > 0 # Don't think we
+            # have any empty regexes input, pretty sure MNRL
+            # converter doesn't support that.
+            tail_A = A.e1[elt - 1:]
+            tail_B = B.e1[elt - 1:]
+
+            assert not tail_A[0].isaccept() and not tail_B[0].isaccept()
+            # Remove the element we just added back on the tails.
+            del total_prefix[-1]
+
+        # If they are just +e, then drop them.
+        if tail_A and len(tail_A) == 1 and tail_A[0].isend():
+            tail_A = []
+
+        if tail_B and len(tail_B) == 1 and tail_B[0].isend():
+            tail_B = []
+
         if DEBUG_PREFIX_MERGE:
             print "Reached end of sum unification, the total prefix extracted was ", total_prefix
 
         if len(total_prefix) > 0:
+            # The prefix is going to be treated as a new automata,
+            # so add the end state to it.
+            total_prefix.append(End())
             if tail_A is None and tail_B is None:
                 return Sum(total_prefix).normalize(), None, None
             else:
