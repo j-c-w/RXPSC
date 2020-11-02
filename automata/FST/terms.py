@@ -188,7 +188,7 @@ class DepthEquation(object):
 
     def get_first_node(self):
         if self._cached_first_node is None:
-            self_cached_first_node = self._get_first_node()
+            self._cached_first_node = self._get_first_node()
         return self._cached_first_node
 
     def clone(self):
@@ -845,7 +845,14 @@ class Branch(DepthEquation):
         return None
 
     def _get_first_node(self):
-        return None
+        first_sub_nodes = set()
+        for opt in self.options:
+            subnode = opt.get_first_node()
+            if subnode is not None:
+                first_sub_nodes.add(subnode)
+
+        assert len(first_sub_nodes) == 1
+        return list(first_sub_nodes)[0]
 
     def str_with_lookup(self, lookup):
         return "{" + ", ".join([opt.str_with_lookup(lookup) for opt in self.options]) + "}"
