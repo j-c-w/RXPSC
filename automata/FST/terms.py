@@ -866,10 +866,21 @@ class Branch(DepthEquation):
                 # Don't need that.
                 del self.options[i]
 
+            # Check if any of the options are actually branches --- we can
+            # flatten those branches out.  We dont' have to worry
+            # about normalizing it, because that is already done.
+            elif self.options[i].isbranch():
+                self.options += self.options[i].options
+                del self.options[i]
+
         # If this is an empty branch, then it's the same as 0,
         # which is a more cannonical form.
         if len(self.options) == 0:
             return Const(0, [])
+
+        # Sort the branch arms by length --- make for easier
+        # matching.
+        self.options = sorted(self.options, key=lambda x: x.size())
 
         for opt in self.options:
             assert opt.isnormal
