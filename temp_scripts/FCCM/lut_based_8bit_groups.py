@@ -49,6 +49,10 @@ def process(file_groups, name, file_input=False, print_compression_stats=False, 
 
     assignments = gc.compile(automata_components, options)
 
+    if assignments is None:
+        print "Compilation finished --- Assignments was None, probably due to a command line flag not asking for the entire compilation"
+        return
+
     if print_compression_stats:
         self_compiles = len(assignments)
         other_compiles = 0

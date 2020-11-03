@@ -479,6 +479,10 @@ def compile(automata_components, options):
     if options.compile_only:
         return None
 
+    if options.print_regex_injection_stats:
+        print_regex_injection_stats(groups, options)
+        return None
+
     # (2)
     assignments = compute_hardware_assignments_for(groups, options, read_comparison_cache, dump_comparison_cache)
     # (3)
@@ -776,39 +780,20 @@ def groups_from_components(automata_components, options):
     return groups
 
 
+def print_regex_injection_stats(groups, options):
+    # Don't use the cross-comparison caches here -- there is nothing stopping us, but I haven't
+    # been using them much, so don't see there to be a huge
+    # benefit.
+    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options, None, None)
 
-# Estimate the amount of cross-compatability within
-# a suite of automata.
-def compile_statistics(connected_components, options):
-    algebras = [None] * len(connected_components)
+    non_compiling_opts = 0
+    compiling_opts = 0
+    for i in range(len(groups)):
+        for j in range(len(groups[i])):
+            if len(compiles_to[i][j]) == 0:
+                non_compiling_opts += 1
+            else:
+                compiling_opts += 1
 
-    if options.memory_debug:
-        print "Memory Usage before computing depth equations"
-        h = hpy()
-        print(h.heap())
-
-    print "Starting Compilation"
-    for i in range(len(connected_components)):
-        algebras[i] = sc.compute_depth_equation(connected_components[i].component, options, dump_output=True)
-
-    if options.memory_debug:
-        print "Memory usage after computed depth equations"
-        h = hpy()
-        print(h.heap())
-
-    print "Computed Algebras: checking for cross-compatability now"
-
-    # Now, check for cross compatability:
-    cross_compilations = 0
-    exact_duplicates = 0
-    for j in range(len(algebras)):
-        for i in range(len(algebras)):
-            if i != j:
-                result = sc.compare(algebras[i], algebras[j])
-                if result:
-                    print "Compiled ", algebras[i], " to ", algebras[j]
-                    cross_compilations += 1
-
-    print "Total cross compilations is ", cross_compilations
-    print "Total successes is ", compile_statistics.single_state_unification_success
-    print "Of those, there were ", compile_statistics.exact_same_compilations, " exact duplicates"
+    print "Number of regexes we can compile to existing regexes: ", compiling_opts
+    print "Number of regexes we can't compile to existing regexes", non_compiling_opts

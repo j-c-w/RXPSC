@@ -28,7 +28,9 @@ class Options(object):
         self.print_file_info = False
         self.print_unification_statistics = False
         self.dump_nodes_and_edges = None
+        self.dump_failing_nodes_and_edges = None
         self.print_successful_conversions = False
+        self.print_regex_injection_stats = False
 
         self.use_size_limits = True
         self.graph_size_threshold = 2000
@@ -86,7 +88,9 @@ def create_from_args(args):
     opts.prefix_size_threshold = args.prefix_size_threshold
     opts.print_unification_statistics = args.print_unification_statistics
     opts.dump_nodes_and_edges = args.dump_nodes_and_edges
+    opts.dump_failing_nodes_and_edges = args.dump_failing_nodes_and_edges
     opts.print_successful_conversions = args.print_successful_conversions
+    opts.print_regex_injection_stats = args.print_regex_injection_stats
     opts.use_size_limits = not args.no_size_limits
 
     opts.graph_size_threshold = args.graph_size_threshold
@@ -127,6 +131,7 @@ def add_to_parser(parser):
 
     parser.add_argument('--group-size-distribution', default=None, dest='group_size_distribution', help='Dump the group size distribution to this file')
     parser.add_argument('--dump-nodes-and-edges', default=None, dest='dump_nodes_and_edges', help='Dump nodes and edges for each CC into a file')
+    parser.add_argument('--dump-failing-nodes-and-edges', default=None, dest='dump_failing_nodes_and_edges', help='Dump nodes and edges for each CC that fails conversion into a graph into a file.')
     parser.add_argument('--graph-size-threshold', default=2000, dest='graph_size_threshold', help="Exclude graphs larger than this value (deal with python recursion limit)")
     parser.add_argument('--max-branching-factor', default=150, dest='max_branching_factor', type=int, help='Maximum branching factor for graphs before omitting.')
     parser.add_argument('--algebra-size-threshold', default=2000, dest='algebra_size_threshold', type=int)
@@ -153,6 +158,10 @@ def add_to_parser(parser):
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
     parser.add_argument('--print-unification-failure-reasons', default=False, dest='print_unification_failure_reasons', action='store_true', help='Print reasons that unifiers fail within the single state unification method.')
+    parser.add_argument('--print-regex-injection-stats', default=False,
+            dest='print_regex_injection_stats', action='store_true', help='Print statistics for the fraction of regular expressions from \
+            the set that could be run using other regular \
+            expressions in different groups.')
     parser.add_argument('--print-successful-conversions', default=False, dest='print_successful_conversions', action='store_true', help='Print successful conversions between algebras.')
     parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
     parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
