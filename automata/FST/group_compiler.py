@@ -24,6 +24,7 @@ MODIFICATIONS_LIMIT = 10
 DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = True
 DEBUG_GENERATE_BASE = False
+DEBUG_COMPILE_TO_EXISTING = True
 
 # This is a class that contains a set of accelerated
 # regular expressions.  We can use it to find which
@@ -102,7 +103,9 @@ class CCGroup(object):
 
 # Given a group, compute a 3D array representing the cross
 # compilability of that matrix.
-def compute_cross_compatibility_matrix_for(group, options, read_comparison_cache, dump_comparison_cache):
+def compute_cross_compatibility_matrix_for(group, options):
+    read_comparison_cache, dump_comparison_cache = get_comparison_caches(options)
+
     results = [None] * len(group)
     compilation_list = [None] * len(group)
     # The compilation_list should be a 3D array that
@@ -163,6 +166,10 @@ def compute_cross_compatibility_matrix_for(group, options, read_comparison_cache
         # And also get the compilation_list setup:
         for i2, j2, comp_item in compilation_list_results:
             compilation_list[i2][j2].append(comp_item)
+
+    # Dump the write comparison cache if it exists:
+    if options.dump_comparison_cache:
+        dump_comparison_cache.dump_to_file(options.dump_comparison_cache)
 
     if DEBUG_COMPUTE_COMPAT_MATRIX:
         print "Results of cross compatability"
@@ -245,14 +252,14 @@ def compute_compiles_for(args):
 # compute a set of regular expressions to
 # put on hardware, assignments for everything,
 # and conversion machines.
-def compute_hardware_assignments_for(groups, options, read_comparison_cache, dump_comparison_cache):
+def compute_hardware_assignments_for(groups, options):
     if options.memory_debug:
         print "Memory Usage before cross compat matrix"
         h = hpy()
         print(h.heap())
 
     if options.use_cross_compilation:
-        compiles_to, compiles_from = compute_cross_compatibility_matrix_for(groups, options, read_comparison_cache, dump_comparison_cache)
+        compiles_to, compiles_from = compute_cross_compatibility_matrix_for(groups, options)
     else:
         # Do not do cross compilation, so generate a compiles to/from list that just lets everything compile to itself.
         compiles_to = []
@@ -424,24 +431,7 @@ def generate_base_automata_for(groups, assignments, options):
     return result, automata_mapping
 
 
-def compile(automata_components, options):
-    if options.print_compile_time:
-        start_time = time.time()
-
-    # If we want to use the comparison cache from a file, then load
-    # it in.  Likewise, if we want to dump the comparison cache,
-    # then create the dump comparison cache.
-    if options.comparison_cache:
-        read_comparison_cache = ComparisonCache(options.target)
-        read_comparison_cache.from_file(options.comparison_cache)
-    else:
-        read_comparison_cache = None
-
-    if options.dump_comparison_cache:
-        dump_comparison_cache = ComparisonCache(options.target)
-    else:
-        dump_comparison_cache = None
-
+def wrap_automata(automata_components, options):
     for i in range(len(automata_components)):
         for j in range(len(automata_components[i])):
             automata_components[i][j] = AutomataComponentWrapper(automata_components[i][j])
@@ -454,7 +444,308 @@ def compile(automata_components, options):
                 new_acs.append([elt])
         automata_components = new_acs
 
-    if options.use_prefix_merging:
+    return automata_components
+
+
+# if we want to use the comparison cache from a file, then load
+# it in.  likewise, if we want to dump the comparison cache,
+# then create the dump comparison cache.
+def get_comparison_caches(options):
+    if options.comparison_cache:
+        read_comparison_cache = comparisoncache(options.target)
+        read_comparison_cache.from_file(options.comparison_cache)
+    else:
+        read_comparison_cache = None
+
+    if options.dump_comparison_cache:
+        dump_comparison_cache = comparisoncache(options.target)
+    else:
+        dump_comparison_cache = None
+
+    return read_comparison_cache, dump_comparison_cache
+
+def remove_prefixes(addition_components, group_components, options):
+    all_prefix_machines = []
+    remaining_components = []
+    used_accelerators = set()
+
+    # Because we are using (translation-free) prefix machines
+    # here, we can compile all components to the same prefix
+    # machines.
+    for component in addition_components:
+        removed_prefix = True
+        found_prefix = None
+        found_prefix_i = None
+        found_prefix_j = None
+        found_tail_component = None
+        found_tail_group_component = None
+        last_prefix_size = -1
+
+        prefix_machines = []
+        # Keep removing prefixes as long as there is a match.
+        while removed_prefix:
+            removed_prefix = False
+
+            # Find the biggest prefix remaining.  There should still
+            # be a threshold to the prefix size applied.
+            for i in range(len(group_components)):
+                for j in range(len(group_components[i])):
+                    shared_prefix, tail_first, tail_second = alg.prefix_merge(component.algebra, component.symbol_lookup, group_components[i][j].algebra, group_components[i][j].symbol_lookup, options)
+
+                    # We are looking for more than just a splitting of
+                    # two automata here, which is what we are looking for
+                    # in shared_prefixes.  We are looking for automata
+                    # where the conversion uses the entireity of the automata in
+                    # the group_components
+
+                    if tail_second is not None:
+                        continue # second component didn't get used
+                    # up completely.
+
+                    if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold and shared_prefix.size() > last_prefix_size:
+                        last_prefix_size = shared_prefix.size()
+                        found_prefix = shared_prefix
+                        found_prefix_i = i
+                        found_prefix_j = j
+                        found_tail_component = tail_first
+                        found_tail_group_component = tail_second
+
+            if found_prefix is not None:
+                removed_prefix = True
+
+                # Add the prefix that we found from the matching
+                # automata.
+                prefix_matches.append(group_components[found_prefix_i][found_prefix_j])
+                # And note that the accelerator is in use.
+                used_accelerators.add((found_prefix_i, found_prefix_j))
+
+                # And also update the component we are trying to match.
+                if found_tail_group_component is None:
+                    # This prefix ate up the whole regex match.
+                    # There is no more component to deal with :)
+                    component = None
+                    break
+                else:
+                    # There is still more, update the component.
+                    component = AutomataContainer(
+                            alg.full_graph_for(found_tail_component, component.symbol_lookup),
+                            found_tail_component)
+        #endwhile
+        all_prefix_machines.append(prefix_machines)
+        remaining_components.append(component)
+
+    return all_prefix_machines, remaining_components, used_accelerators
+
+
+def find_match_for_addition(components, group_components, used_group_components, options):
+    conversions = []
+    # Keep track of the conversion machines for each component.
+    for comp_index in range(len(components)):
+        component = components[comp_index]
+        conversions.append([])
+
+        for i in range(len(group_components)):
+            for j in range(len(group_components[i])):
+                if (i, j) in used_group_components:
+                    # We can't use this to target any accelerator, because it's being used by a prefix
+                    # merge.
+                    continue
+                target = group_components[i][j]
+
+                conversion_machine, failure_reason = sc.compile_from_algebras(component.algebra, component.automata.component, target.algebra, target.automata.component, options)
+
+                if conversion_machine is not None:
+                    conversions[comp_index].append((i, j, target, conversion_machine))
+
+    # Now, go through and pick the conversion machine for each
+    # component, picking from the smallest component first.
+    # We could sort this etc, but I don't expec the components
+    # list to ever be very long, so we can just go through it
+    # every time.
+    assignment_count = 0
+    targets = [None] * len(components)
+    conversion_machines = [None] * len(components)
+    assigned_accelerators = set()
+
+    # Use the same two-phase greedy algorithm used in the compression
+    # routines, but it is a bit simpler because it is a one-way
+    # process (i.e. you can only compile from the accelerators
+    # that are being added in this
+    while assignment_count < len(components):
+        min_conversions = 100000000
+        min_index = None
+        # Find index with fewest conversions
+        for i in range(len(components)):
+            if len(conversions[i]) == 0:
+                # There are no conversion opportunties for
+                # this automata, so we can't do this.
+                return None, None
+
+            if len(conversions[i]) < min_conversions:
+                min_conversions = len(conversions[i])
+                min_index = i
+
+        # Now, go through and try and find an assignment
+        # in each assigned list.
+        found_assignment = False
+        for (i, j, target, conversion_machine) in conversions[min_index]:
+            if (i, j) not in assigned_accelerators:
+                found_assignment = True
+
+                targets[min_index] = target
+                conversion_machines[min_index] = conversion_machine
+
+                assigned_accelerators.add((i, j))
+
+        if not found_assignment:
+            # Failed because all the potential hardware
+            # assignments for that particular accelerator
+            # are already in use.
+            return None, None
+
+    return targets, conversion_machines
+
+
+def build_cc_list(targets, conversion_machines, prefix_machines):
+    if conversion_machines is None:
+        return None
+    assert len(targets) == len(conversion_machines)
+
+    # Create the conversion machines that
+    cc_list = []
+    for i in range(len(targets)):
+        target = targets[i]
+        conversion_machine = conversion_machines[i]
+
+        cc_group = CCGroup(target.automata, target.algebra)
+        cc_group.add_automata(postfix_component.automata, postfix_component.algebra, conversion_machine)
+        cc_list.append(cc_group)
+
+    if options.use_prefix_splitting:
+        # Also need to return the null translators for the new
+        # algebra.  These can all be empty, because we know
+        # that these are exact prefixes.  Note that there is
+        # a lot more potential here for /inexact/ prefixes.
+        for other_target in prefix_machines:
+            resmachine = CCGroup(prefix_machine.automata, prefix_machine.algebra)
+            # We can use the empty conversion here -- the algebras
+            # will be the same.  May need slight modification if
+            # we end up doing some input stream translation for
+            # each component.
+            resmachine.add_automata(prefix_machine.automata, prefix_machine.algebra, FST.EmptySingleStateTranslator())
+            cc_list.append(resmachine)
+
+    return cc_list
+
+
+def find_conversions_for_additions(addition_components, existing_components, options):
+    all_conv_machines = []
+    for i in range(len(addition_components)):
+        prefix_machines = None
+        used_existing_components = set()
+        if options.use_prefix_splitting:
+            # We do need to split the incoming regexp into any prefix components
+            # that might match the prefix-merged lists however.  That
+            # will mean we have to unify a few smaller chunks rather than
+            # one large one, so we make it it's own group (recall we
+            # are assuming independence from any of the underlying regexps) --- any non-independent regexps should have been removed
+            # already.
+
+            # This is not an exhaustively correct approach, but it does
+            # allow for much better coverage.  Approach
+            # is to split off the longest prefix with an exact match,
+            # then try again.
+            prefix_machines, postfix_components, used_existing_components = remove_prefixes(addition_components[i], existing_components, options)
+            # Only need to deal with the postfix component, because the
+            # underlying component will already have been matched.
+            # NOTE: The length of the postfix_components may not
+            # be the same as the addition components
+            addition_components[i] = postfix_components
+
+        # Now, work out the number of compiles from each source
+        # component to each dest component, and try to find at
+        # least one.
+        targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, options)
+        group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines)
+
+        all_conv_machines.append(group_conv_machines)
+    return all_conv_machines
+
+
+# This function takes a list of existing components, and a list
+# of components that we wish to /add/ to the list of existing
+# components.
+# It tries to add the source componenets to the existing componenets
+# list.
+def compile_to_existing(addition_components, existing_components, options):
+    # Various options don't make much sense when compiling to a single
+    # target.
+    assert not options.use_structural_change
+    assert options.target == 'single-state'
+    if options.print_compile_time:
+        start_time = time.time()
+
+    # Wrap the automata in the wrappers I use to keep track of
+    # metadata.
+    addition_components = wrap_automata(addition_components, options)
+    existing_components = wrap_automata(existing_components, options)
+
+    # In this case, we have had the opportunity to specify
+    # the behaviour of the accelerators that were placed into hardware.
+    # We chose previously to prefix merge (and prefix split) them, so do so
+    # again here.
+    if options.use_prefix_splitting:
+        if DEBUG_COMPILE_TO_EXISTING:
+            print "Assuming that underlying accelerators were prefix-split, splitting..."
+            initial_count = sum([len(x) for x in existing_components])
+        existing_components = prefix_merge(existing_components, options)
+
+        if DEBUG_COMPILE_TO_EXISTING:
+            print "Total introduced prefixes is "
+            print sum([len(x) for x in existing_components]) - initial_count
+
+
+    # Now, we can turn these into algebras :)
+    addition_algebras = compile_to_fixed_structures(addition_components, options)
+    existing_algebras = compile_to_fixed_structures(existing_components, options)
+
+    if DEBUG_COMPILE_TO_EXISTING:
+        print "Addition Algebras are:"
+        for group in addition_algebras:
+            print "---New Group---"
+            for a in group:
+                print a.algebra
+
+        print "Existing Algebras are:"
+        for group in existing_algebras:
+            for e in group:
+                print e.algebra
+
+
+    all_conv_machines = find_conversions_for_additions(addition_algebras, existing_algebras, options)
+
+    if options.print_compile_time:
+        total_time = time.time() - start_time
+        print "Total taken is:", total_time, "seconds"
+
+    return all_conv_machines
+
+
+# This method takes a set of automata components and tries
+# to compress them, i.e. generate the smallest number of automata
+# that can perform the same function given the inter-group
+# constraints.
+def compile(automata_components, options):
+    if options.print_compile_time:
+        start_time = time.time()
+
+    automata_components = wrap_automata(automata_components, options)
+
+    # Compilation does not support 'true' prefix merging right now,
+    # it supports its closely related cousin, prefix splitting
+    # however.
+    assert not options.use_prefix_merging
+    if options.use_prefix_splitting:
         # Do prefix merging on the automata, generate
         # the new prefixes, and the continue on to the
         # rest of the optimizations.
@@ -484,7 +775,7 @@ def compile(automata_components, options):
         return None
 
     # (2)
-    assignments = compute_hardware_assignments_for(groups, options, read_comparison_cache, dump_comparison_cache)
+    assignments = compute_hardware_assignments_for(groups, options)
     # (3)
     base_automata_components, mapping = generate_base_automata_for(groups, assignments, options)
     
@@ -500,10 +791,6 @@ def compile(automata_components, options):
     base_automata_algebras = compile_to_fixed_structures([base_automata_components], options)[0]
     assert len(base_automata_algebras) == len(base_automata_components)
     result = generate_translators(base_automata_algebras, groups, mapping, assignments, options)
-
-    # Dump the write comparison cache if it exists:
-    if options.dump_comparison_cache:
-        dump_comparison_cache.dump_to_file(options.dump_comparison_cache)
 
     if options.print_successful_conversions:
         for group in result:
@@ -781,10 +1068,7 @@ def groups_from_components(automata_components, options):
 
 
 def print_regex_injection_stats(groups, options):
-    # Don't use the cross-comparison caches here -- there is nothing stopping us, but I haven't
-    # been using them much, so don't see there to be a huge
-    # benefit.
-    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options, None, None)
+    compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options)
 
     non_compiling_opts = 0
     compiling_opts = 0
