@@ -8,6 +8,7 @@ import sjss
 import unifier
 from cache import ComparisonCache
 import algebra as alg
+import FST
 
 try:
     import line_profiler
@@ -515,7 +516,7 @@ def remove_prefixes(addition_components, group_components, options):
 
                 # Add the prefix that we found from the matching
                 # automata.
-                prefix_matches.append(group_components[found_prefix_i][found_prefix_j])
+                prefix_machines.append(group_components[found_prefix_i][found_prefix_j])
                 # And note that the accelerator is in use.
                 used_accelerators.add((found_prefix_i, found_prefix_j))
 
@@ -532,7 +533,11 @@ def remove_prefixes(addition_components, group_components, options):
                             found_tail_component)
         #endwhile
         all_prefix_machines.append(prefix_machines)
-        remaining_components.append(component)
+        if component is not None:
+            # Component will be None if we got an entire-component
+            # prefix match --- in that case, no further work is
+            # needed on it, so we don't append.
+            remaining_components.append(component)
 
     return all_prefix_machines, remaining_components, used_accelerators
 
@@ -606,7 +611,7 @@ def find_match_for_addition(components, group_components, used_group_components,
     return targets, conversion_machines
 
 
-def build_cc_list(targets, conversion_machines, prefix_machines):
+def build_cc_list(targets, conversion_machines, prefix_machines, options):
     if conversion_machines is None:
         return None
     assert len(targets) == len(conversion_machines)
@@ -626,14 +631,15 @@ def build_cc_list(targets, conversion_machines, prefix_machines):
         # algebra.  These can all be empty, because we know
         # that these are exact prefixes.  Note that there is
         # a lot more potential here for /inexact/ prefixes.
-        for other_target in prefix_machines:
-            resmachine = CCGroup(prefix_machine.automata, prefix_machine.algebra)
-            # We can use the empty conversion here -- the algebras
-            # will be the same.  May need slight modification if
-            # we end up doing some input stream translation for
-            # each component.
-            resmachine.add_automata(prefix_machine.automata, prefix_machine.algebra, FST.EmptySingleStateTranslator())
-            cc_list.append(resmachine)
+        for prefix_machine_set in prefix_machines:
+            for prefix_machine in prefix_machine_set:
+                resmachine = CCGroup(prefix_machine.automata, prefix_machine.algebra)
+                # We can use the empty conversion here -- the algebras
+                # will be the same.  May need slight modification if
+                # we end up doing some input stream translation for
+                # each component.
+                resmachine.add_automata(prefix_machine.automata, prefix_machine.algebra, FST.EmptySingleStateTranslator())
+                cc_list.append(resmachine)
 
     return cc_list
 
@@ -666,7 +672,7 @@ def find_conversions_for_additions(addition_components, existing_components, opt
         # component to each dest component, and try to find at
         # least one.
         targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, options)
-        group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines)
+        group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, options)
 
         all_conv_machines.append(group_conv_machines)
     return all_conv_machines

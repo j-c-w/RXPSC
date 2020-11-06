@@ -57,7 +57,7 @@ class EmptySingleStateTranslator(SingleStateTranslator):
         lookup = {}
         for i in range(0, 256):
             lookup[i] = i
-        super(SingleStateTranslator, self).__init__(lookup, [])
+        super(EmptySingleStateTranslator, self).__init__(lookup, [])
 
 
 class SymbolReconfiguration(object):
