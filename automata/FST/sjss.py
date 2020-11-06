@@ -755,3 +755,15 @@ def nodes_and_edges_to_automata(simple_graph):
     # of inputs, which means 255 I think.
     result = Automatanetwork._from_graph(id, True, graph, 1, max_node_val, 255, add_fake_root=True)
     return result
+
+# This is intended to be a shitty, 'good enough' hash rather than
+# some sure thing...
+def hash_graph(automata_network):
+    simple_graph = automata_to_nodes_and_edges(automata_network)
+
+    node_count = len(simple_graph.nodes)
+    edge_count = len(simple_graph.edges)
+    nodes = sorted(simple_graph.nodes)
+    edges = sorted(simple_graph.edges)
+
+    return str(node_count) + "-" + str(edge_count) + "-" + ",".join([str(x) for x in nodes[max(0, len(nodes) - 20):]]) + "-" + ",".join([str(x) for x in edges[max(0, len(edges) - 40):]])

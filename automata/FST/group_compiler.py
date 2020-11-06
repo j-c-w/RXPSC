@@ -1051,6 +1051,10 @@ def compile_to_fixed_structures(automata_components, options):
 
     return groups
 
+
+# Store algebra computations between calls to groups_from_components
+algebra_cache = {}
+
 def groups_from_components(automata_components, options):
     groups = []
     group_index = 0
@@ -1061,7 +1065,15 @@ def groups_from_components(automata_components, options):
             if options.print_file_info:
                 print "Compiling equation from group ", group_index
                 print "Equation index", equation_index
-            depth_eqn = sc.compute_depth_equation(cc.component, options)
+
+            global algebra_cache
+            graph_hash = sjss.hash_graph(cc.component)
+            if options.use_algebra_cache and graph_hash in algebra_cache:
+                depth_eqn = algebra_cache[graph_hash].clone()
+            else:
+                depth_eqn = sc.compute_depth_equation(cc.component, options)
+                algebra_cache[graph_hash] = depth_eqn.clone()
+
             simple_graph = sjss.automata_to_nodes_and_edges(cc.component).edges
 
             if not depth_eqn:

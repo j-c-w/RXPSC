@@ -53,6 +53,7 @@ class Options(object):
 
         self.comparison_cache = None
         self.dump_comparison_cache = None
+        self.use_algebra_cache = True
         self.compile_ony = False
         self.print_leq_failure_reasons = False
         self.print_unification_failure_reasons = False
@@ -112,7 +113,8 @@ def create_from_args(args):
     opts.skip_on_fail = not args.no_skip_on_fail
 
     opts.comparison_cache = args.comparison_cache
-    opts.dump_comparison_cache = args. dump_comparison_cache
+    opts.dump_comparison_cache = args.dump_comparison_cache
+    opts.use_algebra_cache = not args.no_algebra_cache
     opts.compile_only = args.compile_only
     opts.print_leq_failure_reasons = args.print_leq_failure_reasons
     opts.line_profile = args.line_profile
@@ -175,7 +177,8 @@ def add_to_parser(parser):
     parser.add_argument('--line-profile', default=False, dest='line_profile', action='store_true', help='Profile the LEQ structure.')
     parser.add_argument('--time', default=False, dest='time', action='store_true', help='Print the compilation time')
     parser.add_argument('--verify', default=False, dest='verify', help='Do a verification --- the inputs are line-by-line in the file that is provided as argument.')
-    parser.add_argument('--no-cache', default=False, dest='no_cache', action='store_true', help='Disable the computation caches --- this makes things /much/ shlower.')
+    parser.add_argument('--no-algebra-generation-cache', default=False, dest='no_cache', action='store_true', help='Disable the computation caches --- this makes things /much/ shlower.')
+    parser.add_argument('--no-algebra-cache', default=False, dest='no_algebra_cache', action='store_true', help='Do not cache algebra generation results from particular graphs.  Will speed up computation if using methods only relying a single algebra computation per graph.')
     parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
     parser.add_argument('--use-prefix-merging', default=False, dest='use_prefix_merging', help="Use prefix merging (experimental only)", action='store_true')
     parser.add_argument('--use-prefix-splitting', default=False, dest='use_prefix_splitting', help="Use prefix splitting to split automata being translated (makes external techniques such as input-stream translation more effective)", action='store_true')
