@@ -469,11 +469,13 @@ def remove_prefixes(addition_components, group_components, options):
     all_prefix_machines = []
     remaining_components = []
     used_accelerators = set()
+    prefix_reduced_machine_indexes = set()
 
     # Because we are using (translation-free) prefix machines
     # here, we can compile all components to the same prefix
     # machines.
-    for component in addition_components:
+    for comp_index in range(len(addition_components)):
+        component = addition_components[comp_index]
         removed_prefix = True
         found_prefix = None
         found_prefix_i = None
@@ -513,6 +515,7 @@ def remove_prefixes(addition_components, group_components, options):
 
             if found_prefix is not None:
                 removed_prefix = True
+                prefix_reduced_machine_indexes.add(comp_index)
 
                 # Add the prefix that we found from the matching
                 # automata.
@@ -539,10 +542,10 @@ def remove_prefixes(addition_components, group_components, options):
             # needed on it, so we don't append.
             remaining_components.append(component)
 
-    return all_prefix_machines, remaining_components, used_accelerators
+    return all_prefix_machines, remaining_components, used_accelerators, prefix_reduced_machine_indexes
 
 
-def find_match_for_addition(components, group_components, used_group_components, options):
+def find_match_for_addition(components, group_components, used_group_components, prefix_reduced_machine_indexes, options):
     conversions = []
     # Keep track of the conversion machines for each component.
     for comp_index in range(len(components)):
@@ -603,10 +606,17 @@ def find_match_for_addition(components, group_components, used_group_components,
                 assigned_accelerators.add((i, j))
 
         if not found_assignment:
-            # Failed because all the potential hardware
-            # assignments for that particular accelerator
-            # are already in use.
-            return None, None
+            if options.use_prefix_estimation and min_index in prefix_reduced_machine_indexes:
+                # Didn't find anything, but that doesn't matter, because we had a prefix extracted from this
+                # regex, so we can still use it to eliminate a large
+                # number of prospective packets.
+                targets[min_index] = None
+                conversion_machines[min_index] = None
+            else:
+                # Failed because all the potential hardware
+                # assignments for that particular accelerator
+                # are already in use.
+                return None, None
 
     return targets, conversion_machines
 
@@ -621,6 +631,10 @@ def build_cc_list(targets, conversion_machines, prefix_machines, options):
     for i in range(len(targets)):
         target = targets[i]
         conversion_machine = conversion_machines[i]
+        if target is None and conversion_machines is None:
+            # This is a prefix reduced automata for which we
+            # have a partial match.
+            continue
 
         cc_group = CCGroup(target.automata, target.algebra)
         cc_group.add_automata(postfix_component.automata, postfix_component.algebra, conversion_machine)
@@ -646,6 +660,10 @@ def build_cc_list(targets, conversion_machines, prefix_machines, options):
 
 def find_conversions_for_additions(addition_components, existing_components, options):
     all_conv_machines = []
+    # Keep track of whether we have seen a partial match from
+    # prefix matching, which still allows for partial pattern
+    # recognition.
+    has_partial_match = [False] * len(addition_components)
     for i in range(len(addition_components)):
         prefix_machines = None
         used_existing_components = set()
@@ -661,17 +679,20 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             # allow for much better coverage.  Approach
             # is to split off the longest prefix with an exact match,
             # then try again.
-            prefix_machines, postfix_components, used_existing_components = remove_prefixes(addition_components[i], existing_components, options)
+            prefix_machines, postfix_components, used_existing_components, prefix_reduced_machine_indexes = remove_prefixes(addition_components[i], existing_components, options)
             # Only need to deal with the postfix component, because the
             # underlying component will already have been matched.
             # NOTE: The length of the postfix_components may not
             # be the same as the addition components
             addition_components[i] = postfix_components
 
+            if len(prefix_machines) > 0:
+                has_partial_match[i] = True
+
         # Now, work out the number of compiles from each source
         # component to each dest component, and try to find at
         # least one.
-        targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, options)
+        targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, prefix_reduced_machine_indexes, options)
         group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, options)
 
         all_conv_machines.append(group_conv_machines)

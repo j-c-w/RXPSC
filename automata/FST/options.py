@@ -17,6 +17,7 @@ class Options(object):
         self.use_cross_compilation = True
         self.use_prefix_merging = False
         self.use_prefix_splitting = False
+        self.use_prefix_estimation = False
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -84,6 +85,7 @@ def create_from_args(args):
     opts.use_unification_heuristics = not args.no_unification_heuristics
     opts.use_prefix_merging = args.use_prefix_merging
     opts.use_prefix_splitting = args.use_prefix_splitting
+    opts.use_prefix_estimation = args.use_prefix_estimation
     opts.use_cross_compilation = args.cross_compile
     opts.use_inline_unification_heuristics = not args.no_inline_unification_heuristics
 
@@ -177,6 +179,7 @@ def add_to_parser(parser):
     parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
     parser.add_argument('--use-prefix-merging', default=False, dest='use_prefix_merging', help="Use prefix merging (experimental only)", action='store_true')
     parser.add_argument('--use-prefix-splitting', default=False, dest='use_prefix_splitting', help="Use prefix splitting to split automata being translated (makes external techniques such as input-stream translation more effective)", action='store_true')
+    parser.add_argument('--use-prefix-estimation', default=False, dest='use_prefix_estimation', help="Use prefix estimation to allow overapproximation of automata.", action='store_true')
     parser.add_argument('--cross-compile', default=False, dest='cross_compile', help='Use cross compilation to compress regexes', action='store_true')
     parser.add_argument('--prefix-size-threshold', default=5, dest='prefix_size_threshold', help='Smallest size of prefix to use.', type=int)
 
