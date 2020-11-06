@@ -675,7 +675,16 @@ def graph_for(algebra, symbol_lookup):
 # We focus on unifying from the A /to/ B. (i.e. B is underlying
 # hardware)
 def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options):
-    return prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options)
+    prefix, postA, postB, unifier = prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options)
+
+    if unifier.isunifierlist:
+        unifier = unifier.as_list()
+    elif unifier is None:
+        unifier = None
+    else:
+        unifier = [unifier]
+
+    return prefix, postA, postB, unifier
 
 
 def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options):
@@ -919,8 +928,6 @@ def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
 
                 prefix_unification, tail_a, tail_b = prefix_merge(a_opt, symbol_lookup_A, b_opt, symbol_lookup_B, options)
 
-                # Must have unity all the way to the end to
-                # unify the branch.
                 if tail_a is None and tail_b is None:
                     assignment_indicies[a_index] = b_index
         # Because we are just working with equality all the way

@@ -35,6 +35,27 @@ def compile(from_atma, to_atma, options):
 
     return compile_from_algebras(depth_eqn_from, from_atma, depth_eqn_to, to_atma, options)
 
+
+def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbol_lookup_to, options):
+    if not options.use_inline_unification_heuristics:
+        symbol_lookup_from = None
+        symbol_lookup_to = None
+
+    prefix, post_from, post_to, unification = algebra.prefix_unify(from_alg, symbol_lookup_from, to_alg, symbol_lookup_to, options)
+
+    if unification is None:
+        return None, None, None, None, generate_fst.GenerationFailureReason("Structural Failure")
+    else:
+        result, failure_reason = generate_fst.generate(unification, to_atma.component, from_atma.component, options)
+
+        if result:
+            compilation_statistics.unification_successes += 1
+
+            if options.verify:
+                verify_fst(to_atma, from_atma, result, options)
+        return prefix, post_from, post_to, result, failure_reason
+
+
 def compare(eqn_from, eqn_to):
     return algebra.leq(eqn_from, eqn_to)
 

@@ -90,6 +90,16 @@ class UnifierList(object):
         self.isunifierlist = True
         self.trim_unifier_list()
 
+    def mapping_heuristic_fail(self, symbol_lookup_from, symbol_lookup_to, options):
+        for i in range(len(self.unifiers), -1, -1):
+            if self.unifiers[i].mapping_heuristic_fail(symbol_lookup_from, symbol_lookup_to, options):
+                del self.unifiers[i]
+
+        # This fails on mapping heuristics if all the sub-unifiers
+        # failed it.
+        return len(self.unifiers) == 0
+
+
     def append_unifiers(self, unifiers):
         if unifiers.isunifierlist:
             for other_unifier in unifiers.unifiers:
@@ -191,6 +201,9 @@ class Unifier(object):
         self.partial_mapping = {}
         self.symbol_lookup_from = symbol_lookup_from
         self.symbol_lookup_to = symbol_lookup_to
+
+    def mapping_heuristic_fail(self, symbol_lookup_from, symbol_lookup_to, options):
+        return mapping_heuristic_fail(self.from_edges, self.to_edges, symbol_lookup_from, symbol_lookup_to, options)
 
     # Return a count of all the edges represented in the 'from'
     # portion of this unifier.
@@ -540,6 +553,7 @@ class Modification(object):
 
     def is_loop(self):
         return self.algebra.isproduct()
+
 
 def mapping_heuristic_fail(from_edges, to_edges, symbol_lookup_from, symbol_lookup_to, options):
     # Go through the mappings and look at the ones that don't
