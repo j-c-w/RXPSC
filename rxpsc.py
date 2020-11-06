@@ -41,6 +41,15 @@ def extract_automata_components(file_groups, opts):
         automata_components.append(automatas.get_connected_components_as_automatas())
     return automata_components
 
+def clone_automata_components(components):
+    new_components = []
+    for group in components:
+        new_group = []
+        for comp in group:
+            new_group.append(comp.clone())
+        new_components.append(new_group)
+    return new_components
+
 
 def compute_initial_state_count(automata_components):
     initial_state_count = 0
@@ -48,6 +57,36 @@ def compute_initial_state_count(automata_components):
         for cc in comp:
             initial_state_count += len(cc.nodes)
     return initial_state_count
+
+
+# This function is designed to take in a single ANML file,
+# and assume that every automata in that ANML file is independent.
+# Then, it assumes that /one/ regexp from that file is not implemented,
+# and the others all are.  It tries to compile the unimplemented
+# regexp to the implemented ones.
+def run_addition_experiment_anml_zoo(anml_file, options):
+    groups = extract_file_groups(anml_file, file_input=True)
+    extracted_components = extract_automata_components(groups, options)
+    # Should be the case because we expect there to have only
+    # been one file.
+    assert len(extracted_components) == 1
+
+    print "ANMLZoo Experiment Mode: Automata Extracted, running experiments!"
+
+    for i in range(len(extracted_components[0])):
+        # Needs to re-cloned every time because the underlying
+        # functions change it.
+        automata_components = clone_automata_components(extracted_components)
+
+        # Get the automata we are adding out, but note that
+        # we obviously can't just test if we can compile
+        # to an accelerator that already has that automata(!)
+        # so delete it :)
+        add_test_automata = automata_components[0][i]
+        del automata_components[0][i]
+
+        add_to_check([[add_test_automata]], automata_components, options)
+        print "ANMLZoo Experiment Mode: Experiment complete, trying next one!"
 
 
 # This function takes every automata in the add_from files,
@@ -58,15 +97,14 @@ def run_addition_experiment(add_from, add_to, options):
     to_file_groups = extract_file_groups(add_to)
 
     automata_components_from = extract_automata_components(from_file_groups, options)
+    automata_components_to = extract_automata_components(to_file_groups, options)
 
     # Run each individual experiment:
     for i in range(len(automata_components_from)):
         for j in range(len(automata_components_from[i])):
-            # This needs to be reloaded every time, since the underlying
+            # The to components need to be recloned every time, since the underlying
             # functions change it (doh)
-            automata_components_to = extract_automata_components(to_file_groups, options)
-
-            add_to_check([[automata_components_from[i][j]]], automata_components_to, options)
+            add_to_check([[automata_components_from[i][j]]], clone_automata_components(automata_components_to), options)
     print "Finished experiment run!"
 
 
@@ -197,9 +235,14 @@ if __name__ == "__main__":
     addition_experiment_parser.add_argument('addition_file', help='File with the automatas to be test-added')
     addition_experiment_parser.add_argument('accelerator_file', help='File with the automata currently accelerated (in different groups)')
 
+    addition_experiment_anml_zoo_parser = subparsers.add_parser('addition-experiment-anml-zoo', help='Given an ANMLZoo ANML file, try converting every regex in that file, assuming that every other one in that file has been fixed in hardware')
+    addition_experiment_anml_zoo_parser.set_defaults(mode='addition-experiment-anml-zoo')
+    addition_experiment_anml_zoo_parser.add_argument('anml_file')
+
     options.add_to_parser(compress_parser)
     options.add_to_parser(addition_parser)
     options.add_to_parser(addition_experiment_parser)
+    options.add_to_parser(addition_experiment_anml_zoo_parser)
 
     args = parser.parse_args()
     opts = options.create_from_args(args)
@@ -208,5 +251,7 @@ if __name__ == "__main__":
         compress(args.anml_file_groups, args.file_input, opts)
     elif args.mode == 'addition':
         add_to(args.addition_file, args.accelerator_file, opts)
+    elif args.mode == 'addition-experiment-anml-zoo':
+        run_addition_experiment_anml_zoo(args.anml_file, opts)
     else:
         run_addition_experiment(args.addition_file, args.accelerator_file, opts)
