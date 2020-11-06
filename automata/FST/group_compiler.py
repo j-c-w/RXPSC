@@ -493,7 +493,11 @@ def remove_prefixes(addition_components, group_components, options):
             # be a threshold to the prefix size applied.
             for i in range(len(group_components)):
                 for j in range(len(group_components[i])):
-                    shared_prefix, tail_first, tail_second, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].symbol_lookup, options)
+                    if options.use_prefix_unification:
+                        shared_prefix, tail_first, tail_second, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].symbol_lookup, options)
+                    else:
+                        shared_prefix, tail_first, tail_second = alg.prefix_merge(component.algebra, component.symbol_lookup, group_components[i][j].algebra, group_components[i][j].symbol_lookup, options)
+                        conversion_machine = FST.EmptySingleStateTranslator()
 
                     # We are looking for more than just a splitting of
                     # two automata here, which is what we are looking for
