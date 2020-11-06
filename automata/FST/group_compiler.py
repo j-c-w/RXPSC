@@ -692,7 +692,14 @@ def find_conversions_for_additions(addition_components, existing_components, opt
         # Now, work out the number of compiles from each source
         # component to each dest component, and try to find at
         # least one.
-        targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, prefix_reduced_machine_indexes, options)
+        if not options.prefix_merging_only:
+            targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, prefix_reduced_machine_indexes, options)
+        else:
+            if not options.use_prefix_splitting:
+                print "To use --prefix-merging-only, you also need to have --use-prefix-splitting"
+                assert False
+            targets = []
+            conversion_machines = []
         group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, options)
 
         all_conv_machines.append(group_conv_machines)
@@ -763,6 +770,9 @@ def compile_to_existing(addition_components, existing_components, options):
 # that can perform the same function given the inter-group
 # constraints.
 def compile(automata_components, options):
+    assert not options.prefix_merging_only # This is an option only
+    # when compiling to existing -- could easily be made an option
+    # for this though.
     if options.print_compile_time:
         start_time = time.time()
 

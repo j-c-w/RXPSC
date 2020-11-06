@@ -18,6 +18,7 @@ class Options(object):
         self.use_prefix_merging = False
         self.use_prefix_splitting = False
         self.use_prefix_estimation = False
+        self.prefix_merging_only = False
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -87,6 +88,7 @@ def create_from_args(args):
     opts.use_prefix_merging = args.use_prefix_merging
     opts.use_prefix_splitting = args.use_prefix_splitting
     opts.use_prefix_estimation = args.use_prefix_estimation
+    opts.prefix_merging_only = args.prefix_merging_only
     opts.use_cross_compilation = args.cross_compile
     opts.use_inline_unification_heuristics = not args.no_inline_unification_heuristics
 
@@ -181,6 +183,7 @@ def add_to_parser(parser):
     parser.add_argument('--no-algebra-cache', default=False, dest='no_algebra_cache', action='store_true', help='Do not cache algebra generation results from particular graphs.  Will speed up computation if using methods only relying a single algebra computation per graph.')
     parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
     parser.add_argument('--use-prefix-merging', default=False, dest='use_prefix_merging', help="Use prefix merging (experimental only)", action='store_true')
+    parser.add_argument('--prefix-merging-only', default=False, dest='prefix_merging_only', help="Use prefix merging only (prefix_merging)", action='store_true')
     parser.add_argument('--use-prefix-splitting', default=False, dest='use_prefix_splitting', help="Use prefix splitting to split automata being translated (makes external techniques such as input-stream translation more effective)", action='store_true')
     parser.add_argument('--use-prefix-estimation', default=False, dest='use_prefix_estimation', help="Use prefix estimation to allow overapproximation of automata.", action='store_true')
     parser.add_argument('--cross-compile', default=False, dest='cross_compile', help='Use cross compilation to compress regexes', action='store_true')
