@@ -666,6 +666,198 @@ def graph_for(algebra, symbol_lookup):
     return SimpleGraph(nodes, edges, result_lookup, accept_states, start_state), end_nodes
 
 
+# This implements prefix merging with unification.
+# That is, it returns three componenets:
+#   The algebra that can be prefix merged
+#   The first passed algebra
+#   The second passed algebra
+#   A unifier that has to be completed to complete the unification.
+# We focus on unifying from the A /to/ B. (i.e. B is underlying
+# hardware)
+def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options):
+    return prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options)
+
+
+def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options):
+    globals = {
+            'symbol_lookup_A': symbol_lookup_A,
+            'symbol_lookup_B': symbol_lookup_B,
+            'options': options
+    }
+
+    def prefix_unify_internal(A, B):
+        if DEBUG_PREFIX_MERGE:
+            print "Trying to prefix unify"
+            print A
+            print B
+        if A.isconst() and B.isconst() and A.val == B.val:
+            last_equal_index = -1
+
+            unifier = Unifier()
+            unifier.add_edges(A.edges, B.edges, options)
+
+            # If we were not normalizing 1 all the time, this would
+            # be a challenging problem to deal with.
+            # However, since we are currently normalizing the const
+            # to 1, this is a bit simpler to deal with (i.e. we can
+            # assume that we want to unify the whole thing)
+            prefix = Const(A.val, A.edges)
+            post_A = None
+            post_B = None
+
+            if DEBUG_PREFIX_MERGE:
+                print "In const case"
+                print prefix
+                print post_A
+                print post_B
+
+            return prefix, post_A, post_B, unifier
+        elif A.isend() and B.isend():
+            return End(), None, None, Unifier()
+        elif A.isaccept() and B.isaccept():
+            return Accept(), None, None, Unifier()
+        elif A.isproduct() and B.isproduct():
+            sub_prefix, tail_A, tail_B, unifier = prefix_unify_internal(A.e1, B.e1)
+
+            if tail_A is None and tail_B is None:
+                return A.clone(), None, None, unifier
+            else:
+                # Product merges are a bit of an all-or-nothing case.
+                # If we didn't get all of each, we can't partially unify
+                # this.
+                return None, A, B, None
+        elif A.isbranch() and B.isbranch():
+            # We need every branch end to be a complete combination.
+            if len(A.options) != len(B.options):
+                return None, A, B, None
+
+            assignment_indicies = [None] * len(A.options)
+            unifiers = [None] * len(A.options)
+            for a_index in range(len(A.options)):
+                a_opt = A.options[a_index]
+                prefix_index = None
+
+                for b_index in range(len(B.options)):
+                    b_opt = B.options[b_index]
+
+                    prefix_unification, tail_a, tail_b, unifier = prefix_unify_internal(a_opt, b_opt)
+
+                    # Can only unify the branch if we have unity all the way to the end.
+                    if tail_a is None and tail_b is None:
+                        assignment_indicies[a_index] = b_index
+                        assert unifier is not None
+                        unifiers[a_index] = unifier
+            
+            # We could do a better job here by trying to decide
+            # which unifiers to proceed with (all of them?) instead
+            # we'll just return one for the moment.
+            # Jackson thinks that there is some significant
+            # but not otherworldly gain here.
+            unifier = Unifier()
+            for i in range(len(assignment_indicies)):
+                assignment = assignment_indicies[i]
+                # Got no assignment for this label.
+                if assignment is None:
+                    return None, A, B, None
+                unifier.unify_with(unifiers[i])
+
+            # Again, we (unnessecarily?) treat this as
+            # an all-or-nothing.  Splits automat a lot
+            # to split them in the middle of branches.
+            return A.clone(), None, None, unifier
+        elif A.issum() and B.issum():
+            # There is a significant question here: do we really want
+            # to unify as far as possible? (Which is what this does)
+            # Perhaps we need an heurisitic that the unifier can
+            # quickly estimate to stop unifying any further.
+            total_prefix = []
+            tail_A = None
+            tail_B = None
+            # We want to keep track of both of these, in case
+            # the unification is expected to fail so we can
+            # stop unifying.
+            unifiers_found = []
+            unifier_result = Unifier()
+            for elt in range(min(len(A.e1), len(B.e1))):
+                sub_prefix, sub_tail_A, sub_tail_B, sub_unifier = prefix_unify_internal(A.e1[elt], B.e1[elt])
+
+                if DEBUG_PREFIX_MERGE:
+                    print "Result of sub-unification is (from", A.e1[elt], B.e1[elt], ")"
+                    print sub_prefix
+                    print sub_tail_A
+                    print sub_tail_B
+
+                fail = False
+                if sub_tail_A is None and sub_tail_B is None:
+                    unifier_result.unify_with(sub_unifier)
+                    # We implement a little bit of the idea of not going
+                    # too far here by using the mapping heuristic, i.e.
+                    # to fail if there is an obvious symbol collision.
+                    if options.use_inline_unification_heuristics and unifier_result.mapping_heuristic_fail(globals['symbol_lookup_A'], globals['symbol_lookup_B'], globals['options']):
+                        fail = True
+                    else:
+                        # keep going.
+                        total_prefix.append(sub_prefix)
+                        unifiers_found.append(sub_unifier)
+                else:
+                    fail = True
+
+                if fail:
+                    if DEBUG_PREFIX_MERGE:
+                        print "No more element unification, computing tails"
+                    # Do not keep unifying --- we reached the end.
+                    tail_A = A.e1[elt:]
+                    tail_B = B.e1[elt:]
+                    break
+
+            # Can't just leave a + e, or + a at the beginning
+            # of the tail_A or tail_B, because those are actuall
+            # modifiers to the last const --- so if that's the case,
+            # then pull the last const out of the total prefix.
+            if tail_A and tail_B and (tail_A[0].isaccept() or tail_B[0].isaccept()):
+                assert len(total_prefix) > 0 # Don't think we
+                # have any empty regexes input, pretty sure MNRL
+                # converter doesn't support that.
+                tail_A = A.e1[elt - 1:]
+                tail_B = B.e1[elt - 1:]
+
+                assert not tail_A[0].isaccept() and not tail_B[0].isaccept()
+                # Remove the element we just added back on the tails.
+                del total_prefix[-1]
+                del unifiers_found[-1]
+
+            # If they are just +e, then drop them.
+            if tail_A and len(tail_A) == 1 and tail_A[0].isend():
+                tail_A = []
+
+            if tail_B and len(tail_B) == 1 and tail_B[0].isend():
+                tail_B = []
+
+            if DEBUG_PREFIX_MERGE:
+                print "Reached end of sum unification, the total prefix extracted was ", total_prefix
+
+            if len(total_prefix) > 0:
+                # The prefix is going to be treated as a new automata,
+                # so add the end state to it.
+                if not total_prefix[-1].isend():
+                    total_prefix.append(End())
+
+                # Create the master unifier
+                unifier_result = Unifier()
+                for unifier in unifiers_found:
+                    unifier_result.unify_with(unifier)
+                if tail_A is None and tail_B is None:
+                    return Sum(total_prefix).normalize(), None, None, unifier_result
+                else:
+                    return Sum(total_prefix).normalize(), Sum(tail_A).normalize(), Sum(tail_B).normalize(), unifier_result
+            else:
+                return None, A, B, None
+        else:
+            # Types don't match.
+            return None, A, B, None
+
+    return prefix_unify_internal(A, B)
+
 # This implements prefix merging.  (See REduce).
 # That is, it returns three componenets:
 #   The algebra that can be prefix merged
@@ -727,7 +919,9 @@ def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
 
                 prefix_unification, tail_a, tail_b = prefix_merge(a_opt, symbol_lookup_A, b_opt, symbol_lookup_B, options)
 
-                if tail_a is not None and tail_b is not None:
+                # Must have unity all the way to the end to
+                # unify the branch.
+                if tail_a is None and tail_b is None:
                     assignment_indicies[a_index] = b_index
         # Because we are just working with equality all the way
         # through each branch, we don't have to worry about double
@@ -735,8 +929,7 @@ def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
         for assignment in assignment_indicies:
             if assignment is None:
                 return None, A, B
-            else:
-                return A.clone(), None, None
+        return A.clone(), None, None
     elif A.issum() and B.issum():
         total_prefix = []
         tail_A = None

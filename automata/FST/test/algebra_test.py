@@ -357,9 +357,24 @@ class PrefixTest(unittest.TestCase):
         t2 = Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
 
         prefix, alg_a, alg_b = alg.prefix_merge(t1, s1, t2, s1, EmptyOptions)
-        self.assertEqual(str(prefix), "1 + (1)*")
+        self.assertEqual(str(prefix), "1 + (1)* + e")
         self.assertEqual(str(alg_a), "1")
         self.assertEqual(str(alg_b), "1")
+
+    def test_simple_unify(self):
+        s1 = {
+                (0, 1): [65],
+                (1, 2): [66],
+                (2, 3): [67],
+                (3, 4): [68]
+        }
+        t1 = Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(3, 4)])])
+        t2 = Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
+
+        prefix, alg_a, alg_b, unifier = alg.prefix_unify(t1, s1, t2, s1, EmptyOptions)
+        self.assertEqual(alg_a, None)
+        self.assertEqual(alg_b, None)
+        self.assertNotEqual(unifier, None)
 
     def test_branch_prefix_merge(self):
         s1 = {
@@ -373,6 +388,19 @@ class PrefixTest(unittest.TestCase):
 
         prefix, alg_a, alg_b = alg.prefix_merge(t1, s1, t2, s1, EmptyOptions)
         self.assertEqual(alg_a, None)
+
+    def test_branch_prefix_merge_unify(self):
+        s1 = {
+                (0, 1): [65],
+                (1, 2): [66],
+                (2, 3): [67],
+                (3, 4): [68]
+        }
+        t1 = Branch([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
+        t2 = Branch([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
+
+        prefix, alg_a, alg_b, unifier = alg.prefix_unify(t1, s1, t2, s1, EmptyOptions)
+        self.assertNotEqual(unifier, None)
 
 if __name__ == "__main__":
     unittest.main()
