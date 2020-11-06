@@ -41,18 +41,32 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
         symbol_lookup_from = None
         symbol_lookup_to = None
 
-    prefix, post_from, post_to, unification = algebra.prefix_unify(from_alg, symbol_lookup_from, to_alg, symbol_lookup_to, options)
+    prefix, post_to, post_from, unification = algebra.prefix_unify(to_alg, symbol_lookup_to, from_alg, symbol_lookup_from, options)
 
     if unification is None:
         return None, None, None, None, generate_fst.GenerationFailureReason("Structural Failure")
     else:
-        result, failure_reason = generate_fst.generate(unification, to_atma.component, from_atma.component, options)
+        result, failure_reason = generate_fst.generate(unification, from_atma.component, to_atma.component, options)
 
         if result:
             compilation_statistics.unification_successes += 1
 
             if options.verify:
-                verify_fst(to_atma, from_atma, result, options)
+                prefix_fst = algebra.full_graph_for(prefix, symbol_lookup_to)
+                from_graph = sjss.automata_to_nodes_and_edges(from_atma.component)
+                to_graph = sjss.automata_to_nodes_and_edges(to_atma.component)
+
+                # Need to show that both automata are the same
+                # under this particular prefix split.  Note
+                # that we can skip if either tail is empty, that
+                # just means the whole automata got used up.
+                if post_from is not None:
+                    postfix_fst_from = algebra.full_graph_for(post_from, symbol_lookup_from)
+                    verify_prefix_fst(prefix_fst, postfix_fst_from, from_graph, result, options)
+
+                if post_to is not None:
+                    postfix_fst_to = algebra.full_graph_for(post_to, symbol_lookup_to)
+                    verify_prefix_fst(prefix_fst, postfix_fst_to, to_graph, result, options, prefix_and_postfix_come_from_same_automata=True)
         return prefix, post_from, post_to, result, failure_reason
 
 
@@ -93,6 +107,49 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
         return result, failure_reason
 
 
+def read_verification_inputs(options):
+    with open(options.verify, 'r') as f:
+        for input in f.readlines():
+            input = input[:-1] # Delete the newline at the end of each input.
+            yield input
+
+
+def verify_prefix_fst(prefix, postfix, original, prefix_translator, options, prefix_and_postfix_come_from_same_automata=False):
+    assert options.target == 'single-state'
+
+    for input in read_verification_inputs(options):
+        if prefix_and_postfix_come_from_same_automata:
+            # Don't translate --- this is the original automata, just
+            # with an intermediate accept now!
+            translated = input
+        else:
+            translated = prefix_translator.apply(input)
+
+        # Note that we have to specially modify the accelerator
+        # to take states with no exit point as accepts due
+        # to the chaining issue (i.e. that we envision the
+        # prefix and postfix as connected with different
+        # input streams, but we don't realize that).
+        prefix_accepts = simulator.accepts(prefix, translated)
+        postfix_accepts = simulator.accepts(postfix, input)
+
+        original_accepts = simulator.accepts(original, input)
+
+        print "For input ", input
+        print "Original answer is", original_accepts
+        print "Translated stream is ", translated
+        print "prefix accepts is", prefix_accepts
+        print "postfix accepts is", postfix_accepts
+
+        if original_accepts:
+            if not (prefix_accepts and postfix_accepts):
+                print prefix
+                print postfix
+                print original
+                print prefix_translator
+                assert False
+
+
 # Ensure that the expected outputs are the same as the
 # post-translation results.
 def verify_fst(accelerator, automata, translator, options):
@@ -104,24 +161,21 @@ def verify_fst(accelerator, automata, translator, options):
 
     # Don't currently support verification for other targets.
     assert options.target == 'single-state'
+    for input in read_verification_inputs(options):
+        original = simulator.accepts(simple_graph.fromatma(automata), input)
+        translated_input = translator.apply(input)
+        accelerated = simulator.accepts(simple_graph.fromatma(accelerator), translated_input)
 
-    with open(options.verify, 'r') as f:
-        for input in f.readlines():
-            input = input[:-1] # Delete the newline at the end of each input.
-            original = simulator.accepts(simple_graph.fromatma(automata), input)
-            translated_input = translator.apply(input)
-            accelerated = simulator.accepts(simple_graph.fromatma(accelerator), translated_input)
+        print "For input ", input
+        print "Original answer is", original
+        print "Translated stream is ", translated_input
+        print "Accelerated answer is", accelerated
 
-            print "For input ", input
-            print "Original answer is", original
-            print "Translated stream is ", translated_input
-            print "Accelerated answer is", accelerated
-
-            if options.correct_mapping:
-                assert original == accelerated
-            else: # In overapproximation mode
-                if original:
-                    assert accelerated
+        if options.correct_mapping:
+            assert original == accelerated
+        else: # In overapproximation mode
+            if original:
+                assert accelerated
 
 
 depth_equation_computation_index = 0
