@@ -1092,10 +1092,16 @@ def groups_from_components(automata_components, options):
             global algebra_cache
             graph_hash = sjss.hash_graph(cc.component)
             if options.use_algebra_cache and graph_hash in algebra_cache:
-                depth_eqn = algebra_cache[graph_hash].clone()
+                depth_eqn = algebra_cache[graph_hash]
+
+                if depth_eqn is not None:
+                    depth_eqn = depth_eqn.clone()
             else:
                 depth_eqn = sc.compute_depth_equation(cc.component, options)
-                algebra_cache[graph_hash] = depth_eqn.clone()
+                if depth_eqn is None:
+                    algebra_cache[graph_hash] = None
+                else:
+                    algebra_cache[graph_hash] = depth_eqn.clone()
 
             simple_graph = sjss.automata_to_nodes_and_edges(cc.component).edges
 
