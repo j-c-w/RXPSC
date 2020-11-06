@@ -521,7 +521,7 @@ def remove_prefixes(addition_components, group_components, options):
             if found_prefix is not None:
                 removed_prefix = True
                 prefix_reduced_machine_indexes.add(comp_index)
-                input_graph = AutomataComponentWrapper(sjss.nodes_and_edges_to_automata(alg.full_graph_for(found_prefix, component.symbol_lookup)))
+                input_graph = AutomataComponentWrapper(sjss.nodes_and_edges_to_automata(alg.full_graph_for(found_prefix, group_components[found_prefix_i][found_prefix_j].symbol_lookup)))
                 newly_accelerated_prefix = AutomataContainer(input_graph, found_prefix)
 
 
