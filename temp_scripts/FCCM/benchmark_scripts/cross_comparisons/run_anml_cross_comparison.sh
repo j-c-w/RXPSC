@@ -19,6 +19,12 @@ output_name="${2}_$(echo $flags | tr -- '- ' '_')"
 input_anml_file=( $(find $folder/anml -name "*.anml" | sort) )
 output_folder=$results/$output_name
 
+if [[ $2 == Snort ]]; then
+	mem=20G
+else
+	mem=5G
+fi
+
 if [[ ${#input_anml_file} -gt 0 ]]; then
 	mkdir -p $output_folder
 	# Run the tool:
@@ -26,12 +32,14 @@ if [[ ${#input_anml_file} -gt 0 ]]; then
 	full_anml_file=$(readlink -f ${input_anml_file[1]})
 	echo $flags
 	if [[ ${#eddie} -eq 0 ]]; then
-		pushd ..
-		pypy lut_based_8bit_groups.py -f test $full_anml_file "${=flags}" > $full_output_path/result
+		pushd ../../..
+		pypy rxpsc.py "${=flags}" $full_anml_file > $full_output_path/result
 	else
 		# Submit to eddie.
-		pushd ../..
-		qsub -o $full_output_path/result -e $full_output_path/err -pe sharedmem 2 -l h_vmem=5G eddie_submission_wrapper.sh -f test $full_anml_file ${=flags}
+		pushd ../../..
+		qsub -o $full_output_path/result -e $full_output_path/err -pe sharedmem 2 -l h_vmem=$mem eddie_submission_wrapper.sh ${=flags} $full_anml_file
+		# Add a little dely --- was getting some queueing timeouts from too many submissions I think?
+		sleep 0.3
 	fi
 fi
 

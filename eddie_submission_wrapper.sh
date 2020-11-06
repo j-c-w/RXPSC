@@ -11,8 +11,5 @@ source $TMPDIR/pyenv/pyenv/bin/activate
 
 export PYTHONPATH=$PYTHONPATH:$PWD
 
-# Now, go to FCCM
-cd temp_scripts/FCCM/
-
-pypy lut_based_8bit_groups.py "$@"
+pypy rxpsc.py "$@"
 echo "Job Completed!"
