@@ -7,16 +7,21 @@ import automata.FST.simple_graph
 def accepts(graph, string, trace=False):
     active_states = set([graph.start_state])
     neighbors = generate_neighbors_lookup(graph)
+    end_states = generate_end_states(graph, neighbors)
     if str(type(list(graph.symbol_lookup[graph.edges[0]])[0])) == "<type 'int'>" and str(type(string)) == "<type 'str'>":
         # Translate the char stream to an int stream:
         string = [ord(x) for x in string]
-    
+
     for character in string:
         if trace:
             print "Read symbol ", character
             print "In states ", active_states
         next_states = set([graph.start_state])
         for current_state in active_states:
+            # See note about end states hack below.
+            if current_state in end_states or current_state in graph.accepting_states:
+                return True
+
             neighbor_states = neighbors[current_state]
 
             for next_state in neighbor_states:
@@ -29,6 +34,16 @@ def accepts(graph, string, trace=False):
     for state in next_states:
         if state in graph.accepting_states:
             return True
+        # This is a terrible dirty hack that is done to 
+        # make handling prefix extractions easier.
+        # What really needs to happen is prefixes need to
+        # have accept appended to them, the problem with
+        # that is that it depends what kind of implementation
+        # you want (i.e. do you want to connect the prefixes
+        # directly to the postfixes, or deal with it through
+        # combined reporting)
+        if state in end_states:
+            return True
     return False
 
 def generate_neighbors_lookup(graph):
@@ -39,3 +54,11 @@ def generate_neighbors_lookup(graph):
     for s, e in graph.edges:
         lookup[s].add(e)
     return lookup
+
+def generate_end_states(graph, neighbors):
+    end_states = set()
+
+    for n in graph.nodes:
+        if len(neighbors[n]) == 0:
+            end_states.add(n)
+    return end_states
