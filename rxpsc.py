@@ -14,26 +14,23 @@ import automata.FST.compilation_statistics as compilation_statistics
 
 sys.setrecursionlimit(25000)
 
-def process(file_groups, name, file_input=False, print_compression_stats=False, options=None):
-    start_time = time.time()
+def extract_file_groups(file_groups, file_input=False):
+    assert file_groups is not None
     if file_input:
         file_groups = [file_groups]
     else:
         file_groups = [os.path.join(file_groups, f) for f in os.listdir(file_groups) if os.path.isfile(os.path.join(file_groups, f))]
-    print "Extracting ", len(file_groups), " groups"
-    # Output is: HDL file with the important automata
-    # selected + table programming.
 
+    return file_groups
+
+def extract_automata_components(file_groups, opts):
     automata_components = []
+
     index = 0
-
-    # State count of unoptimized regexes.
-    initial_state_count = 0
-
     for file in file_groups:
         if not file.endswith('.anml'):
             continue
-        if options.print_file_info:
+        if opts.print_file_info:
             print "Group Index: ", index, "comes from file", file
             index += 1
 
@@ -42,10 +39,79 @@ def process(file_groups, name, file_input=False, print_compression_stats=False, 
         # prevent us from getting the connected components.
         automatas.remove_ors()
         automata_components.append(automatas.get_connected_components_as_automatas())
+    return automata_components
 
-        for comp in automata_components:
-            for cc in comp:
-                initial_state_count += len(cc.nodes)
+
+def compute_initial_state_count(automata_components):
+    initial_state_count = 0
+    for comp in automata_components:
+        for cc in comp:
+            initial_state_count += len(cc.nodes)
+    return initial_state_count
+
+
+# This function takes every automata in the add_from files,
+# and computes whether it /individually/ could be added to
+# a set of accelerators specified in the add_to set of files.
+def run_addition_experiment(add_from, add_to, options):
+    from_file_groups = extract_file_groups(add_from)
+    to_file_groups = extract_file_groups(add_to)
+
+    automata_components_from = extract_automata_components(from_file_groups, options)
+
+    # Run each individual experiment:
+    for i in range(len(automata_components_from)):
+        for j in range(len(automata_components_from[i])):
+            # This needs to be reloaded every time, since the underlying
+            # functions change it (doh)
+            automata_components_to = extract_automata_components(to_file_groups, options)
+
+            add_to_check([[automata_components_from[i][j]]], automata_components_to, options)
+    print "Finished experiment run!"
+
+
+# This function takes automata to add, and automata to add_to,
+# where we assume that add_to is already on an accelerator.
+# We treat the 'add_from' group as we would any normal group ---
+# that is that elements do not have to be run at the same time
+# unless they come from the same folder/file, in which case
+# the do have to be run at the same time.
+def add_to(add_from, add_to, options):
+    from_file_groups = extract_file_groups(add_from)
+    to_file_groups = extract_file_groups(add_to)
+
+    automata_components_from = extract_automata_components(from_file_groups, options)
+    automata_components_to = extract_automata_components(to_file_groups, options)
+
+    add_to_check(automata_components_from, automata_components_to, options)
+
+def add_to_check(automata_components_from, automata_components_to, options):
+    conversions = gc.compile_to_existing(automata_components_from, automata_components_to, options)
+
+    if options.compression_stats or options.print_regex_injection_stats:
+        # Check that all the conversions are individually not none.
+        failed = False
+        for conv in conversions:
+            if conv is None:
+                failed = True
+
+        if failed:
+            print "COMPRESSION RESULT: Failed to convert regexes to the existing automata"
+        else:
+            print "COMPRESSION RESULT: Converted regexes to the existing automata!"
+
+
+def process(file_groups, file_input=False, options=None):
+    start_time = time.time()
+    file_groups = extract_file_groups(file_groups, file_input)
+    print "Extracting ", len(file_groups), " groups"
+    # Output is: HDL file with the important automata
+    # selected + table programming.
+
+    automata_components = extract_automata_components(file_groups, options)
+
+    # State count of unoptimized regexes.
+    initial_state_count = compute_initial_state_count(automata_components)
 
     assignments = gc.compile(automata_components, options)
 
@@ -53,7 +119,7 @@ def process(file_groups, name, file_input=False, print_compression_stats=False, 
         print "Compilation finished --- Assignments was None, probably due to a command line flag not asking for the entire compilation"
         return
 
-    if print_compression_stats:
+    if options.compression_stats:
         self_compiles = len(assignments)
         other_compiles = 0
         nodes_required = 0
@@ -113,13 +179,34 @@ def process(file_groups, name, file_input=False, print_compression_stats=False, 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('name')
-    parser.add_argument('anml_file_groups')
-    parser.add_argument('-f', default=False, action='store_true', dest='file_input', help='Use a file as input rather than a folder.')
-    parser.add_argument('--compression-stats', default=False, dest='compression_stats', action='store_true')
+    subparsers = parser.add_subparsers()
 
-    options.add_to_parser(parser)
+    compress_parser = subparsers.add_parser('compress', help="Given a set of groups of regexes, try to statically compress the whole group as much as possible")
+    compress_parser.set_defaults(mode='compress')
+    compress_parser.add_argument('anml_file_groups')
+    compress_parser.add_argument('-f', default=False, action='store_true', dest='file_input', help='Use a file as input rather than a folder.')
+
+
+    addition_parser = subparsers.add_parser('addition', help="Given a set of implemented regular expressions, and a regular expression to add to the implemented set, try to add the regex using a translator")
+    addition_parser.set_defaults(mode='addition')
+    addition_parser.add_argument('addition_file', help="File with the automata to be added")
+    addition_parser.add_argument('accelerator_file', help='File with the automata currently accelerated (in different groups)')
+
+    addition_experiment_parser = subparsers.add_parser('addition-experiment', help='Given a regex file, try converting every regex in that file to the other groups /individually/. ')
+    addition_experiment_parser.set_defaults(mode='addition-experiment')
+    addition_experiment_parser.add_argument('addition_file', help='File with the automatas to be test-added')
+    addition_experiment_parser.add_argument('accelerator_file', help='File with the automata currently accelerated (in different groups)')
+
+    options.add_to_parser(compress_parser)
+    options.add_to_parser(addition_parser)
+    options.add_to_parser(addition_experiment_parser)
 
     args = parser.parse_args()
+    opts = options.create_from_args(args)
 
-    process(args.anml_file_groups, args.name, args.file_input, args.compression_stats, options.create_from_args(args))
+    if args.mode == 'compression':
+        compress(args.anml_file_groups, args.file_input, opts)
+    elif args.mode == 'addition':
+        add_to(args.addition_file, args.accelerator_file, opts)
+    else:
+        run_addition_experiment(args.addition_file, args.accelerator_file, opts)
