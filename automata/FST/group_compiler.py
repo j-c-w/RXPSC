@@ -493,7 +493,7 @@ def remove_prefixes(addition_components, group_components, options):
             # be a threshold to the prefix size applied.
             for i in range(len(group_components)):
                 for j in range(len(group_components[i])):
-                    shared_prefix, tail_first, tail_second = alg.prefix_merge(component.algebra, component.symbol_lookup, group_components[i][j].algebra, group_components[i][j].symbol_lookup, options)
+                    shared_prefix, tail_first, tail_second, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].symbol_lookup, options)
 
                     # We are looking for more than just a splitting of
                     # two automata here, which is what we are looking for
@@ -508,6 +508,7 @@ def remove_prefixes(addition_components, group_components, options):
                     if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold and shared_prefix.size() > last_prefix_size:
                         last_prefix_size = shared_prefix.size()
                         found_prefix = shared_prefix
+                        found_conversion_machine = conversion_machine
                         found_prefix_i = i
                         found_prefix_j = j
                         found_tail_component = tail_first
@@ -516,10 +517,13 @@ def remove_prefixes(addition_components, group_components, options):
             if found_prefix is not None:
                 removed_prefix = True
                 prefix_reduced_machine_indexes.add(comp_index)
+                input_graph = AutomataComponentWrapper(sjss.nodes_and_edges_to_automata(alg.full_graph_for(found_prefix, component.symbol_lookup)))
+                newly_accelerated_prefix = AutomataContainer(input_graph, found_prefix)
+
 
                 # Add the prefix that we found from the matching
                 # automata.
-                prefix_machines.append(group_components[found_prefix_i][found_prefix_j])
+                prefix_machines.append((group_components[found_prefix_i][found_prefix_j], newly_accelerated_prefix, found_conversion_machine))
                 # And note that the accelerator is in use.
                 used_accelerators.add((found_prefix_i, found_prefix_j))
 
@@ -621,7 +625,7 @@ def find_match_for_addition(components, group_components, used_group_components,
     return targets, conversion_machines
 
 
-def build_cc_list(targets, conversion_machines, prefix_machines, options):
+def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_machine_indexes, options):
     if conversion_machines is None:
         return None
     assert len(targets) == len(conversion_machines)
@@ -631,7 +635,7 @@ def build_cc_list(targets, conversion_machines, prefix_machines, options):
     for i in range(len(targets)):
         target = targets[i]
         conversion_machine = conversion_machines[i]
-        if target is None and conversion_machines is None:
+        if i in prefix_reduced_machine_indexes:
             # This is a prefix reduced automata for which we
             # have a partial match.
             continue
@@ -646,13 +650,11 @@ def build_cc_list(targets, conversion_machines, prefix_machines, options):
         # that these are exact prefixes.  Note that there is
         # a lot more potential here for /inexact/ prefixes.
         for prefix_machine_set in prefix_machines:
-            for prefix_machine in prefix_machine_set:
-                resmachine = CCGroup(prefix_machine.automata, prefix_machine.algebra)
-                # We can use the empty conversion here -- the algebras
-                # will be the same.  May need slight modification if
-                # we end up doing some input stream translation for
-                # each component.
-                resmachine.add_automata(prefix_machine.automata, prefix_machine.algebra, FST.EmptySingleStateTranslator())
+            for (accelerator_prefix, addition_prefix, conversion) in prefix_machine_set:
+                resmachine = CCGroup(accelerator_prefix.automata, accelerator_prefix.algebra)
+                # Need also to get the machine that we converted
+                # from.
+                resmachine.add_automata(addition_prefix.automata, addition_prefix.algebra, conversion)
                 cc_list.append(resmachine)
 
     return cc_list
@@ -713,7 +715,7 @@ def find_conversions_for_additions(addition_components, existing_components, opt
                     targets = None
                     conversion_machines = None
 
-        group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, options)
+        group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_machine_indexes, options)
 
         all_conv_machines.append(group_conv_machines)
     return all_conv_machines
