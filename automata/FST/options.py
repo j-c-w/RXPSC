@@ -16,6 +16,7 @@ class Options(object):
         self.no_groups = False
         self.use_cross_compilation = True
         self.use_prefix_merging = False
+        self.use_prefix_splitting = False
 
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
@@ -31,6 +32,7 @@ class Options(object):
         self.dump_failing_nodes_and_edges = None
         self.print_successful_conversions = False
         self.print_regex_injection_stats = False
+        self.compression_stats = False
 
         self.use_size_limits = True
         self.graph_size_threshold = 2000
@@ -66,6 +68,7 @@ def create_from_args(args):
     group_compiler.DEBUG_COMPUTE_COMPAT_MATRIX = args.debug_compute_compat_matrix
     group_compiler.DEBUG_GENERATE_BASE = args.debug_generate_base
     group_compiler.MODIFICATION_LIMIT = args.modification_limit
+    group_compiler.DEBUG_COMPILE_TO_EXISTING = args.debug_compile_to_existing
 
     opts = Options()
     opts.tail_approximation = args.tail_approximation
@@ -80,6 +83,7 @@ def create_from_args(args):
     opts.use_structural_change = not args.no_structural_change
     opts.use_unification_heuristics = not args.no_unification_heuristics
     opts.use_prefix_merging = args.use_prefix_merging
+    opts.use_prefix_splitting = args.use_prefix_splitting
     opts.use_cross_compilation = args.cross_compile
     opts.use_inline_unification_heuristics = not args.no_inline_unification_heuristics
 
@@ -90,6 +94,7 @@ def create_from_args(args):
     opts.dump_nodes_and_edges = args.dump_nodes_and_edges
     opts.dump_failing_nodes_and_edges = args.dump_failing_nodes_and_edges
     opts.print_successful_conversions = args.print_successful_conversions
+    opts.compression_stats = args.compression_stats
     opts.print_regex_injection_stats = args.print_regex_injection_stats
     opts.use_size_limits = not args.no_size_limits
 
@@ -155,9 +160,11 @@ def add_to_parser(parser):
     parser.add_argument('--debug-prefix-merge', default=False, dest='debug_prefix_merge', action='store_true')
     parser.add_argument('--memory-debug', default=False, dest='memory_debug', action='store_true')
     parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
+    parser.add_argument('--debug-compile-to-existing', action='store_true', dest='debug_compile_to_existing', default=False)
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
     parser.add_argument('--print-unification-failure-reasons', default=False, dest='print_unification_failure_reasons', action='store_true', help='Print reasons that unifiers fail within the single state unification method.')
+    parser.add_argument('--compression-stats', default=False, dest='compression_stats', action='store_true')
     parser.add_argument('--print-regex-injection-stats', default=False,
             dest='print_regex_injection_stats', action='store_true', help='Print statistics for the fraction of regular expressions from \
             the set that could be run using other regular \
@@ -169,6 +176,7 @@ def add_to_parser(parser):
     parser.add_argument('--no-cache', default=False, dest='no_cache', action='store_true', help='Disable the computation caches --- this makes things /much/ shlower.')
     parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
     parser.add_argument('--use-prefix-merging', default=False, dest='use_prefix_merging', help="Use prefix merging (experimental only)", action='store_true')
+    parser.add_argument('--use-prefix-splitting', default=False, dest='use_prefix_splitting', help="Use prefix splitting to split automata being translated (makes external techniques such as input-stream translation more effective)", action='store_true')
     parser.add_argument('--cross-compile', default=False, dest='cross_compile', help='Use cross compilation to compress regexes', action='store_true')
     parser.add_argument('--prefix-size-threshold', default=5, dest='prefix_size_threshold', help='Smallest size of prefix to use.', type=int)
 
