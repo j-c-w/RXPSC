@@ -120,16 +120,7 @@ def compute_depth_equation(atma, options, dump_output=False):
     if options.dump_nodes_and_edges:
         global depth_equation_computation_index
 
-        with open(options.dump_nodes_and_edges, 'a') as f:
-            f.write("nodes" + str(depth_equation_computation_index) + " = " + str(nodes) + "\n")
-            f.write("edges" + str(depth_equation_computation_index) + " = " + str(edges) + "\n")
-            f.write("""
-def draw_{num}(fname):
-    import automata.FST.debug as debug
-    res = debug.to_graphviz(nodes{num}, edges{num})
-    with open(fname, 'w') as f:
-        f.write(res)
-""".format(num=depth_equation_computation_index))
+        dump_draw_function(options.dump_nodes_and_edges, depth_equation_computation_index, nodes, edges)
 
         depth_equation_computation_index += 1
 
@@ -145,6 +136,8 @@ def draw_{num}(fname):
         try:
             alg = algebra.generate(nodes, edges, start, accepting_states, options)
         except Exception as e:
+            if options.dump_failing_nodes_and_edges:
+                dump_draw_function(options.dump_failing_nodes_and_edges, compilation_statistics.failed_algebra_computations, nodes, edges)
             compilation_statistics.failed_algebra_computations += 1
             print "Compilation of algebra failed!"
             print "Error was:"
@@ -162,3 +155,16 @@ def draw_{num}(fname):
             print "Generated Algebra: " + str(alg)
 
     return alg
+
+# Create a function to visualize this graph in graphviz.
+def dump_draw_function(filename, automata_number, nodes, edges):
+    with open(filename, 'a') as f:
+        f.write("nodes" + str(automata_number) + " = " + str(nodes) + "\n")
+        f.write("edges" + str(automata_number) + " = " + str(edges) + "\n")
+        f.write("""
+def draw_{num}(fname):
+    import automata.FST.debug as debug
+    res = debug.to_graphviz(nodes{num}, edges{num})
+    with open(fname, 'w') as f:
+        f.write(res)
+""".format(num=automata_number))
