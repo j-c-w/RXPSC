@@ -52,6 +52,14 @@ class SingleStateTranslator(object):
             output.append(chr(self[ord(character)]))
         return ''.join(output)
 
+class EmptySingleStateTranslator(SingleStateTranslator):
+    def __init__(self):
+        lookup = {}
+        for i in range(0, 256):
+            lookup[i] = i
+        super(SingleStateTranslator, self).__init__(lookup, [])
+
+
 class SymbolReconfiguration(object):
     def __init__(self, lookup, modifications):
         self.lookup = lookup
