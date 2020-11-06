@@ -680,6 +680,13 @@ def graph_for(algebra, symbol_lookup):
 def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options):
     prefix, postA, postB, unifier = prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options)
 
+    if prefix is not None and prefix.equals(Const(0, [])):
+        prefix = None
+    if postA is not None and postA.equals(Const(0, [])):
+        postA = None
+    if postB is not None and postB.equals(Const(0, [])):
+        postB = None
+
     if unifier is None:
         unifier = None
     elif unifier.isunifierlist:
@@ -849,19 +856,15 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
                 print "Reached end of sum unification, the total prefix extracted was ", total_prefix
 
             if len(total_prefix) > 0:
-                # The prefix is going to be treated as a new automata,
-                # so add the end state to it.
-                if not total_prefix[-1].isend():
-                    total_prefix.append(End())
-
                 # Create the master unifier
                 unifier_result = Unifier()
                 for unifier in unifiers_found:
                     unifier_result.unify_with(unifier)
-                if tail_A is None and tail_B is None:
-                    return Sum(total_prefix).normalize(), None, None, unifier_result
-                else:
-                    return Sum(total_prefix).normalize(), Sum(tail_A).normalize(), Sum(tail_B).normalize(), unifier_result
+                prefix_result = Sum(total_prefix).normalize()
+                tail_A_result = None if tail_A is None or len(tail_A) == 0 else Sum(tail_A).normalize()
+                tail_B_result = None if tail_B is None or len(tail_B) == 0 else Sum(tail_B).normalize()
+
+                return prefix_result, tail_A_result, tail_B_result, unifier_result
             else:
                 return None, A, B, None
         else:
@@ -988,13 +991,10 @@ def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
             print "Reached end of sum unification, the total prefix extracted was ", total_prefix
 
         if len(total_prefix) > 0:
-            # The prefix is going to be treated as a new automata,
-            # so add the end state to it.
-            total_prefix.append(End())
-            if tail_A is None and tail_B is None:
-                return Sum(total_prefix).normalize(), None, None
-            else:
-                return Sum(total_prefix).normalize(), Sum(tail_A).normalize(), Sum(tail_B).normalize()
+            prefix_result = Sum(total_prefix).normalize()
+            tail_A_result = None if tail_A is None or len(tail_A) == 0 else Sum(tail_A).normalize()
+            tail_B_result = None if tail_B is None or len(tail_B) == 0 else Sum(tail_B).normalize()
+            return prefix_result, tail_A_result, tail_B_result
         else:
             return None, A, B
     else:

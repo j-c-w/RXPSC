@@ -62,10 +62,23 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
                 # just means the whole automata got used up.
                 if post_from is not None:
                     postfix_fst_from = algebra.full_graph_for(post_from, symbol_lookup_from)
+                    if len(postfix_fst_from.edges) == 0:
+                        print "Got a zero-length postfix!"
+                        print post_from
+                        print postfix_fst_from
+                        assert False
+
                     verify_prefix_fst(prefix_fst, postfix_fst_from, from_graph, result, options)
 
                 if post_to is not None:
                     postfix_fst_to = algebra.full_graph_for(post_to, symbol_lookup_to)
+                    if len(postfix_fst_to.edges) == 0:
+                        print "Got a zero-length postfix!"
+                        print post_to
+                        print type(post_to)
+                        print post_to.type()
+                        print postfix_fst_to
+                        assert False
                     verify_prefix_fst(prefix_fst, postfix_fst_to, to_graph, result, options, prefix_and_postfix_come_from_same_automata=True)
         return prefix, post_from, post_to, result, failure_reason
 
