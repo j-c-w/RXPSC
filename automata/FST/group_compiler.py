@@ -698,8 +698,21 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             if not options.use_prefix_splitting:
                 print "To use --prefix-merging-only, you also need to have --use-prefix-splitting"
                 assert False
+
+            # However, we still need to fail if any one of these
+            # didn't get /any/ prefix extracted.
+            # Admittedly, this is a bit shit because it doesn't
+            # consider the rate at which the CPU will have
+            # to check the others (i.e. how /long/ the prefix is)
+            # Anyway.  It gives a good idea.
             targets = []
             conversion_machines = []
+
+            for comp_index in addition_components[i]:
+                if comp_index not in prefix_reduced_machine_indexes:
+                    targets = None
+                    conversion_machines = None
+
         group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, options)
 
         all_conv_machines.append(group_conv_machines)
