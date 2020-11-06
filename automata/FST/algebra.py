@@ -554,6 +554,7 @@ def linear_algebra_for(branch, accept_states):
 # generation of a full graph from an APA, but doesn't give you
 # the final node (expect that would not be hard to achieve)
 def full_graph_for(algebra, symbol_lookup):
+    symbol_lookup = dict(symbol_lookup) # Deep copy the symbol lookup
     edges = list(algebra.all_edges())
     start_state = algebra.get_first_node()
     nodes = set()
@@ -570,6 +571,8 @@ def full_graph_for(algebra, symbol_lookup):
             edges[i] = (from_n, to_n)
         nodes.add(to_n)
         nodes.add(from_n)
+    # We have turned the start state into 0 by here.
+    start_state = 0
 
     accepting_states = algebra.get_accepting_nodes()
     for edge in edges:
@@ -671,16 +674,16 @@ def graph_for(algebra, symbol_lookup):
 #   The algebra that can be prefix merged
 #   The first passed algebra
 #   The second passed algebra
-#   A unifier that has to be completed to complete the unification.
-# We focus on unifying from the A /to/ B. (i.e. B is underlying
+#   B unifier that has to be completed to complete the unification.
+# We focus on unifying from the B /to/ A. (i.e. A is underlying
 # hardware)
 def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options):
     prefix, postA, postB, unifier = prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options)
 
-    if unifier.isunifierlist:
-        unifier = unifier.as_list()
-    elif unifier is None:
+    if unifier is None:
         unifier = None
+    elif unifier.isunifierlist:
+        unifier = unifier.as_list()
     else:
         unifier = [unifier]
 
