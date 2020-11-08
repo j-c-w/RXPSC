@@ -14,12 +14,17 @@ import automata.FST.compilation_statistics as compilation_statistics
 
 sys.setrecursionlimit(25000)
 
-def extract_file_groups(file_groups, file_input=False):
+def extract_file_groups(file_groups, file_input=False, excluding_files=set()):
     assert file_groups is not None
     if file_input:
+        assert file_groups not in excluding_files
         file_groups = [file_groups]
     else:
         file_groups = [os.path.join(file_groups, f) for f in os.listdir(file_groups) if os.path.isfile(os.path.join(file_groups, f))]
+        for i in range(len(file_groups) - 1, -1, -1):
+            if file_groups[i] in excluding_files:
+                print "Not including file ", file_groups[i]
+                del file_groups[i]
 
     return file_groups
 
@@ -73,7 +78,7 @@ def run_addition_experiment_anml_zoo(anml_file, options):
 
     print "ANMLZoo Experiment Mode: Automata Extracted, running experiments!"
 
-    for i in range(len(extracted_components[0])):
+    for i in range(0, len(extracted_components[0])):
         # Needs to re-cloned every time because the underlying
         # functions change it.
         automata_components = clone_automata_components(extracted_components)
@@ -93,17 +98,30 @@ def run_addition_experiment_anml_zoo(anml_file, options):
 # and computes whether it /individually/ could be added to
 # a set of accelerators specified in the add_to set of files.
 def run_addition_experiment(add_from, add_to, options):
-    from_file_groups = extract_file_groups(add_from)
-    to_file_groups = extract_file_groups(add_to)
+    if not os.path.isfile(add_from):
+        print "In addition experiments, the rxps you are adding from must be a file"
+        print add_from, " is not a file"
+        return
+    if not os.path.isdir(add_to):
+        print "In addition experiments, the rxps yuo are adding to must be a folder with sub-files"
+        print add_to, "is a not a folder"
+        print "(We deduplicate internally so the file you are adding from can be in the add to folder)"
+        return
+
+    from_file_groups = extract_file_groups(add_from, file_input=True)
+    to_file_groups = extract_file_groups(add_to, excluding_files=from_file_groups)
 
     automata_components_from = extract_automata_components(from_file_groups, options)
     automata_components_to = extract_automata_components(to_file_groups, options)
+
+    print "Trying to convert ", len(automata_components_from[0]), "automata"
 
     # Run each individual experiment:
     for i in range(len(automata_components_from)):
         for j in range(len(automata_components_from[i])):
             # The to components need to be recloned every time, since the underlying
             # functions change it (doh)
+            print "Checking..."
             add_to_check([[automata_components_from[i][j]]], clone_automata_components(automata_components_to), options)
     print "Finished experiment run!"
 
