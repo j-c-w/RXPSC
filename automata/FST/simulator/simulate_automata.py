@@ -6,8 +6,8 @@ import automata.FST.simple_graph
 
 def accepts(graph, string, trace=False):
     active_states = set([graph.start_state])
-    neighbors = generate_neighbors_lookup(graph)
-    end_states = generate_end_states(graph, neighbors)
+    neighbors = graph.neighbors_lookup()
+    end_states = graph.end_states(neighbors)
     if str(type(list(graph.symbol_lookup[graph.edges[0]])[0])) == "<type 'int'>" and str(type(string)) == "<type 'str'>":
         # Translate the char stream to an int stream:
         string = [ord(x) for x in string]
@@ -45,20 +45,3 @@ def accepts(graph, string, trace=False):
         if state in end_states:
             return True
     return False
-
-def generate_neighbors_lookup(graph):
-    lookup = {}
-    for n in graph.nodes:
-        lookup[n] = set()
-
-    for s, e in graph.edges:
-        lookup[s].add(e)
-    return lookup
-
-def generate_end_states(graph, neighbors):
-    end_states = set()
-
-    for n in graph.nodes:
-        if len(neighbors[n]) == 0:
-            end_states.add(n)
-    return end_states
