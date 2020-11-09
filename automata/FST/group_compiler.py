@@ -646,6 +646,7 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
 
         cc_group = CCGroup(target.automata, target.algebra)
         cc_group.add_automata(postfix_component.automata, postfix_component.algebra, conversion_machine)
+        assert conversion_machine is not None
         cc_list.append(cc_group)
 
     if options.use_prefix_splitting:
@@ -659,6 +660,7 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
                 # Need also to get the machine that we converted
                 # from.
                 resmachine.add_automata(addition_prefix.automata, addition_prefix.algebra, conversion)
+                assert conversion is not None
                 cc_list.append(resmachine)
 
     return cc_list

@@ -17,10 +17,10 @@ translators = [
 {%for group_number in group_numbers %}
 [
 {%for translator in translators %}
-{% if translator %}
+{% if translator is not none %}
 {{ translator.to_string() }},
 {% else %}
-None,
+None, # Had a translator, but it was None.
 {% endif %}
 {%endfor%}
 None

@@ -47,6 +47,8 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
         return None, None, None, None, generate_fst.GenerationFailureReason("Structural Failure")
     else:
         result, failure_reason = generate_fst.generate(unification, to_atma.component, from_atma.component, options)
+        if result is None:
+            return None, None, None, None, generate_fst.GenerationFailureReason("Unification Failure")
 
         if result:
             compilation_statistics.unification_successes += 1
