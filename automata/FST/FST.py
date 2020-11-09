@@ -52,6 +52,9 @@ class SingleStateTranslator(object):
             output.append(chr(self[ord(character)]))
         return ''.join(output)
 
+    def to_string(self):
+        return "{" + ",".join(["" + str(x) + ": " + str(self[x]) + "" for x in range(0, 255)]) + "}"
+
 class EmptySingleStateTranslator(SingleStateTranslator):
     def __init__(self):
         lookup = {}
