@@ -774,7 +774,6 @@ def compile_to_existing(addition_components, existing_components, options):
             for e in group:
                 print e.algebra
 
-
     all_conv_machines = find_conversions_for_additions(addition_algebras, existing_algebras, options)
 
     if options.print_compile_time:
