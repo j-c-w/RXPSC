@@ -26,11 +26,11 @@ class AlgebraTest(unittest.TestCase):
     # property, but I'm not actually sure.
     def test_trailing_product_2(self):
         algebra = alg.generate([0, 1, 2, 3, 4, 5], [(0, 1), (1, 3), (3, 4), (1, 4), (4, 5), (5, 4)], 0, [4], EmptyOptions)
-        self.assertEqual("1 + {2, 1} + a + (2 + a)*", str(algebra))
+        self.assertEqual("1 + {1, 2} + a + (2 + a)*", str(algebra))
 
     def test_trailing_product(self):
         algebra = alg.generate([0, 1, 2, 3, 4], [(0, 1), (1, 3), (3, 4), (1, 4), (4, 4)], 0, [4], EmptyOptions)
-        self.assertEqual("1 + {2, 1} + a + (1 + a)*", str(algebra))
+        self.assertEqual("1 + {1, 2} + a + (1 + a)*", str(algebra))
 
     def test_trailing_product_3(self):
         nodes = [4, 5, 6, 7, 0, 8, 11]
@@ -39,7 +39,7 @@ class AlgebraTest(unittest.TestCase):
         start = 0
         algebra = alg.generate(nodes, edges, start, accepting, EmptyOptions)
         print algebra
-        self.assertEqual(str(algebra), "1 + {2, 1} + 1 + (1)* + {1 + e, 1 + a + e}")
+        self.assertEqual(str(algebra), "1 + {1, 2} + 1 + (1)* + {1 + e, 1 + a + e}")
 
 
     def test_simpleTest(self):
@@ -357,7 +357,7 @@ class PrefixTest(unittest.TestCase):
         t2 = Sum([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
 
         prefix, alg_a, alg_b = alg.prefix_merge(t1, s1, t2, s1, EmptyOptions)
-        self.assertEqual(str(prefix), "1 + (1)* + e")
+        self.assertEqual(str(prefix), "1 + (1)*")
         self.assertEqual(str(alg_a), "1")
         self.assertEqual(str(alg_b), "1")
 
