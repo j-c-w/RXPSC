@@ -11,6 +11,7 @@ import automata.FST.options as options
 import automata.HDL.hdl_generator as hd_gen
 import automata.FST.group_compiler as gc
 import automata.FST.compilation_statistics as compilation_statistics
+import automata.FST.generator.generate_python as generate_python
 
 sys.setrecursionlimit(25000)
 
@@ -45,6 +46,29 @@ def extract_automata_components(file_groups, opts):
         automatas.remove_ors()
         automata_components.append(automatas.get_connected_components_as_automatas())
     return automata_components
+
+def dump_machines(machines, folder, options, selected_indexes=None):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    if options.backend == 'python':
+        # Generate python simulators:
+        print "Generating Python Outputs"
+        for i in range(len(machines)):
+            conversion = machines[i]
+            conversion_path = folder + '/' + str(i) + '/'
+            if not os.path.exists(conversion_path):
+                os.makedirs(conversion_path)
+            for j in range(len(conversion)):
+                if selected_indexes is not None:
+                    selected_index = selected_indexes[i]
+                else:
+                    selected_index = None
+                cc_group = conversion[j]
+                generate_python.write_simulators_for(cc_group, conversion_path + 'machine_' + str(j), selected_indexes=selected_index)
+    else:
+        assert False # needs to be implemented for new backends.
+
 
 def clone_automata_components(components):
     new_components = []
@@ -91,6 +115,7 @@ def run_addition_experiment_anml_zoo(anml_file, options):
         del automata_components[0][i]
 
         add_to_check([[add_test_automata]], automata_components, options)
+
         print "ANMLZoo Experiment Mode: Experiment complete, trying next one!"
 
 
@@ -141,20 +166,47 @@ def add_to(add_from, add_to, options):
 
     add_to_check(automata_components_from, automata_components_to, options)
 
+
+dump_index = 0
 def add_to_check(automata_components_from, automata_components_to, options):
+    # Only support one group at a time right now.
+    assert len(automata_components_from) == 1
     conversions = gc.compile_to_existing(automata_components_from, automata_components_to, options)
+    # Check that all the conversions are individually not none.
+    failed = False
+    for conv in conversions:
+        if conv is None:
+            failed = True
 
     if options.compression_stats or options.print_regex_injection_stats:
-        # Check that all the conversions are individually not none.
-        failed = False
-        for conv in conversions:
-            if conv is None:
-                failed = True
-
         if failed:
             print "COMPRESSION RESULT: Failed to convert regexes to the existing automata"
         else:
             print "COMPRESSION RESULT: Converted regexes to the existing automata!"
+
+    # Also dump the backend output if that is requested.
+    if not failed and options.backend != 'none':
+        global dump_index
+        folder = options.output_folder + '/generated_' + str(dump_index)
+        original_folder = options.output_folder + '/original_' + str(dump_index)
+
+        dump_index += 1
+        # For the conversions, select the translators where
+        # they exist --- note that since we assume every expression
+        # in is part of the same group, we know that there will
+        # be at most one translator per conversion.
+        selected_indexes = []
+        for conversion in conversions:
+            for ccgroup in conversion:
+                assert len(ccgroup.translators) == 1
+            # Enable the first translator.
+            selected_indexes.append(set([1]))
+
+        dump_machines(conversions, folder, options, selected_indexes=selected_indexes)
+
+        original_machines = [[gc.CCGroup(m, None)] for m in automata_components_from[0]]
+        dump_machines(original_machines, original_folder, options)
+
 
 
 def process(file_groups, file_input=False, options=None):
