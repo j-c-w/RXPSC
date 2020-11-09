@@ -6,6 +6,7 @@ import group_compiler
 
 class Options(object):
     def __init__(self):
+        self.ouptut_folder = 'rxpsc_out'
         self.tail_approximation = False
         self.disabled_edges_approximation = False
         self.print_algebras = False
@@ -48,6 +49,7 @@ class Options(object):
         self.time = False
         self.size_limit = None
         self.target = 'single-state'
+        self.backend = 'python'
         self.skip_on_fail = True
         self.line_profile = False
 
@@ -75,6 +77,7 @@ def create_from_args(args):
     group_compiler.DEBUG_COMPILE_TO_EXISTING = args.debug_compile_to_existing
 
     opts = Options()
+    opts.output_folder = args.output_folder
     opts.tail_approximation = args.tail_approximation
     opts.disabled_edges_approximation = args.disabled_edges_approximation
     opts.correct_mapping = not args.allow_overapproximation
@@ -113,6 +116,7 @@ def create_from_args(args):
     opts.time = args.time
     opts.algebra_size_threshold = args.algebra_size_threshold
     opts.target = args.target
+    opts.backend = args.backend
     opts.print_compile_time = args.print_compile_time
     opts.skip_on_fail = not args.no_skip_on_fail
 
@@ -130,6 +134,7 @@ def create_from_args(args):
     return opts
 
 def add_to_parser(parser):
+    parser.add_argument('--output-folder', default='rxpsc_output', dest='output_folder', help='Use this folder to output any generated files (e.g. simulators)')
     parser.add_argument('--tail-approximation', default=False, dest='tail_approximation', action='store_true', help='Use the Tail Cutoff approximation in conversions.')
     parser.add_argument('--allow-overapproximation', default=False, dest='allow_overapproximation', action='store_true', help='Allow overapproximation of automata when compiling (completeness but not correctness)')
     parser.add_argument('--no-groups', default=False, dest='no_groups', action='store_true', help='Don\'t use the input groups --- assume every regex can compile to every other regex.')
@@ -194,6 +199,7 @@ def add_to_parser(parser):
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')
+    parser.add_argument('--backend', choices=['python', 'none'], default='none')
 
     # Intermediate output flags
     parser.add_argument('--dump-comparison-cache', default=None, dest='dump_comparison_cache', help='Dump a conversion map in a file --- this can be used to speedup subsequent runs by caching comparison results.')
