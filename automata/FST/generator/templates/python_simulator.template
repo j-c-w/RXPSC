@@ -1,0 +1,103 @@
+import argparse
+
+{#
+@param group_numbers
+@param graphs
+@param translators
+#}
+
+graphs = [
+{% for group_number in group_numbers %}
+{{ graphs[group_number].to_python_string() }},
+{% endfor %}
+None
+]
+
+translators = [
+{%for group_number in group_numbers %}
+[
+{%for translator in translators %}
+{% if translator %}
+{{ translator.to_string() }},
+{% else %}
+None,
+{% endif %}
+{%endfor%}
+None
+],
+{%endfor%}
+[]
+]
+
+def generate_neighbors_lookup(nodes, edges):
+    lookup = {}
+    for n in nodes:
+        lookup[n] = set()
+
+    for s, e in edges:
+        lookup[s].add(e)
+    return lookup
+
+def exec_automata(i, inputstring, trace=False):
+    active_states = set([graphs[i]['start_state']])
+    matches = []
+
+    neighbors = generate_neighbors_lookup(graphs[i]['nodes'], graphs[i]['edges'])
+    character_index = -1
+    for character in inputstring:
+        character = ord(character)
+        character_index += 1
+        if translators[i][0] is not None:
+            character = translators[i][0][character]
+        if trace:
+            print "Read symbol ", character
+            print "In states ", active_states
+        next_states = set([graphs[i]['start_state']])
+        for current_state in active_states:
+            neighbor_states = neighbors[current_state]
+
+            for next_state in neighbor_states:
+                assert type(character) == type(list(graphs[i]['symbol_lookup'][(current_state, next_state)])[0])
+
+                if character in graphs[i]['symbol_lookup'][(current_state, next_state)]:
+                    next_states.add(next_state)
+        active_states = next_states
+
+        matching_char = False
+        for state in next_states:
+            # We use the end-state hack here because the generator
+            # doesn't properly deal with end states in intermediately-generated
+            # automata (i.e. given this implementation, they should be
+            # made accepts) --- they don't need to accept
+            # in every implementation.
+            if state in graphs[i]['accepting_states'] or state in graphs[i]['end_states']:
+                matching_char = True
+        if matching_char:
+            matches.append(character_index)
+
+    return matches
+
+def read_file(filename):
+    with open(filename, 'r') as f:
+        while True:
+            data = f.read(1024)
+            if not data:
+                break
+            for character in data:
+                yield character
+
+def write(filename, matches):
+    result = "\n".join([str(match) for match in matches])
+    with open(filename, 'w') as f:
+        f.write(result)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('group_number', type=int)
+    parser.add_argument('input_file')
+    parser.add_argument('report_file')
+    args = parser.parse_args()
+
+    matches = exec_automata(0, read_file(args.input_file))
+    write(args.report_file, matches)
