@@ -713,7 +713,7 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
             last_equal_index = -1
 
             unifier = Unifier()
-            unifier.add_edges(A.edges, B.edges, options)
+            unifier.add_edges(B.edges, A.edges, options)
 
             # If we were not normalizing 1 all the time, this would
             # be a challenging problem to deal with.
@@ -812,7 +812,7 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
                     # We implement a little bit of the idea of not going
                     # too far here by using the mapping heuristic, i.e.
                     # to fail if there is an obvious symbol collision.
-                    if options.use_inline_unification_heuristics and unifier_result.mapping_heuristic_fail(globals['symbol_lookup_A'], globals['symbol_lookup_B'], globals['options']):
+                    if options.use_inline_unification_heuristics and unifier_result.mapping_heuristic_fail(globals['symbol_lookup_B'], globals['symbol_lookup_A'], globals['options']):
                         fail = True
                     else:
                         # keep going.
