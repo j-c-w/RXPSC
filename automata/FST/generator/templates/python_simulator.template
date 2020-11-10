@@ -38,8 +38,13 @@ def generate_neighbors_lookup(nodes, edges):
         lookup[s].add(e)
     return lookup
 
+class ActiveState(object):
+    def __init__(self, state_no, start_index):
+        self.state_no = state_no
+        self.start_index = start_index
+
 def exec_automata(i, inputstring, trace=False):
-    active_states = set([graphs[i]['start_state']])
+    active_states = set([ActiveState(graphs[i]['start_state'], 0)])
     matches = []
 
     neighbors = generate_neighbors_lookup(graphs[i]['nodes'], graphs[i]['edges'])
@@ -52,28 +57,26 @@ def exec_automata(i, inputstring, trace=False):
         if trace:
             print "Read symbol ", character
             print "In states ", active_states
-        next_states = set([graphs[i]['start_state']])
+        next_states = set([ActiveState(graphs[i]['start_state'], character_index)])
         for current_state in active_states:
-            neighbor_states = neighbors[current_state]
+            neighbor_states = neighbors[current_state.state_no]
+            state_state_index = current_state.start_index
 
-            for next_state in neighbor_states:
-                assert type(character) == type(list(graphs[i]['symbol_lookup'][(current_state, next_state)])[0])
+            for next_state_no in neighbor_states:
+                assert type(character) == type(list(graphs[i]['symbol_lookup'][(current_state.state_no, next_state_no)])[0])
 
-                if character in graphs[i]['symbol_lookup'][(current_state, next_state)]:
-                    next_states.add(next_state)
+                if character in graphs[i]['symbol_lookup'][(current_state.state_no, next_state_no)]:
+                    next_states.add(ActiveState(next_state_no, state_state_index))
         active_states = next_states
 
-        matching_char = False
         for state in next_states:
             # We use the end-state hack here because the generator
             # doesn't properly deal with end states in intermediately-generated
             # automata (i.e. given this implementation, they should be
             # made accepts) --- they don't need to accept
             # in every implementation.
-            if state in graphs[i]['accepting_states'] or state in graphs[i]['end_states']:
-                matching_char = True
-        if matching_char:
-            matches.append(character_index)
+            if state.state_no in graphs[i]['accepting_states'] or state.state_no in graphs[i]['end_states']:
+                matches.append((state.start_index, character_index))
 
     return matches
 
