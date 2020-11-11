@@ -9,6 +9,7 @@ import unifier
 from cache import ComparisonCache
 import algebra as alg
 import FST
+import automata.FST.passes.pass_list as pass_list
 
 try:
     import line_profiler
@@ -928,7 +929,7 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
 # of automata componenets that we think are likely to have
 # a lot broader support at the cost of minor modifications.
 def recompile_structures(automata_components, options):
-    groups = groups_from_components(automata_components, options)
+    groups = pass_list.ComputeAlgebras.execute(automata_components, options)
     group_index = 0
 
 # This function does a prefix merging for the automata
@@ -1055,7 +1056,7 @@ def compile_to_fixed_structures(automata_components, options):
     # that can be translated.
 
     # Generate the group.
-    groups = groups_from_components(automata_components, options)
+    groups = pass_list.ComputeAlgebras.execute(automata_components, options)
 
     if options.memory_debug:
         print "Memory Usage before computing depth equations"
@@ -1067,68 +1068,6 @@ def compile_to_fixed_structures(automata_components, options):
         h = hpy()
         print(h.heap())
 
-    return groups
-
-
-# Store algebra computations between calls to groups_from_components
-algebra_cache = {}
-
-def groups_from_components(automata_components, options):
-    groups = []
-    group_index = 0
-    for cc_list in automata_components:
-        group = []
-        equation_index = 0
-        for cc in cc_list:
-            if options.print_file_info:
-                print "Compiling equation from group ", group_index
-                print "Equation index", equation_index
-
-            global algebra_cache
-            graph_hash = sjss.hash_graph(cc.automata)
-            if options.use_algebra_cache and graph_hash in algebra_cache:
-                depth_eqn = algebra_cache[graph_hash]
-
-                if depth_eqn is not None:
-                    depth_eqn = depth_eqn.clone()
-            else:
-                depth_eqn = sc.compute_depth_equation(cc.automata, options)
-                if depth_eqn is None:
-                    algebra_cache[graph_hash] = None
-                else:
-                    algebra_cache[graph_hash] = depth_eqn.clone()
-
-            if not depth_eqn:
-                # Means that the graph was too big for the current
-                # setup.
-                continue
-
-            edges_not_in_graph = False
-            for edge in depth_eqn.all_edges():
-                if edge not in cc.automata.edges:
-                    edges_not_in_graph = True
-                    print "Edge", edge, "not in graph"
-            if edges_not_in_graph:
-                print "Graph", cc.automata
-                print "Equation", depth_eqn
-                assert False
-
-            if options.print_algebras:
-                print depth_eqn
-                print "Hash: ", depth_eqn.structural_hash()
-            if options.algebra_size_threshold and depth_eqn.size() > options.algebra_size_threshold:
-                print "Omitting equation due to size"
-            else:
-                cc.algebra = depth_eqn
-                group.append(cc)
-                equation_index += 1
-
-        groups.append(group)
-        group_index += 1
-
-    for x in groups:
-        for y in x:
-            assert y.algebra is not None
     return groups
 
 
