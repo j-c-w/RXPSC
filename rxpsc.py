@@ -6,6 +6,7 @@ import shutil
 import sys
 import os
 import time
+import automata.FST.sjss as sjss
 import automata as atma
 import automata.FST.options as options
 import automata.HDL.hdl_generator as hd_gen
@@ -199,17 +200,18 @@ def add_to_check(automata_components_from, automata_components_to, options):
         for conversion in conversions:
             for ccgroup in conversion:
                 assert len(ccgroup.translators) == 1
+                assert ccgroup.translators[0] is not None
             # Enable the first translator.
             selected_indexes.append(set([1]))
 
         dump_machines(conversions, folder, options, selected_indexes=selected_indexes)
 
-        original_machines = [[gc.CCGroup(m, None)] for m in automata_components_from[0]]
+        original_machines = [[gc.CCGroup(sjss.automata_to_nodes_and_edges(m), None)] for m in automata_components_from[0]]
         dump_machines(original_machines, original_folder, options)
 
 
 
-def process(file_groups, file_input=False, options=None):
+def compress(file_groups, file_input=False, options=None):
     start_time = time.time()
     file_groups = extract_file_groups(file_groups, file_input)
     print "Extracting ", len(file_groups), " groups"
@@ -234,9 +236,9 @@ def process(file_groups, file_input=False, options=None):
         nodes_saved_by_sst = 0
         for assignment in assignments:
             other_compiles += len(assignment.translators)
-            nodes_required += len(assignment.physical_automata.component.nodes)
+            nodes_required += len(assignment.physical_automata.nodes)
             for supported_automata in assignment.supported_automata:
-                nodes_saved_by_sst += len(supported_automata.component.nodes)
+                nodes_saved_by_sst += len(supported_automata.nodes)
         # Don't print the results of the comparison if we are doing --compile-only (which skips the comparisons)
         if not options.compile_only:
             print "COMPILATION STATISTICS: self compiles = ", self_compiles
@@ -317,7 +319,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     opts = options.create_from_args(args)
 
-    if args.mode == 'compression':
+    if args.mode == 'compress':
         compress(args.anml_file_groups, args.file_input, opts)
     elif args.mode == 'addition':
         add_to(args.addition_file, args.accelerator_file, opts)

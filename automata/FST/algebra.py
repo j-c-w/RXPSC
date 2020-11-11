@@ -1784,19 +1784,18 @@ def permutations_with_heuristics(cross_compilatiion_matrix):
 # Given an automata, and a list of additions, inject the additions
 # into the automata.
 def apply_structural_transformations(automata, additions, options):
-    old_graph = sjss.automata_to_nodes_and_edges(automata)
     if group_compiler.DEBUG_GENERATE_BASE:
         print "Start graph is"
-        print old_graph
-        print "It has algebra", single_compiler.compute_depth_equation(sjss.nodes_and_edges_to_automata(old_graph), options)
+        print automata
+        print "It has algebra", single_compiler.compute_depth_equation(automata, options)
 
-    result_graph = apply_structural_transformations_internal(old_graph, additions, options)
+    result_graph = apply_structural_transformations_internal(automata, additions, options)
 
     if group_compiler.DEBUG_GENERATE_BASE:
         print "After modification, graph is"
         print result_graph
-        print "and has algebra", single_compiler.compute_depth_equation(sjss.nodes_and_edges_to_automata(result_graph), options)
-    return sjss.nodes_and_edges_to_automata(result_graph)
+        print "and has algebra", single_compiler.compute_depth_equation(result_graph, options)
+    return result_graph
 
 def apply_structural_transformations_internal(simple_graph, additions, options):
     old_graph = simple_graph

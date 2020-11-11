@@ -758,9 +758,7 @@ def nodes_and_edges_to_automata(simple_graph):
 
 # This is intended to be a shitty, 'good enough' hash rather than
 # some sure thing...
-def hash_graph(automata_network):
-    simple_graph = automata_to_nodes_and_edges(automata_network)
-
+def hash_graph(simple_graph):
     node_count = len(simple_graph.nodes)
     edge_count = len(simple_graph.edges)
     nodes = sorted(simple_graph.nodes)

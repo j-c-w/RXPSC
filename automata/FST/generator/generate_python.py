@@ -19,12 +19,12 @@ def generate_simulator_for(simple_automata, translator):
 def get_simulators_for(cc_group):
     results = []
     # First, get the physical one:
-    underlying = generate_simulator_for(sjss.automata_to_nodes_and_edges(cc_group.physical_automata.component), None)
+    underlying = generate_simulator_for(cc_group.physical_automata, None)
     results.append(underlying)
 
     # Then, get all the ones that translate to this:
     for translator in cc_group.translators:
-        results.append(generate_simulator_for(sjss.automata_to_nodes_and_edges(cc_group.physical_automata.component), translator))
+        results.append(generate_simulator_for(cc_group.physical_automata, translator))
 
     return results
 

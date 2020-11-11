@@ -46,7 +46,7 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
     if unification is None:
         return None, None, None, None, generate_fst.GenerationFailureReason("Structural Failure")
     else:
-        result, failure_reason = generate_fst.generate(unification, to_atma.component, from_atma.component, options)
+        result, failure_reason = generate_fst.generate(unification, to_atma, from_atma, options)
         if result is None:
             return None, None, None, None, generate_fst.GenerationFailureReason("Unification Failure")
 
@@ -55,8 +55,6 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
 
             if options.verify:
                 prefix_fst = algebra.full_graph_for(prefix, symbol_lookup_to)
-                from_graph = sjss.automata_to_nodes_and_edges(from_atma.component)
-                to_graph = sjss.automata_to_nodes_and_edges(to_atma.component)
 
                 # Need to show that both automata are the same
                 # under this particular prefix split.  Note
@@ -70,7 +68,7 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
                         print postfix_fst_from
                         assert False
 
-                    verify_prefix_fst(prefix_fst, postfix_fst_from, from_graph, result, options)
+                    verify_prefix_fst(prefix_fst, postfix_fst_from, from_atma, result, options)
 
                 if post_to is not None:
                     postfix_fst_to = algebra.full_graph_for(post_to, symbol_lookup_to)
@@ -81,7 +79,7 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
                         print post_to.type()
                         print postfix_fst_to
                         assert False
-                    verify_prefix_fst(prefix_fst, postfix_fst_to, to_graph, result, options, prefix_and_postfix_come_from_same_automata=True)
+                    verify_prefix_fst(prefix_fst, postfix_fst_to, to_atma, result, options, prefix_and_postfix_come_from_same_automata=True)
         return prefix, post_from, post_to, result, failure_reason
 
 
@@ -97,8 +95,8 @@ def compile_from_algebras(eqn_from, automata_from, eqn_to, automata_to, options)
     # lists down, by removing obviously impossible unifiers
     # sooner rather than later.
     if options.use_inline_unification_heuristics:
-        lookup_table_from = generate_fst.edge_label_lookup_generate(automata_from)
-        lookup_table_to = generate_fst.edge_label_lookup_generate(automata_to)
+        lookup_table_from = automata_from.symbol_lookup
+        lookup_table_to = automata_to.symbol_lookup
     else:
         lookup_table_from = None
         lookup_table_to = None
@@ -198,23 +196,19 @@ def compute_depth_equation(atma, options, dump_output=False):
     # Get the nodes, edges, starting and accepting states.
     # Convert them to straight up integers to make everything
     # else faster.
-    nodes = atma.node_ids_list()
-    edges = atma.edge_ids_list()
-    start = atma.fake_root.id
-    accepting_states = atma.reporting_states_list()
     if dump_output:
-        print "Generating from :" + str(nodes)
-        print "and: " + str(edges)
-        print "with start: " + str(start)
-        print "and end: " + str(accepting_states)
+        print "Generating from :" + str(atma.nodes)
+        print "and: " + str(atma.edges)
+        print "with start: " + str(atma.start)
+        print "and end: " + str(atma.accepting_state)
     if options.dump_nodes_and_edges:
         global depth_equation_computation_index
 
-        dump_draw_function(options.dump_nodes_and_edges, depth_equation_computation_index, nodes, edges)
+        dump_draw_function(options.dump_nodes_and_edges, depth_equation_computation_index, atma.nodes, atma.edges)
 
         depth_equation_computation_index += 1
 
-    if len(nodes) > options.graph_size_threshold:
+    if len(atma.nodes) > options.graph_size_threshold:
         print "Graph is too large for current implementation --- skipping"
         print "Graph is ", len(nodes), "and limit is ", options.graph_size_threshold, "nodes"
         print "Increase with --graph-size-limit <N>"
@@ -224,17 +218,17 @@ def compute_depth_equation(atma, options, dump_output=False):
     start_time = time.time()
     if options.skip_on_fail:
         try:
-            alg = algebra.generate(nodes, edges, start, accepting_states, options)
+            alg = algebra.generate(atma.nodes, atma.edges, atma.start_state, atma.accepting_states, options)
         except Exception as e:
             if options.dump_failing_nodes_and_edges:
-                dump_draw_function(options.dump_failing_nodes_and_edges, compilation_statistics.failed_algebra_computations, nodes, edges)
+                dump_draw_function(options.dump_failing_nodes_and_edges, compilation_statistics.failed_algebra_computations, atma.nodes, atma.edges)
             compilation_statistics.failed_algebra_computations += 1
             print "Compilation of algebra failed!"
             print "Error was:"
             print e
             return None
     else:
-        alg = algebra.generate(nodes, edges, start, accepting_states, options)
+        alg = algebra.generate(atma.nodes, atma.edges, atma.start, atma.accepting_states, options)
     end = time.time()
     if dump_output:
         print "Time taken is " + str(end - start_time)

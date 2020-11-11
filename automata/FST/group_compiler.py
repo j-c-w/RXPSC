@@ -77,14 +77,6 @@ class AutomataContainer(object):
     def __init__(self, automata, algebra):
         self.automata = automata
         self.algebra = algebra
-
-        self.symbol_lookup = generate_fst.edge_label_lookup_generate(self.automata.component)
-
-class AutomataComponentWrapper(object):
-    def __init__(self, ac):
-        self.component = ac
-        # Store a list of other groups that this automat is activated
-        # within.
         self.other_groups = set()
 
 # Store an automata to be implemented, and a set of translators
@@ -202,7 +194,7 @@ def compute_compiles_for(args):
         # Some automata belong to more than one group, e.g. prefix
         # automata.  If this is one of those automata, then we
         # can't cross-compile within the group.
-        if i2 in group[i][j].automata.other_groups:
+        if i2 in group[i][j].other_groups:
             continue
 
         for j2 in range(len(group[i2])):
@@ -236,7 +228,7 @@ def compute_compiles_for(args):
                 print "(Hash)", str(source_automata.algebra.structural_hash())
                 print " and, ", str(target_automata.algebra)
                 print "(Hash)", str(target_automata.algebra.structural_hash())
-            conversion_machine, failure_reason = sc.compile_from_algebras(source_automata.algebra, source_automata.automata.component, target_automata.algebra, target_automata.automata.component, options)
+            conversion_machine, failure_reason = sc.compile_from_algebras(source_automata.algebra, source_automata.automata, target_automata.algebra, target_automata.automata, options)
 
             if conversion_machine:
                 if options.dump_comparison_cache:
@@ -416,7 +408,7 @@ def generate_base_automata_for(groups, assignments, options):
         automata = result_automata_group[i]
 
         if DEBUG_GENERATE_BASE:
-            print "Pre modification", sc.compute_depth_equation(automata.component, options)
+            print "Pre modification", sc.compute_depth_equation(automata, options)
             print "Modifications are:"
             mod_count = 0
             for addition in structural_additions[i]:
@@ -425,17 +417,21 @@ def generate_base_automata_for(groups, assignments, options):
                     print mod.algebra
             print "Making ", mod_count, "modifications"
 
-        result.append(AutomataComponentWrapper(alg.apply_structural_transformations(automata.component, structural_additions[i], options)))
+        result.append(AutomataContainer(alg.apply_structural_transformations(automata, structural_additions[i], options), None))
         if DEBUG_GENERATE_BASE:
-            print "Post-mofication", sc.compute_depth_equation(result[-1].component, options)
+            print "Post-mofication", sc.compute_depth_equation(result[-1], options)
 
     return result, automata_mapping
 
 
 def wrap_automata(automata_components, options):
+    new_components = []
     for i in range(len(automata_components)):
+        new_group = []
         for j in range(len(automata_components[i])):
-            automata_components[i][j] = AutomataComponentWrapper(automata_components[i][j])
+            simple_graph = sjss.automata_to_nodes_and_edges(automata_components[i][j])
+            new_group.append(AutomataContainer(simple_graph, None))
+        new_components.append(new_group)
 
     if options.no_groups:
         # Flatten the automata compoenents into a single list of componenets.
@@ -443,9 +439,9 @@ def wrap_automata(automata_components, options):
         for group in automata_components:
             for elt in group:
                 new_acs.append([elt])
-        automata_components = new_acs
+        new_components = new_acs
 
-    return automata_components
+    return new_components
 
 
 # if we want to use the comparison cache from a file, then load
@@ -494,9 +490,9 @@ def remove_prefixes(addition_components, group_components, options):
             for i in range(len(group_components)):
                 for j in range(len(group_components[i])):
                     if options.use_prefix_unification:
-                        shared_prefix, tail_first, tail_second, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].symbol_lookup, options)
+                        shared_prefix, tail_first, tail_second, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.automata.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].automata.symbol_lookup, options)
                     else:
-                        shared_prefix, tail_first, tail_second = alg.prefix_merge(group_components[i][j].algebra, group_components[i][j].symbol_lookup, component.algebra, component.symbol_lookup, options)
+                        shared_prefix, tail_first, tail_second = alg.prefix_merge(group_components[i][j].algebra, group_components[i][j].automata.symbol_lookup, component.algebra, component.automata.symbol_lookup, options)
                         conversion_machine = FST.EmptySingleStateTranslator()
 
                     # We are looking for more than just a splitting of
@@ -521,7 +517,7 @@ def remove_prefixes(addition_components, group_components, options):
             if found_prefix is not None:
                 removed_prefix = True
                 prefix_reduced_machine_indexes.add(comp_index)
-                input_graph = AutomataComponentWrapper(sjss.nodes_and_edges_to_automata(alg.full_graph_for(found_prefix, group_components[found_prefix_i][found_prefix_j].symbol_lookup)))
+                input_graph = alg.full_graph_for(found_prefix, group_components[found_prefix_i][found_prefix_j].automata.symbol_lookup)
                 newly_accelerated_prefix = AutomataContainer(input_graph, found_prefix)
 
 
@@ -540,7 +536,7 @@ def remove_prefixes(addition_components, group_components, options):
                 else:
                     # There is still more, update the component.
                     component = AutomataContainer(
-                            alg.full_graph_for(found_tail_component, component.symbol_lookup),
+                            alg.full_graph_for(found_tail_component, component.automata.symbol_lookup),
                             found_tail_component)
         #endwhile
         all_prefix_machines.append(prefix_machines)
@@ -568,7 +564,7 @@ def find_match_for_addition(components, group_components, used_group_components,
                     continue
                 target = group_components[i][j]
 
-                conversion_machine, failure_reason = sc.compile_from_algebras(component.algebra, component.automata.component, target.algebra, target.automata.component, options)
+                conversion_machine, failure_reason = sc.compile_from_algebras(component.algebra, component.automata, target.algebra, target.automata, options)
 
                 if conversion_machine is not None:
                     conversions[comp_index].append((i, j, target, conversion_machine))
@@ -763,6 +759,9 @@ def compile_to_existing(addition_components, existing_components, options):
     # Now, we can turn these into algebras :)
     addition_algebras = compile_to_fixed_structures(addition_components, options)
     existing_algebras = compile_to_fixed_structures(existing_components, options)
+    for x in addition_algebras:
+        for y in x:
+            assert y.algebra is not None
 
     if DEBUG_COMPILE_TO_EXISTING:
         print "Addition Algebras are:"
@@ -885,7 +884,7 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
             source = groups[i][j]
             
             # Now, generate the unifier for this compilation:
-            conversion_machine, failure_reason = sc.compile_from_algebras(source.algebra, source.automata.component, target.algebra, target.automata.component, options)
+            conversion_machine, failure_reason = sc.compile_from_algebras(source.algebra, source.automata, target.algebra, target.automata, options)
             # I think that this is going to have to succeed.
             # There are ways around it, but it suggests that
             # some approximation was used if it fails.
@@ -903,8 +902,7 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
                 # These are ommitted by default because they
                 # might be really big..
                 # print "They have graphs"
-                # sgraph = sjss.automata_to_nodes_and_edges(source.automata)
-                # dgraph = sjss.automata_to_nodes_and_edges(target.automata)
+
                 print "WHen we were promised to be able to"
                 print "Original assignment was from:"
                 print source.algebra
@@ -973,7 +971,7 @@ def prefix_merge(automata_components, options):
                     if i2 == i and j2 == j:
                         continue
 
-                    shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].symbol_lookup, options)
+                    shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
 
                     if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold:
                         # Replace the two algebras if the shared
@@ -1005,21 +1003,17 @@ def prefix_merge(automata_components, options):
                     continue
             # Execute the merges
             group1_set = False
-            old_symbol_lookup = groups[i][j].symbol_lookup
+            old_symbol_lookup = groups[i][j].automata.symbol_lookup
             for (i2, j2, prefix, tail_first, tail_second) in merges:
                 prefix_groups_required.add(i2)
                 if not group1_set:
                     if tail_first is None:
                         automata_to_remove.add((i, j))
                     else:
-                        new_graph = sjss.nodes_and_edges_to_automata(alg.full_graph_for(tail_first, groups[i][j].symbol_lookup))
-                        wrapper = AutomataComponentWrapper(new_graph)
-                        wrapper.other_groups = groups[i][j].automata.other_groups
-
-                        groups[i][j] = AutomataContainer(
-                                wrapper,
-                                sc.compute_depth_equation(new_graph, options)
-                            )
+                        new_graph = alg.full_graph_for(tail_first, groups[i][j].automata.symbol_lookup)
+                        wrapper = AutomataContainer(new_graph, sc.compute_depth_equation(new_graph, options))
+                        wrapper.other_groups = groups[i][j].other_groups
+                        groups[i][j] = wrapper
 
                     # Only set the source group the first time.
                     group1_set = True
@@ -1027,30 +1021,24 @@ def prefix_merge(automata_components, options):
                 if tail_second is None:
                     automata_to_remove.add((i2, j2))
                 else:
-                    new_graph = sjss.nodes_and_edges_to_automata(alg.full_graph_for(tail_second, groups[i2][j2].symbol_lookup))
-                    wrapper = AutomataComponentWrapper(new_graph)
-                    wrapper.other_groups = groups[i2][j2].automata.other_groups
+                    new_graph = alg.full_graph_for(tail_second, groups[i2][j2].automata.symbol_lookup)
 
+                    old_groups = groups[i2][j2].other_groups
                     groups[i2][j2] = AutomataContainer(
                             wrapper,
                             sc.compute_depth_equation(new_graph, options)
                         )
+                    groups[i2][j2].other_groups = old_groups
             # The prefixes_to_add keeps track of what needs to be added to the automata list.
             # This makes sure that we don't add things to multiple
             # lists.
             if len(merges) > 0:
                 prefixes_to_add.append((i, j, prefix, prefix_groups_required, old_symbol_lookup))
 
-    # Now, go back to a list of CCs because that's what we said we would
-    # return.
-    for i in range(len(groups)):
-        for j in range(len(groups[i])):
-            groups[i][j] = groups[i][j].automata
-
     # Now add the prefixes to the groups that need it.
     for i, j, prefix, other_groups, old_symbol_lookup in prefixes_to_add:
-        new_graph = sjss.nodes_and_edges_to_automata(alg.full_graph_for(prefix, old_symbol_lookup))
-        wrapper = AutomataComponentWrapper(new_graph)
+        new_graph = alg.full_graph_for(prefix, old_symbol_lookup)
+        wrapper = AutomataContainer(new_graph, None)
         wrapper.other_groups = other_groups
         groups[i].append(wrapper)
 
@@ -1097,20 +1085,18 @@ def groups_from_components(automata_components, options):
                 print "Equation index", equation_index
 
             global algebra_cache
-            graph_hash = sjss.hash_graph(cc.component)
+            graph_hash = sjss.hash_graph(cc.automata)
             if options.use_algebra_cache and graph_hash in algebra_cache:
                 depth_eqn = algebra_cache[graph_hash]
 
                 if depth_eqn is not None:
                     depth_eqn = depth_eqn.clone()
             else:
-                depth_eqn = sc.compute_depth_equation(cc.component, options)
+                depth_eqn = sc.compute_depth_equation(cc.automata, options)
                 if depth_eqn is None:
                     algebra_cache[graph_hash] = None
                 else:
                     algebra_cache[graph_hash] = depth_eqn.clone()
-
-            simple_graph = sjss.automata_to_nodes_and_edges(cc.component).edges
 
             if not depth_eqn:
                 # Means that the graph was too big for the current
@@ -1119,11 +1105,11 @@ def groups_from_components(automata_components, options):
 
             edges_not_in_graph = False
             for edge in depth_eqn.all_edges():
-                if edge not in simple_graph:
+                if edge not in cc.automata.edges:
                     edges_not_in_graph = True
                     print "Edge", edge, "not in graph"
             if edges_not_in_graph:
-                print "Graph", simple_graph
+                print "Graph", cc.automata
                 print "Equation", depth_eqn
                 assert False
 
@@ -1133,12 +1119,16 @@ def groups_from_components(automata_components, options):
             if options.algebra_size_threshold and depth_eqn.size() > options.algebra_size_threshold:
                 print "Omitting equation due to size"
             else:
-                group.append(AutomataContainer(cc, depth_eqn))
+                cc.algebra = depth_eqn
+                group.append(cc)
                 equation_index += 1
 
         groups.append(group)
         group_index += 1
 
+    for x in groups:
+        for y in x:
+            assert y.algebra is not None
     return groups
 
 
