@@ -310,8 +310,7 @@ def compute_sssp(nodes, edges, source):
     changing = True
     while changing:
         changing = False
-        for j in range(len(nodes)):
-            node = nodes[j]
+        for node in nodes:
             outs = output_lookup[node]
             for dst in outs:
                 if node_dists[dst] > node_dists[node] + 1:
