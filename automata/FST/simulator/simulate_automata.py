@@ -8,7 +8,7 @@ def accepts(graph, string, trace=False):
     active_states = set([graph.start_state])
     neighbors = graph.neighbors_lookup()
     end_states = graph.end_states(neighbors)
-    if str(type(list(graph.symbol_lookup[graph.edges[0]])[0])) == "<type 'int'>" and str(type(string)) == "<type 'str'>":
+    if str(type(list(graph.symbol_lookup[list(graph.edges)[0]])[0])) == "<type 'int'>" and str(type(string)) == "<type 'str'>":
         # Translate the char stream to an int stream:
         string = [ord(x) for x in string]
 

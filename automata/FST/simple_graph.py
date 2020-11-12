@@ -4,6 +4,10 @@ class SimpleGraph(object):
     def __init__(self, nodes, edges, symbol_lookup, accepting_states, start_state):
         assert type(symbol_lookup) == type({})
         assert type(start_state) != type([])
+        assert type(nodes) == type(set())
+        assert type(edges) == type(set())
+        assert type(accepting_states) == type(set())
+
         self.nodes = nodes
         self.edges = edges
         self.symbol_lookup = symbol_lookup
@@ -12,10 +16,10 @@ class SimpleGraph(object):
 
     def clone(self):
         return SimpleGraph(
-                self.nodes[:],
-                self.edges[:],
+                set(self.nodes),
+                set(self.edges),
                 dict(self.symbol_lookup),
-                self.accepting_states[:],
+                set(self.accepting_states),
                 self.start_state)
 
     def __str__(self):

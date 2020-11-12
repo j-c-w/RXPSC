@@ -555,20 +555,19 @@ def linear_algebra_for(branch, accept_states):
 # the final node (expect that would not be hard to achieve)
 def full_graph_for(algebra, symbol_lookup):
     symbol_lookup = dict(symbol_lookup) # Deep copy the symbol lookup
-    edges = list(algebra.all_edges())
+    edges = set(algebra.all_edges())
     start_state = algebra.get_first_node()
     nodes = set()
     # Don't modify the symbol lookup in place
     symbol_lookup = dict(symbol_lookup)
 
-    for i in range(len(edges)):
-        (from_n, to_n) = edges[i]
-
+    for (from_n, to_n) in set(edges):
         if from_n == start_state and start_state != 0:
             symbol_lookup[(0, to_n)] = symbol_lookup[(from_n, to_n)]
             del symbol_lookup[(from_n, to_n)]
+            edges.remove((from_n, to_n))
             from_n = 0
-            edges[i] = (from_n, to_n)
+            edges.add((from_n, to_n))
         nodes.add(to_n)
         nodes.add(from_n)
     # We have turned the start state into 0 by here.
@@ -586,17 +585,17 @@ def full_graph_for(algebra, symbol_lookup):
 # usecase is small extensions to graphs.
 # Returns: nodes, edges, start_states, accept_states, symbols, end_nodes
 def graph_for(algebra, symbol_lookup):
-    edges = []
-    accept_states = []
+    edges = set()
+    accept_states = set()
     result_lookup = {}
-    last_nodes = []
-    end_nodes = []
+    last_nodes = set()
+    end_nodes = set()
 
     node_counter = 1
     # Create the start node:
     start_node = 0
     start_state = start_node
-    nodes = [start_node]
+    nodes = set([start_node])
     if algebra.issum():
         last_node = start_node
         for obj in algebra.e1:
@@ -606,17 +605,17 @@ def graph_for(algebra, symbol_lookup):
                 new_node = node_counter
                 node_counter += 1
 
-                nodes.append(new_node)
-                edges.append((last_node, new_node))
+                nodes.add(new_node)
+                edges.add((last_node, new_node))
                 result_lookup[(last_node, new_node)] = symbol_lookup[obj.edges[0]]
                 # Move the node along one for the next term.
                 last_node = new_node
             elif obj.isaccept():
-                accept_states.append(last_node)
+                accept_states.add(last_node)
             elif obj.isend():
-                last_nodes.append(last_node)
+                last_nodes.add(last_node)
             elif obj.isproduct() and obj.e1.isconst():
-                edges.append((last_node, last_node))
+                edges.add((last_node, last_node))
 
                 result_lookup[(last_node, last_node)] = symbol_lookup[obj.e1.edges[0]]
 
@@ -633,10 +632,10 @@ def graph_for(algebra, symbol_lookup):
     elif algebra.isconst():
         # Return a two-node graph.
         next_node = node_counter
-        edges.append((start_node, next_node))
-        nodes.append(node_counter)
+        edges.add((start_node, next_node))
+        nodes.add(node_counter)
         result_lookup[(start_node, next_node)] = symbol_lookup[algebra.edges[0]]
-        end_nodes.append(next_node)
+        end_nodes.add(next_node)
     elif algebra.isproduct():
         # Do this by computing the subgraph, then linking the
         # last node to the first node.
@@ -649,22 +648,23 @@ def graph_for(algebra, symbol_lookup):
         # Make the end state and the start state the same, because this
         # is a loop.
         for state in end_nodes:
-            for i in range(len(edges)):
+            for edge in set(edges):
                 # If this edge goes to an ending state, then point
                 # it around at a start state.
                 # Note that for various more complicated structures,
                 # like a branch with a possible ending within
                 # a loop, this doesn't work.
                 # (e.g. (1 + {1 + e, 1})* )
-                if edges[i][1] == state:
-                    old_edge = edges[i]
-                    edges[i] = (edges[i][0], start_state)
-                    result_lookup[edges[i]] = result_lookup[old_edge]
-                    del result_lookup[old_edge]
+                if edge[1] == state:
+                    new_edge = (edge[0], start_state)
+                    result_lookup[new_edge] = result_lookup[edge]
+                    del result_lookup[edge]
+                    edges.remove(edge)
+                    edges.add(new_edge)
             # Also remove the deleted node from the list of nodes.
-            for i in range(len(nodes)):
-                if nodes[i] == state:
-                    del nodes[i]
+            for node in set(nodes):
+                if node == state:
+                    nodes.remove(node)
         end_nodes = []
     return SimpleGraph(nodes, edges, result_lookup, accept_states, start_state), end_nodes
 
