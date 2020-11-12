@@ -20,6 +20,7 @@ class Options(object):
         self.use_prefix_splitting = False
         self.use_prefix_estimation = False
         self.use_prefix_unification = True
+        self.use_splitter = False
         self.prefix_merging_only = False
 
         self.leq_iterations_file = None
@@ -96,6 +97,7 @@ def create_from_args(args):
     opts.prefix_merging_only = args.prefix_merging_only
     opts.use_cross_compilation = args.cross_compile
     opts.use_inline_unification_heuristics = not args.no_inline_unification_heuristics
+    opts.use_splitter = args.use_splitter
 
     opts.group_size_distribution = args.group_size_distribution
     opts.print_file_info = args.print_file_info
@@ -190,6 +192,7 @@ def add_to_parser(parser):
     parser.add_argument('--no-algebra-cache', default=False, dest='no_algebra_cache', action='store_true', help='Do not cache algebra generation results from particular graphs.  Will speed up computation if using methods only relying a single algebra computation per graph.')
     parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
     parser.add_argument('--use-prefix-merging', default=False, dest='use_prefix_merging', help="Use prefix merging (experimental only)", action='store_true')
+    parser.add_argument('--use-splitter', default=False, dest='use_splitter', help='Use automata splitting to make automata more structurally compatible.', action='store_true')
     parser.add_argument('--no-prefix-unification', default=False, dest='no_prefix_unification', help="Don't use prefix unification, and use traditional unification instead (means you don't use translation resources for a particular state)", action='store_true')
     parser.add_argument('--prefix-merging-only', default=False, dest='prefix_merging_only', help="Use prefix merging only (prefix_merging)", action='store_true')
     parser.add_argument('--use-prefix-splitting', default=False, dest='use_prefix_splitting', help="Use prefix splitting to split automata being translated (makes external techniques such as input-stream translation more effective)", action='store_true')

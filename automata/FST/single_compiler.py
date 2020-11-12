@@ -228,7 +228,7 @@ def compute_depth_equation(atma, options, dump_output=False):
             print e
             return None
     else:
-        alg = algebra.generate(atma.nodes, atma.edges, atma.start, atma.accepting_states, options)
+        alg = algebra.generate(atma.nodes, atma.edges, atma.start_state, atma.accepting_states, options)
     end = time.time()
     if dump_output:
         print "Time taken is " + str(end - start_time)

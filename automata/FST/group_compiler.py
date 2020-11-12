@@ -10,6 +10,7 @@ from cache import ComparisonCache
 import algebra as alg
 import FST
 import automata.FST.passes.pass_list as pass_list
+import simple_graph
 
 try:
     import line_profiler
@@ -79,6 +80,8 @@ class AutomataContainer(object):
         self.automata = automata
         self.algebra = algebra
         self.other_groups = set()
+
+        assert isinstance(automata, simple_graph.SimpleGraph)
 
 # Store an automata to be implemented, and a set of translators
 # to link up to it as a CCGroup (ConnectedComponent Group)
@@ -750,7 +753,8 @@ def compile_to_existing(addition_components, existing_components, options):
         if DEBUG_COMPILE_TO_EXISTING:
             print "Assuming that underlying accelerators were prefix-split, splitting..."
             initial_count = sum([len(x) for x in existing_components])
-        existing_components = prefix_merge(existing_components, options)
+        existing_components = pass_list.ComputeAlgebras.execute(existing_components, options)
+        existing_components = pass_list.PrefixSplit.execute(existing_components, options)
 
         if DEBUG_COMPILE_TO_EXISTING:
             print "Total introduced prefixes is "
@@ -758,25 +762,22 @@ def compile_to_existing(addition_components, existing_components, options):
 
 
     # Now, we can turn these into algebras :)
-    addition_algebras = compile_to_fixed_structures(addition_components, options)
-    existing_algebras = compile_to_fixed_structures(existing_components, options)
-    for x in addition_algebras:
-        for y in x:
-            assert y.algebra is not None
+    addition_components = pass_list.ComputeAlgebras.execute(addition_components, options)
+    existing_components = pass_list.ComputeAlgebras.execute(existing_components, options)
 
     if DEBUG_COMPILE_TO_EXISTING:
         print "Addition Algebras are:"
-        for group in addition_algebras:
+        for group in addition_components:
             print "---New Group---"
             for a in group:
                 print a.algebra
 
         print "Existing Algebras are:"
-        for group in existing_algebras:
+        for group in existing_components:
             for e in group:
                 print e.algebra
 
-    all_conv_machines = find_conversions_for_additions(addition_algebras, existing_algebras, options)
+    all_conv_machines = find_conversions_for_additions(addition_components, existing_components, options)
 
     if options.print_compile_time:
         total_time = time.time() - start_time
@@ -806,7 +807,8 @@ def compile(automata_components, options):
         # Do prefix merging on the automata, generate
         # the new prefixes, and the continue on to the
         # rest of the optimizations.
-        automata_components = prefix_merge(automata_components, options)
+        automata_components = pass_list.ComputeAlgebras.execute(automata_components, options)
+        automata_components = pass_list.PrefixSplit.execute(automata_components, options)
 
     if options.group_size_distribution:
         group_sizes = []
@@ -823,7 +825,7 @@ def compile(automata_components, options):
     #   3: compute the hardware assignments.
     #   4: recompute the translators for all the chosen automata.
     # (1)
-    groups = compile_to_fixed_structures(automata_components, options)
+    groups = pass_list.ComputeAlgebras.execute(automata_components, options)
     if options.compile_only:
         return None
 
@@ -845,7 +847,7 @@ def compile(automata_components, options):
     # (4) - regenerate the base automata algebras in case these changed.
     options.use_size_limits = False # Need to disable limits --- the graphs may have grown when they
     # were being structurally modified.
-    base_automata_algebras = compile_to_fixed_structures([base_automata_components], options)[0]
+    base_automata_algebras = pass_list.ComputeAlgebras.execute([base_automata_components], options)[0]
     assert len(base_automata_algebras) == len(base_automata_components)
     result = generate_translators(base_automata_algebras, groups, mapping, assignments, options)
 
@@ -931,145 +933,6 @@ def generate_translators(base_accelerators, groups, mapping, assignments, option
 def recompile_structures(automata_components, options):
     groups = pass_list.ComputeAlgebras.execute(automata_components, options)
     group_index = 0
-
-# This function does a prefix merging for the automata
-# components.  It does this in the accepting path algebra,
-# because that was just a bit easier to write.
-# After doing prefix merging, it separates out the prefixes
-# and the postfixes to enable better cross compilation.
-# IT IS NOT INTENDED FOR FULL USE IN THE CURRENT IMPLEMENTATION,
-# because it is not correctly hooked in with the backend.
-# The backend would ideally generate fake start states
-# for the prefix-merged automata, but instead they are
-# treated as real start states.
-# In other words, the current implementation provides the
-# numbers, but not a real implementation of prefix-merged
-# automata.
-def prefix_merge(automata_components, options):
-    # Get the groups:
-    groups = compile_to_fixed_structures(automata_components, options)
-    # keep track of the new automata that we should add.
-    prefixes_to_add = []
-    automata_to_remove = set()
-
-    # Now, compute the prefixes of every pair of automata:
-    for i in range(len(groups)):
-        for j in range(len(groups[i])):
-            if (i, j) in automata_to_remove:
-                # This algebra has been completely replaced
-                # by a prefix --- move onto next.
-                continue
-
-            shared_prefixes = []
-            # Aim is to only iterate over the /subsequent/
-            # automata so to avoid prefix merging in loops.
-            for i2 in range(i, len(groups)):
-                if i2 == i:
-                    jrange = range(j + 1, len(groups[i2]))
-                else:
-                    jrange = range(len(groups[i2]))
-                for j2 in jrange:
-                    if i2 == i and j2 == j:
-                        continue
-
-                    shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
-
-                    if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold:
-                        # Replace the two algebras if the shared
-                        # prefix is big enough.
-                        shared_prefixes.append((i2, j2, shared_prefix, tail_first, tail_second))
-
-            # Now, compute the prefix merges --- find the biggest
-            # possible prefix and merge that.
-            # There are other good heuristics we could use here, 
-            # like find the prefix with the most possible states.
-            merge_size = -1
-            merges = []
-            prefix_groups_required = set()
-            for (i2, j2, prefix, tail_first, tail_second) in shared_prefixes:
-                if prefix.size() > merge_size:
-                    prefix_groups_required = groups[i][j].automata.other_groups.union(groups[i2][j2].automata.other_groups)
-                    merge_size = prefix.size()
-                    merges = [(i2, j2, prefix, tail_first, tail_second)]
-                # This equality might not be right -- it computes 
-                # structural equality, and clearly we are after
-                # strict equality.  That said, I think they are
-                # the same here, because we know that these are prefixes
-                # for this automata, so they must be equal to the existing
-                # prefix.
-                elif prefix.size() == merge_size and prefix.equals(merges[0][2]):
-                    merges.append((i2, j2, prefix, tail_first, tail_second))
-                    prefix_groups_required = prefix_groups_required.union(groups[i2][j2].automata.other_groups)
-                else:
-                    continue
-            # Execute the merges
-            group1_set = False
-            old_symbol_lookup = groups[i][j].automata.symbol_lookup
-            for (i2, j2, prefix, tail_first, tail_second) in merges:
-                prefix_groups_required.add(i2)
-                if not group1_set:
-                    if tail_first is None:
-                        automata_to_remove.add((i, j))
-                    else:
-                        new_graph = alg.full_graph_for(tail_first, groups[i][j].automata.symbol_lookup)
-                        wrapper = AutomataContainer(new_graph, sc.compute_depth_equation(new_graph, options))
-                        wrapper.other_groups = groups[i][j].other_groups
-                        groups[i][j] = wrapper
-
-                    # Only set the source group the first time.
-                    group1_set = True
-
-                if tail_second is None:
-                    automata_to_remove.add((i2, j2))
-                else:
-                    new_graph = alg.full_graph_for(tail_second, groups[i2][j2].automata.symbol_lookup)
-
-                    old_groups = groups[i2][j2].other_groups
-                    groups[i2][j2] = AutomataContainer(
-                            wrapper,
-                            sc.compute_depth_equation(new_graph, options)
-                        )
-                    groups[i2][j2].other_groups = old_groups
-            # The prefixes_to_add keeps track of what needs to be added to the automata list.
-            # This makes sure that we don't add things to multiple
-            # lists.
-            if len(merges) > 0:
-                prefixes_to_add.append((i, j, prefix, prefix_groups_required, old_symbol_lookup))
-
-    # Now add the prefixes to the groups that need it.
-    for i, j, prefix, other_groups, old_symbol_lookup in prefixes_to_add:
-        new_graph = alg.full_graph_for(prefix, old_symbol_lookup)
-        wrapper = AutomataContainer(new_graph, None)
-        wrapper.other_groups = other_groups
-        groups[i].append(wrapper)
-
-    automata_to_remove = sorted(list(automata_to_remove))[::-1]
-    for (i, j) in automata_to_remove:
-        del groups[i][j]
-
-    return groups
-
-
-def compile_to_fixed_structures(automata_components, options):
-    # Takes a list of lists of CCs, and computes a
-    # set of CCs that should go in hardware, and a list
-    # that can be translated.
-
-    # Generate the group.
-    groups = pass_list.ComputeAlgebras.execute(automata_components, options)
-
-    if options.memory_debug:
-        print "Memory Usage before computing depth equations"
-        h = hpy()
-        print(h.heap())
-
-    if options.memory_debug:
-        print "Memory Usage after computing depth equations"
-        h = hpy()
-        print(h.heap())
-
-    return groups
-
 
 def print_regex_injection_stats(groups, options):
     compiles_from, compiles_to = compute_cross_compatibility_matrix_for(groups, options)
