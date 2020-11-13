@@ -125,5 +125,3 @@ def prefix_split(groups, options):
         del groups[i][j]
 
     return groups
-
-
