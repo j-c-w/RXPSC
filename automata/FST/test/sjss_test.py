@@ -93,33 +93,33 @@ class SJSSTest(unittest.TestCase):
         self.assertEqual(sorted(list(sjss.get_node_before_edges([(0, 1), (4, 2)]))), [0, 4])
 
     def test_relabel_from(self):
-        nodes = [0, 1]
-        edges = [(0, 1)]
+        nodes = set([0, 1])
+        edges = set([(0, 1)])
         start_state = 0
         symbol_lookup = { (0, 1): 'a' }
-        accepting_states = [1]
+        accepting_states = set([1])
         graph = SimpleGraph(nodes, edges, symbol_lookup, accepting_states, start_state)
 
         result = sjss.relabel_from(5, graph)
 
-        self.assertEqual(result.nodes, [5, 6])
-        self.assertEqual(result.edges, [(5, 6)])
+        self.assertEqual(result.nodes, set([5, 6]))
+        self.assertEqual(result.edges, set([(5, 6)]))
         self.assertEqual(result.start_state, 5)
         self.assertEqual(result.symbol_lookup[(5, 6)], 'a')
-        self.assertEqual(result.accepting_states, [6])
+        self.assertEqual(result.accepting_states, set([6]))
 
     def test_splice(self):
-        bnodes = [0, 1]
-        bedges = [(0, 1)]
+        bnodes = set([0, 1])
+        bedges = set([(0, 1)])
         blookup = {(0, 1): 'a'}
-        baccepting_states = [1]
+        baccepting_states = set([1])
         bstart_state = 0
         bgraph = SimpleGraph(bnodes, bedges, blookup, baccepting_states, bstart_state)
 
-        inodes = [0, 1, 2]
-        iedges = [(0, 1), (1, 2)]
+        inodes = set([0, 1, 2])
+        iedges = set([(0, 1), (1, 2)])
         ilookup = {(0, 1): 'b', (1, 2): 'a'}
-        iaccepting_states =[1]
+        iaccepting_states = set([1])
         istart_state = 0
         igraph = SimpleGraph(inodes, iedges, ilookup, iaccepting_states, istart_state)
 
@@ -132,7 +132,7 @@ class SJSSTest(unittest.TestCase):
                 )
 
         self.assertEqual(len(result.nodes), 4)
-        self.assertEqual(result.edges, [(0, 1), (1, 3), (3, 4)])
+        self.assertEqual(result.edges, set([(0, 1), (1, 3), (3, 4)]))
         self.assertTrue((0, 1) in result.symbol_lookup)
         self.assertTrue((1, 3) in result.symbol_lookup)
         self.assertEqual(len(result.accepting_states), 2)
@@ -148,8 +148,8 @@ class SJSSTest(unittest.TestCase):
                 )
 
         self.assertEqual(len(result.nodes), 3)
-        self.assertEqual(result.edges, [(0, 1), (0, 3), (3, 1)])
-        self.assertEqual(result.accepting_states, [1, 3])
+        self.assertEqual(result.edges, set([(0, 1), (0, 3), (3, 1)]))
+        self.assertEqual(result.accepting_states, set([1, 3]))
 
 
 if __name__ == "__main__":

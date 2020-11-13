@@ -4,14 +4,14 @@ import unittest
 
 class TestSim(unittest.TestCase):
     def test_simple(self):
-        nodes = [0, 1, 2]
-        edges = [(0, 1), (1, 1), (1, 2)]
+        nodes = set([0, 1, 2])
+        edges = set([(0, 1), (1, 1), (1, 2)])
         symbol_lookup = {
                 (0, 1): ['a'],
                 (1, 1): ['b'],
                 (1, 2): ['c']
                 }
-        accepting_states = [2]
+        accepting_states = set([2])
         start_state = 0
         simple_automata = simple_graph.SimpleGraph(nodes, edges, symbol_lookup, accepting_states, start_state)
 

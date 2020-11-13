@@ -18,7 +18,7 @@ class AlgebraTest(unittest.TestCase):
         # though.
         # Don't think it's incorrect, just obtuse and hard to 
         # compile to.
-        self.assertEqual(str(algebra), '2 + a + 2 + {1 + (1)* + 1, 1} + ({1 + (1)* + 1 + e, 1})* + 1 + e')
+        self.assertEqual(str(algebra), '2 + a + 2 + {1, 1 + (1)* + 1} + ({1, 1 + (1)* + 1 + e})* + 1 + e')
 
     # It is not 100% clear to me that these should nessecarily
     # be of the format a + (1 + a)*, rather than (a + 1)*.
@@ -302,19 +302,19 @@ class TestDeconstruction(unittest.TestCase):
 
     def test_graph_for_const(self):
         graph, end_nodes = alg.graph_for(Const(1, [(0, 1)]), {(0, 1): 'a'})
-        self.assertEqual(graph.edges, [(0, 1)])
+        self.assertEqual(graph.edges, set([(0, 1)]))
         self.assertEqual(graph.start_state, 0)
-        self.assertEqual(end_nodes, [1])
+        self.assertEqual(end_nodes, set([1]))
 
     def test_graph_for_sum(self):
         graph, end_nodes = alg.graph_for(Sum([Const(1, [(0, 1)]), Accept(), End()]), {(0, 1): 'a'})
-        self.assertEqual(graph.accepting_states, [1])
+        self.assertEqual(graph.accepting_states, set([1]))
 
     def test_graph_for_loop(self):
         graph, end_nodes = alg.graph_for(Product(Const(1, [(2, 2)])), {(2, 2): 'a'})
-        self.assertEqual(graph.edges, [(0, 0)])
+        self.assertEqual(graph.edges, set([(0, 0)]))
         self.assertEqual(end_nodes, [])
-        self.assertEqual(graph.nodes, [0])
+        self.assertEqual(graph.nodes, set([0]))
 
 class StructuralTransformations(unittest.TestCase):
     def test_apply_structural_transformations(self):

@@ -5,7 +5,7 @@ import automata.FST.algebra as alg
 from automata.FST.terms import *
 
 simple_unifier = unifier.Unifier()
-simple_unifier.add_edges([(0, 1), (1, 2)], [(0, 1), (1, 2)])
+simple_unifier.add_edges([(0, 1), (1, 2)], [(0, 1), (1, 2)], EmptyOptions)
 
 class UnifierTest(unittest.TestCase):
     def test_branch_addition(self):
