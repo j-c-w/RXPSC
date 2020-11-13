@@ -4,6 +4,9 @@ import unifier
 import terms
 import group_compiler
 
+# This file is a total mess -- ideally we'd have all the flags
+# defined by the appropriate passes.
+
 class Options(object):
     def __init__(self):
         self.ouptut_folder = 'rxpsc_out'
@@ -29,6 +32,9 @@ class Options(object):
         self.no_leq_heuristics = True
         self.use_unification_heuristics = True
         self.use_inline_unification_heuristics = True
+
+        self.split_size_threshold = 10
+        self.print_split_stats = False
 
         self.group_size_distribution = None
         self.print_file_info = False
@@ -109,6 +115,9 @@ def create_from_args(args):
     opts.compression_stats = args.compression_stats
     opts.print_regex_injection_stats = args.print_regex_injection_stats
     opts.use_size_limits = not args.no_size_limits
+
+    opts.split_size_threshold = args.split_size_threshold
+    opts.print_split_stats = args.print_split_stats
 
     opts.graph_size_threshold = args.graph_size_threshold
     opts.cross_compilation_threading = args.cross_compilation_threading
@@ -193,6 +202,8 @@ def add_to_parser(parser):
     parser.add_argument('--no-size-limits', default=False, dest='no_size_limits', help="Disable all size limits on input graphs (Not recommended!)")
     parser.add_argument('--use-prefix-merging', default=False, dest='use_prefix_merging', help="Use prefix merging (experimental only)", action='store_true')
     parser.add_argument('--use-splitter', default=False, dest='use_splitter', help='Use automata splitting to make automata more structurally compatible.', action='store_true')
+    parser.add_argument('--print-split-stats', default=False, dest='print_split_stats', action='store_true')
+    parser.add_argument('--split-size-threshold', default=10, dest='split_size_threshold', type=int)
     parser.add_argument('--no-prefix-unification', default=False, dest='no_prefix_unification', help="Don't use prefix unification, and use traditional unification instead (means you don't use translation resources for a particular state)", action='store_true')
     parser.add_argument('--prefix-merging-only', default=False, dest='prefix_merging_only', help="Use prefix merging only (prefix_merging)", action='store_true')
     parser.add_argument('--use-prefix-splitting', default=False, dest='use_prefix_splitting', help="Use prefix splitting to split automata being translated (makes external techniques such as input-stream translation more effective)", action='store_true')

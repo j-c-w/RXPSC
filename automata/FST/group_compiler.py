@@ -810,6 +810,11 @@ def compile(automata_components, options):
         automata_components = pass_list.ComputeAlgebras.execute(automata_components, options)
         automata_components = pass_list.PrefixSplit.execute(automata_components, options)
 
+
+    # Run the generic splitter.
+    automata_components = pass_list.ComputeAlgebras.execute(automata_components, options)
+    automata_components = pass_list.Splitter.execute(automata_components, options)
+
     if options.group_size_distribution:
         group_sizes = []
         for group in automata_components:
