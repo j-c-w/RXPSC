@@ -23,6 +23,7 @@ class DepthEquation(object):
         self._cached_all_edges = None
         self._cached_first_node = None
         self._cached_accepting_nodes = None
+        self._cached_ends_with_end = None
 
     def isproduct(self):
         return False
@@ -51,6 +52,14 @@ class DepthEquation(object):
             return result
 
     def _all_edges(self):
+        assert False
+
+    def ends_with_end(self):
+        if self._cached_ends_with_end is None:
+            self._cached_ends_with_end = self._ends_with_end()
+        return self._cached_ends_with_end
+
+    def _ends_with_end(self):
         assert False
 
     def get_accepting_nodes(self):
@@ -203,6 +212,9 @@ class Product(DepthEquation):
         self._size = None
         self._last_node = None
 
+    def _ends_with_end(self):
+        return False
+
     def _get_accepting_nodes(self):
         return self.e1.get_accepting_nodes()
 
@@ -320,6 +332,9 @@ class Sum(DepthEquation):
         self.isnormal = False
         self._size = None
         self._last_node = None
+
+    def _ends_with_end(self):
+        return self.e1[-1].ends_with_end()
 
     def _get_accepting_nodes(self):
         accepting_nodes = set()
@@ -616,6 +631,9 @@ class Const(DepthEquation):
         self._size = None
         self.isnormal = val <= 1
 
+    def _ends_with_end(self):
+        return False
+
     def _get_accepting_nodes(self):
         return set()
 
@@ -739,6 +757,12 @@ class Branch(DepthEquation):
         self.isnormal = False
         self._size = None
         self.iscompressed = False
+
+    def _ends_with_end(self):
+        for opt in self.options:
+            if not opt.ends_with_end():
+                return False
+        return True
 
     def _get_accepting_nodes(self):
         sub_accepting = [opt.get_accepting_nodes() for opt in self.options if opt]
@@ -1005,7 +1029,10 @@ class Accept(DepthEquation):
         super(Accept, self).__init__()
         self.isnormal = True
 
-    def _get_accepting_nodes():
+    def _ends_with_end(self):
+        return False
+
+    def _get_accepting_nodes(self):
         return set()
 
     def clone(self):
@@ -1086,6 +1113,9 @@ class End(DepthEquation):
     def __init__(self):
         super(End, self).__init__()
         self.isnormal = True
+
+    def _ends_with_end(self):
+        return True
 
     def _get_accepting_nodes(self):
         return set()
