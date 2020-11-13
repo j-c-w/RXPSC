@@ -28,6 +28,7 @@ DEBUG_COMPUTE_HARDWARE = False
 DEBUG_COMPUTE_COMPAT_MATRIX = True
 DEBUG_GENERATE_BASE = False
 DEBUG_COMPILE_TO_EXISTING = True
+DEBUG_FIND_MATCH = True
 
 # This is a class that contains a set of accelerated
 # regular expressions.  We can use it to find which
@@ -554,6 +555,8 @@ def remove_prefixes(addition_components, group_components, options):
 
 
 def find_match_for_addition(components, group_components, used_group_components, prefix_reduced_machine_indexes, options):
+    if DEBUG_FIND_MATCH:
+        print "Have ", sum([len(c) for c in group_components]), "options to choose from "
     conversions = []
     # Keep track of the conversion machines for each component.
     for comp_index in range(len(components)):
@@ -672,10 +675,11 @@ def find_conversions_for_additions(addition_components, existing_components, opt
     # prefix matching, which still allows for partial pattern
     # recognition.
     has_partial_match = [False] * len(addition_components)
+    prefix_reduced_machine_indexes = set()
     for i in range(len(addition_components)):
         prefix_machines = None
         used_existing_components = set()
-        if options.use_prefix_splitting:
+        if options.use_prefix_splitting or options.use_splitter:
             # We do need to split the incoming regexp into any prefix components
             # that might match the prefix-merged lists however.  That
             # will mean we have to unify a few smaller chunks rather than
@@ -760,6 +764,8 @@ def compile_to_existing(addition_components, existing_components, options):
             print "Total introduced prefixes is "
             print sum([len(x) for x in existing_components]) - initial_count
 
+    existing_components = pass_list.ComputeAlgebras.execute(existing_components, options)
+    existing_components = pass_list.Splitter.execute(existing_components, options)
 
     # Now, we can turn these into algebras :)
     addition_components = pass_list.ComputeAlgebras.execute(addition_components, options)
