@@ -34,6 +34,7 @@ class Options(object):
         self.use_inline_unification_heuristics = True
 
         self.split_size_threshold = 10
+        self.split_threshold_frequency = 5
         self.print_split_stats = False
 
         self.group_size_distribution = None
@@ -117,6 +118,7 @@ def create_from_args(args):
     opts.use_size_limits = not args.no_size_limits
 
     opts.split_size_threshold = args.split_size_threshold
+    opts.split_threshold_frequency = args.split_threshold_frequency
     opts.print_split_stats = args.print_split_stats
 
     opts.graph_size_threshold = args.graph_size_threshold
@@ -207,6 +209,7 @@ def add_to_parser(parser):
     parser.add_argument('--no-prefix-unification', default=False, dest='no_prefix_unification', help="Don't use prefix unification, and use traditional unification instead (means you don't use translation resources for a particular state)", action='store_true')
     parser.add_argument('--prefix-merging-only', default=False, dest='prefix_merging_only', help="Use prefix merging only (prefix_merging)", action='store_true')
     parser.add_argument('--use-prefix-splitting', default=False, dest='use_prefix_splitting', help="Use prefix splitting to split automata being translated (makes external techniques such as input-stream translation more effective)", action='store_true')
+    parser.add_argument('--split-threshold-frequency', default=False, dest='split_threshold_frequency', help="How many occurances we require of a particular pattern to perform a split", type=int)
     parser.add_argument('--use-prefix-estimation', default=False, dest='use_prefix_estimation', help="Use prefix estimation to allow overapproximation of automata.", action='store_true')
     parser.add_argument('--cross-compile', default=False, dest='cross_compile', help='Use cross compilation to compress regexes', action='store_true')
     parser.add_argument('--prefix-size-threshold', default=5, dest='prefix_size_threshold', help='Smallest size of prefix to use.', type=int)
