@@ -1,5 +1,7 @@
 import rxp_pass
 
+from automata.FST.terms import *
+
 # This is a pass that splits graphs into smaller components.
 # It uses various heuristics to do so.
 class SplitterPass(rxp_pass.Pass):
@@ -12,6 +14,7 @@ class SplitterPass(rxp_pass.Pass):
         if not options.use_splitter:
             return groups
 
+        splits_at_start = compilation_statistics.splits_made
         new_groups = []
         for i in range(len(groups)):
             new_group = []
@@ -30,7 +33,7 @@ class SplitterPass(rxp_pass.Pass):
             new_groups.append(new_group)
 
         if options.print_split_stats:
-            print "SPLIT STATS: Splitting finished, introducing", compilation_statistics.splits_made, "Splits"
+            print "SPLIT STATS: Splitting finished, introducing", compilation_statistics.splits_made - splits_at_start, "Splits"
 
         return new_groups
 
@@ -111,13 +114,20 @@ def hash_counts(graphs, algebras, options):
         elif algebra.isproduct():
             hash_walk(algebra.e1, table, options)
         elif algebra.isbranch():
-            for opt in branch.options:
+            for opt in algebra.options:
                 hash_walk(opt, table, options)
-        elif algebra.sum():
+        elif algebra.issum():
             # Walk every entry from here until the end.
             # Use that to compute the number of indexes.
             for elt_index in range(len(algebra.e1)):
-                hash_walk(Sum(algebra.e1[elt_index:]).normalize(), table, options)
+                hash_walk(algebra.e1[elt_index], table, options)
+
+                sub_hash = Sum(algebra.e1[elt_index:]).normalize().structural_hash()
+                if sub_hash in table:
+                    table[sub_hash] += 1
+                else:
+                    table[sub_hash] = 0
+
         elif algebra.isend():
             pass
         elif algebra.isaccept():
@@ -128,14 +138,14 @@ def hash_counts(graphs, algebras, options):
         # Walk through the algebra terms.
         hash_walk(algebra, hash_table, options)
 
-    return threshold(hash_table)
+    return threshold(hash_table, options)
 
 
-def threshold(table):
+def threshold(table, options):
     # Go through the table and remove entries less than
     # a certain value.
-    for entry in table:
-        if table[entry] < 5:
+    for entry in table.keys():
+        if table[entry] < options.split_threshold_frequency:
             del table[entry]
     return table
 
@@ -143,7 +153,7 @@ def threshold(table):
 # In this function we try to identify common sub-structures
 # in graphs.  We split based on the sub-structures (hashed
 # by their algebras).
-def hash_split(graph, algebras, hash_counts, options):
+def hash_split(graph, algebra, hash_counts, options):
     # Split an algebra up into smaller sections --- preserving
     # the property that each section must rejoin the
     # original algebra in exactly one place, making
@@ -166,14 +176,11 @@ def hash_split(graph, algebras, hash_counts, options):
         elif algebra.isproduct():
             # Can't split inside a product.
             return algebra, [], False
-        elif algbera.isaccept():
+        elif algebra.isaccept():
             return algebra, [], False
         elif algebra.isend():
             return algebra, [], False
         elif algebra.isbranch():
-            if structural_hash in hash_table and not nosplit_here:
-                return End(), [algebra], True
-
             split_options = []
             kept_options = []
 
@@ -181,29 +188,59 @@ def hash_split(graph, algebras, hash_counts, options):
                 kept, sub_splits, split_here = split_algebra(opt, hash_table, options, nosplit_here=True)
                 assert not split_here # Cant split immediately after a branch, because we need to have a way to go into the thing
                 # we just split off.
-                kept_options.append(kept)
+                if not kept.isend():
+                    kept_options.append(kept)
                 split_options += sub_splits
 
-            return Branch(kept_options).normalize(), splits, False
-        elif algebra.issum():
+            if len(kept_options) == 0:
+                new_base_algebra = End()
+            else:
+                new_base_algebra = Branch(kept_options).normalize()
+
+            structural_hash = new_base_algebra.structural_hash()
+
+            if structural_hash in hash_table and not nosplit_here and algebra.ends_with_end():
+                return End(), split_options + [algebra], True
+            else:
+                return new_base_algebra, split_options, False
+        elif algebra.issum() and algebra.ends_with_end():
+            # This is really a postfix extractor rather than anything else.
+            # This algorithm could easily be adapted to an infix algorithm, but needs
+            # to deal with edge cases and restarting automata.
+            # Go through and get the postfix out.
+            tail_kept, tail_splits, split_at_tail = split_algebra(algebra.e1[-1], hash_table, options)
+            algebra.e1[-1] = tail_kept
+
             # Go through each elt of the sum, and see if it is in
             # the structural hash.
             consider_from_index = 0
             if nosplit_here:
                 consider_from_index = 1
 
-            split_options = []
+            splits = []
+            index = len(algebra.e1)
 
-            while consider_from_index < len(algebra.e1):
-                sub_term = Sum(algebra.e1[consider_from_index:])
+            while index >= consider_from_index:
+                index -= 1
+
+                sub_term = Sum(algebra.e1[index:]).normalize()
                 structural_hash = sub_term.structural_hash()
 
-                if sub_term.structural_hash() in hash_table:
+                # Only actually do the split if it's big enough.
+                if sub_term.size() > options.split_size_threshold and structural_hash in hash_table:
                     # Add this split to the list of splits, or the
-                    split_options.append(consider_from_index)
+                    splits.append(sub_term)
+                    algebra = Sum(algebra.e1[:index] + [End()]).normalize()
+            return algebra, splits, False
+        elif algebra.issum() and not algebra.ends_with_end():
+            # In this case, we can't really extract anything :(
+            # I think there are algorithms to do this, but they'll require
+            # running on a different form of the IR where the branches aren't
+            # merged together.
+            pass
 
-                consider_from_index += 1
+    res_alg, splits, _ = split_algebra(algebra, hash_counts, options, nosplit_here=True)
 
-            # now, go through the split options and find the onex that
-            # are going to give a 'balanced' result, where 'balanced'
-            # means splits of roughly equal size.
+    splits.append(res_alg)
+    splits = [x for x in splits if not x.isend()]
+    return splits
