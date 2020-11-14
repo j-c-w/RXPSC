@@ -30,11 +30,11 @@ flag_combinations=(
 	# "--cross-compile --use-prefix-merging"
 	# ""
 	# "--allow-overapproximation"
-	# "--use-prefix-splitting --use-prefix-estimation --prefix-merging-only --no-prefix-unification"
-	"--use-prefix-splitting --use-prefix-estimation --output-folder $results/sim/nounification/"
+	# "--use-prefix-splitting --use-prefix-estimation --output-folder $results/sim/nounification/"
 	# "--use-prefix-splitting --use-prefix-estimation --prefix-merging-only --no-prefix-unification --prefix-size-threshold 2"
 	# "--use-prefix-splitting --use-prefix-estimation"
 	# "--use-prefix-splitting --use-prefix-estimation --prefix-size-threshold 2"
+	"--use-prefix-splitting"
 	# ""
 	# "--use-prefix-splitting"
 	# "--no-structural-change"
@@ -50,8 +50,10 @@ for bmark in ${bmarks[@]}; do
 	for fcomb in $flag_combinations[@];
 	if [[ ${#eddie} -gt 0 ]]; then
 		./cross_comparisons/run_anml_cross_comparison.sh $ANMLZoo $bmark $results "$mode $fcomb $other_flags --output-folder $results/sim/$bmark" $runno --eddie
-	else
-		./cross_comparisons/run_anml_cross_comparison.sh $ANMLZoo $bmark $results "$mode $fcomb $other_flags --output-folder $results/sim/$bmark" $runno
 	fi
 	runno=$((runno + 1))
 done
+
+if [[ ${#eddie} -eq 0 ]]; then
+	parallel ./cross_comparisons/run_anml_cross_comparison.sh $ANMLZoo {1} $results \"$mode {2} $other_flags --output-folder $results/sim/{1}_{#}\" {#} ::: ${bmarks[@]} ::: "${flag_combinations[@]}"
+fi
