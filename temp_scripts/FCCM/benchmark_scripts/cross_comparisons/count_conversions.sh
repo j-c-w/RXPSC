@@ -1,7 +1,10 @@
 #!/bin/bash
 
+set -eu
+
 if [[ $# -ne 1 ]]; then
 	echo "Usage: $0 <results folder>"
+	exit 1
 fi
 
 folder=$1
