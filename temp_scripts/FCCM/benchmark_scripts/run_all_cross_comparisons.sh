@@ -55,5 +55,5 @@ for bmark in ${bmarks[@]}; do
 done
 
 if [[ ${#eddie} -eq 0 ]]; then
-	parallel ./cross_comparisons/run_anml_cross_comparison.sh $ANMLZoo {1} $results \"$mode {2} $other_flags --output-folder $results/sim/{1}_{#}\" {#} ::: ${bmarks[@]} ::: "${flag_combinations[@]}"
+	parallel --dry-run ./cross_comparisons/run_anml_cross_comparison.sh $ANMLZoo {1} $results \"$mode '{=2 uq(); =}' $other_flags --output-folder $results/sim/{1}_{#}\" {#} ::: ${bmarks[@]} ::: "${flag_combinations[@]}"
 fi
