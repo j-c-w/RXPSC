@@ -5,8 +5,8 @@ set -eu
 typeset -a eddie
 zparseopts -D -E -eddie=eddie
 
-if [[ $# -ne 4 ]]; then
-	echo "Usage: $0 <Input ANMLZoo Folder> <ANMLZoo Benchmark Name> <Results Folder> <flags>"
+if [[ $# -ne 5 ]]; then
+	echo "Usage: $0 <Input ANMLZoo Folder> <ANMLZoo Benchmark Name> <Results Folder> <flags> <runname>"
 	echo "--eddie: use the submission queues on Eddie to run this"
 	exit 1
 fi
@@ -14,13 +14,14 @@ fi
 folder=$1/$2
 results=$3
 flags="$4"
-output_name="${2}_$(echo $flags | tr -- '- ' '_')"
+runname=$5
+output_name="${2}_${runname}"
 
 input_anml_file=( $(find $folder/anml -name "*.anml" | sort) )
 output_folder=$results/$output_name
 
 if [[ $2 == Snort ]]; then
-	mem=20G
+	mem=10G
 else
 	mem=5G
 fi

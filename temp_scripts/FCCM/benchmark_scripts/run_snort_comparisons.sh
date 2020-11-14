@@ -14,12 +14,12 @@ fi
 benchmark=$1
 results=$2
 
-other_flags="--compression-stats --no-structural-change --allow-overapproximation"
+other_flags="--compression-stats --no-structural-change --allow-overapproximation --backend python"
 
 flag_combinations=(
-	"--use-prefix-splitting --use-prefix-estimation"
-	"--use-prefix-splitting --use-prefix-estimation --prefix-merging-only --no-prefix-unification"
-	""
+	"--use-prefix-splitting --use-prefix-estimation --output-folder $results/sim/unification/"
+	"--use-prefix-splitting --use-prefix-estimation --prefix-merging-only --no-prefix-unification --output-folder $results/sim/nounification/"
+	# ""
 	)
 
 files_to_run=(  $(find $benchmark -name "*.anml" ) )
@@ -32,9 +32,10 @@ for file in ${files_to_run[@]}; do
 		echo $file
 		echo $fcomb
 		if [[ ${#eddie} -gt 0 ]]; then
-			./snort/run_for_file.sh $file $benchmark "addition-experiment $fcomb $other_flags" $results --eddie
+			./snort/run_for_file.sh $file $benchmark $results "addition-experiment $fcomb $other_flags" --eddie
+			sleep 0.3 # Submitting jobs too fast is bad for eddie.
 		else
-			./snort/run_for_file.sh $file $benchmark "addition-experiment $fcomb $other_flags" $results
+			./snort/run_for_file.sh $file $benchmark $results "addition-experiment $fcomb $other_flags"
 		fi
 	done
 done

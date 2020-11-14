@@ -10,14 +10,14 @@ if [[ $# -ne 4 ]]; then
 	echo "--eddie: use the submission queues on Eddie to run this"
 	exit 1
 fi
-mem=10G
+mem=7G
 
 to_accelerate=$1
 accelerated=$2
 results=$3
 flags="$4"
 
-output_name="${2}_$(echo $flags | tr -- '- ' '_')"
+output_name="$(echo $flags | tr -- '- /' '_')"
 output_folder=$results/$output_name
 
 mkdir -p $output_folder
@@ -29,8 +29,9 @@ to_accelerate_name=$(basename $to_accelerate)
 
 if [[ ${#eddie} -eq 0 ]]; then
 	cd ../../..
-	echo pypy rxpsc.py "${=flags}" $full_to_accelerate_path $full_accelerated_path > $full_output_path/result
+	pypy rxpsc.py "${=flags}" $full_to_accelerate_path $full_accelerated_path > $full_output_path/result
 else
 	cd ../../..
+	set -x
 	echo qsub -o $full_output_path/result_$to_accelerate_name -e $full_output_path/err_$to_accelerate_name -pe sharedmem 2 -l h_vmem=$mem eddie_submission_wrapper.sh ${=flags} $full_to_accelerate_path $full_accelerated_path
 fi
