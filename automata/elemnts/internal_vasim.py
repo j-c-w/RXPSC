@@ -320,7 +320,7 @@ def parseSymbolSet(symbol_set):
     # end char while loop
 
     if(inverting):
-        invert(bitset)
+        bitset = invert(bitset)
 
     if(bracket_sem != 0 or brace_sem != 0):
         print "MALFORMED BRACKETS OR BRACES: " 
