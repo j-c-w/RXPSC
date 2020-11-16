@@ -90,9 +90,11 @@ def read_file(filename):
                 yield character
 
 def write(filename, matches):
-    result = "\n".join([str(match) for match in matches])
     with open(filename, 'w') as f:
-        f.write(result)
+        for i in range(0, len(matches), 1000):
+            max_i = min(i + 1000, len(matches))
+            result = "\n".join([str(match) for match in matches[i:max_i]]) + "\n"
+            f.write(result)
 
 
 if __name__ == "__main__":
