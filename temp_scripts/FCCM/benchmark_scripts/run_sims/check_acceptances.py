@@ -44,9 +44,9 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
 
         # Now, check how many things are overapproximations:
         for accept_index in acceptance_file_acceptances:
+            found_match = False
             for (start, end) in accept_indexes:
-                found_match = False
-                if accept_index >= start or accept_index <= end:
+                if accept_index >= start and accept_index <= end:
                     found_match = True
 
             if not found_match:
