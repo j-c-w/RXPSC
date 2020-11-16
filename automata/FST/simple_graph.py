@@ -49,16 +49,16 @@ class SimpleGraph(object):
         if neighbors is None:
             neighbors = self.neighbors_lookup()
         end_states = set()
+        loop_groups = sjss.compute_loop_groups(self.nodes, self.edges, self.start_state)
 
         for n in self.nodes:
             if len(neighbors[n]) == 0:
                 end_states.add(n)
-            elif len(neighbors[n]) == 1 and neighbors[n] == n:
-                # This is a horrible hack.  We are basically
-                # saying that if the graph ends in (1)*, then
-                # we are OK with treating it as an end state.
-                # The horrible hack here is that the graph could
-                # end in (1 + ...)*, which we are ignoring...
+            elif len(neighbors[n]) == len(loop_groups[n]):
+                # If this is the first node for a bunch of loops
+                # that also go nowhere else, then this is effectively
+                # the end state of the graph (i.e., it's where
+                # any attached graphs should hook in).
                 end_states.add(n)
         return end_states
 
