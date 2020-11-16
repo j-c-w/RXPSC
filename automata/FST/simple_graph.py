@@ -53,6 +53,13 @@ class SimpleGraph(object):
         for n in self.nodes:
             if len(neighbors[n]) == 0:
                 end_states.add(n)
+            elif len(neighbors[n]) == 1 and neighbors[n] == n:
+                # This is a horrible hack.  We are basically
+                # saying that if the graph ends in (1)*, then
+                # we are OK with treating it as an end state.
+                # The horrible hack here is that the graph could
+                # end in (1 + ...)*, which we are ignoring...
+                end_states.add(n)
         return end_states
 
 def fromatma(atma):
