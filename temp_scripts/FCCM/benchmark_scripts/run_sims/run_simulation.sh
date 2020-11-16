@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -eu
 
 if [[ $# -lt 2 ]]; then
@@ -7,7 +6,9 @@ if [[ $# -lt 2 ]]; then
 	exit 1
 fi
 
-input_file=$1
+cd $(dirname $0) # Eddie starts this in the top directory.
+
+input_file=$(readlink -f $1)
 sim_file=$2
 
 shift 2
