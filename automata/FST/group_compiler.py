@@ -607,14 +607,23 @@ def find_match_for_addition(components, group_components, used_group_components,
         # Now, go through and try and find an assignment
         # in each assigned list.
         found_assignment = False
+        assignment_index = None
+        # We also want to find the biggest possible assignment.
+        last_assignment_size = -1
         for (i, j, target, conversion_machine) in conversions[min_index]:
             if (i, j) not in assigned_accelerators:
                 found_assignment = True
+                assignment_size = group_components[i][j].algebra.size()
+                if assignment_size > last_assignment_size:
+                    # We want the biggest assignment possible, i.e.
+                    # the largest FSM.
+                    assignment_index = (i, j)
 
-                targets[min_index] = target
-                conversion_machines[min_index] = conversion_machine
+                    targets[min_index] = target
+                    conversion_machines[min_index] = conversion_machine
 
-                assigned_accelerators.add((i, j))
+        if found_assignment:
+            assigned_accelerators.add(assignment_index)
 
         if not found_assignment:
             if options.use_prefix_estimation and min_index in prefix_reduced_machine_indexes:
@@ -867,9 +876,10 @@ def compile(automata_components, options):
             if len(group.supported_algebras) > 1:
                 print "Group with physical algebra "
                 print group.physical_algebra
+                print group.physical_algebra.str_with_lookup(group.physical_automata.symbol_lookup)
                 print "Supports algebras:"
                 print '\n'.join([str(x) for x in group.supported_algebras])
-                print '\n'.join([x.str_with_lookup(generate_fst.edge_label_lookup_generate(y)) for (x, y) in zip(group.supported_algebras, group.supported_automata)])
+                print '\n'.join([x.str_with_lookup(y.symbol_lookup) for (x, y) in zip(group.supported_algebras, group.supported_automata)])
                 print "Translators are:"
                 print '\n'.join([str(t) for t in group.translators])
                 
