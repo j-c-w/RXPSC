@@ -598,7 +598,6 @@ def acceptance_rate(algebra, symbol_lookup):
 # generation of a full graph from an APA, but doesn't give you
 # the final node (expect that would not be hard to achieve)
 def full_graph_for(algebra, symbol_lookup):
-    print symbol_lookup
     symbol_lookup = dict(symbol_lookup) # Deep copy the symbol lookup
     edges = set(algebra.all_edges())
     start_state = algebra.get_first_node()
