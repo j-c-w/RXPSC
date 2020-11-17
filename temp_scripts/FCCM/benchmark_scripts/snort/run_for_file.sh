@@ -5,8 +5,8 @@ set -eu
 typeset -a eddie
 zparseopts -D -E -eddie=eddie
 
-if [[ $# -ne 4 ]]; then
-	echo "Usage: $0 <To Accelerate File> <Accelerated Files> <Output Folder> <Flags>"
+if [[ $# -ne 5 ]]; then
+	echo "Usage: $0 <name> <To Accelerate File> <Accelerated Files> <Output Folder> <Flags>"
 	echo "--eddie: use the submission queues on Eddie to run this"
 	exit 1
 fi
@@ -17,8 +17,7 @@ accelerated=$2
 results=$3
 flags="$4"
 
-output_name="$(echo $flags | tr -- '- /' '_')"
-output_folder=$results/$output_name
+output_folder=$results/$name
 
 mkdir -p $output_folder
 

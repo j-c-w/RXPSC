@@ -22,20 +22,28 @@ flag_combinations=(
 	# ""
 	)
 
+flag_combination_names=(
+	"unification"
+	"nounification"
+)
+
 files_to_run=(  $(find $benchmark -name "*.anml" ) )
 
 for file in ${files_to_run[@]}; do
+	fcomb_index=1
 	for fcomb in ${flag_combinations[@]}; do
 		# The tool filters out the file from being used
 		# in the to /and/ from set, so we don't have to worry
 		# about doing anything about that.
 		echo $file
 		echo $fcomb
+		name=${flag_combination_names[fcomb_index]}
 		if [[ ${#eddie} -gt 0 ]]; then
-			./snort/run_for_file.sh $file $benchmark $results "addition-experiment $fcomb $other_flags" --eddie
+			./snort/run_for_file.sh $name $file $benchmark $results "addition-experiment $fcomb $other_flags" --eddie
 			sleep 0.3 # Submitting jobs too fast is bad for eddie.
 		else
-			./snort/run_for_file.sh $file $benchmark $results "addition-experiment $fcomb $other_flags"
+			./snort/run_for_file.sh $name $file $benchmark $results "addition-experiment $fcomb $other_flags"
 		fi
+		fcomb_index=$((fcomb_index + 1))
 	done
 done
