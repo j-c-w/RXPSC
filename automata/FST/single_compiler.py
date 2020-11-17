@@ -44,11 +44,13 @@ def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbo
     prefix, post_to, post_from, unification = algebra.prefix_unify(to_alg, symbol_lookup_to, from_alg, symbol_lookup_from, options)
 
     if unification is None:
-        return None, None, None, None, generate_fst.GenerationFailureReason("Structural Failure")
+        return None, from_alg, to_alg, None, generate_fst.GenerationFailureReason("Structural Failure")
     else:
         result, failure_reason = generate_fst.generate(unification, to_atma, from_atma, options)
         if result is None:
-            return None, None, None, None, generate_fst.GenerationFailureReason("Unification Failure")
+            # in the case of unification failure, we need to return the original algebras,
+            # not the ones that have been spuriously broken up.
+            return None, from_alg, to_alg, None, generate_fst.GenerationFailureReason("Unification Failure")
 
         if result:
             compilation_statistics.unification_successes += 1
