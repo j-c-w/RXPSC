@@ -38,14 +38,13 @@ def generate(unification, to_atma, from_atma, options):
 
     best_result = None
     best_structural_modification_count = 1000000
+    best_overapproximation_factor = 1000000
     unifiers_attempted = 0
 
     unification = sorted(unification, key=lambda u: u.structural_modification_count())
 
     for unifier in unification:
-        if not unifier or unifier.structural_modification_count() >= best_structural_modification_count:
-            # No need to rerun a unifier that we already know works
-            # if it has the same unification count.
+        if not unifier:
             continue
         else:
             unifiers_attempted += 1
@@ -64,12 +63,20 @@ def generate(unification, to_atma, from_atma, options):
         # where possible.  So, if we find one with structural
         # modification, then keep going.
         structural_modification_count = unifier.structural_modification_count()
-        if result and structural_modification_count == 0:
-            # Auto-return if we get an answer with 0 modification
+        # We also keep track of the overapproximation factor, i.e.
+        # how many edges are overapproximated.
+        if result:
+            overapproximation_factor = result.overapproximation_factor()
+
+        if result and structural_modification_count == 0 and overapproximation_factor == 0:
+            # Auto-return if we get an answer with 0 modification and
+            # no overapproximation.
             return result, None
-        elif result and structural_modification_count < best_structural_modification_count:
+        elif result and (overapproximation_factor < best_overapproximation_factor or \
+                (structural_modification_count < best_structural_modification_count and overapproximation_factor == best_overapproximation_factor)): 
             best_result = result
             best_structural_modification_count = structural_modification_count
+            best_overapproximation_factor = overapproximation_factor
 
     if best_result is not None:
         return best_result, None

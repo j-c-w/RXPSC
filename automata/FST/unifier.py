@@ -431,7 +431,7 @@ class Unifier(object):
         # Make that mapping correct. (i.e. not an overapproximation)
         # Even if we aren't required to do this, it is good
         # to reduce the overapproximation error rate.
-        state_lookup = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
+        state_lookup, overapproximated_edge_count = generate_correct_mapping(state_lookup, self.from_edges, self.to_edges, symbol_lookup_1, symbol_lookup_2, options)
         if state_lookup is None:
             compilation_statistics.ssu_correct_mapping_failed += 1
             if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
@@ -487,8 +487,12 @@ class Unifier(object):
         # There is no return value --- the results are set in each addition.
         modification_state_assigment(state_lookup, symbol_lookup_1, symbol_lookup_2, self.additions_from_node, self.additions_between_nodes, options)
 
+        # Compute the overapproximation factor as a number between 0 and 1, we can think about this as the fraction of edges
+        # that are spuriosly activated.
+        overapproximation_factor = float(overapproximated_edge_count) /  float(256 * len(self.from_edges))
+
         modifications = Modifications(self.additions_from_node, self.additions_between_nodes)
-        return FST.SingleStateTranslator(state_lookup, modifications, unifier=self)
+        return FST.SingleStateTranslator(state_lookup, modifications, unifier=self, overapproximation_factor=overapproximation_factor)
 
 class Modifications(object):
     def __init__(self, additions_from_node, additions_between_nodes):
@@ -803,6 +807,9 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
     accelerator_active_edges = {}
     # Which edges need to be active for each character
     base_active_edge_mapping = {}
+    # How much this unifier overapproximates (i.e. how much
+    # other edges are activated).
+    overapproximated_edge_count = 0
 
     for i in range(0, 256):
         accelerator_active_edges[i] = set()
@@ -875,14 +882,24 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
             else:
                 # Pick a single symbol anyway --- it is OK to activate
                 # some other edges to get the right edge activation.
-                # This is obviously an approximation here -- it would be better
-                # to pick the character that activates the fewest non-desired edges.
-                new_symbols.add(list(targets)[0])
+                target_symb = None
+                min_activated_edge_count = 100000000000
+                # Pick the symbol with the fewest supriously activated
+                # edges.
+                for optional_target in targets:
+                    activated_edge_count = len(accelerator_active_edges[optional_target])
+
+                    if activated_edge_count < min_activated_edge_count:
+                        target_symb = optional_target
+                        min_activated_edge_count = activated_edge_count
+
+                new_symbols.add(target_symb)
+                overapproximated_edge_count += min_activated_edge_count
         state_lookup[i] = new_symbols
         if DEBUG_UNIFICATION:
             print "Successfully reduced edges for character ", i
             print "Had", len(targets), "options before, and ", len(new_symbols), "options now"
-    return state_lookup
+    return state_lookup, overapproximated_edge_count
 
 
 # The unification process assigns values to edges within

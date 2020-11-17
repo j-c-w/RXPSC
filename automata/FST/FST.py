@@ -25,11 +25,12 @@ class FSTState(object):
         self.lookuptable = lookuptable
 
 class SingleStateTranslator(object):
-    def __init__(self, lookup, modifications, unifier=None):
+    def __init__(self, lookup, modifications, unifier=None, overapproximation_factor=0.0):
         self.lookup = lookup
         self.modification_count = len(modifications)
         self.modifications = modifications
         self.unifier = unifier
+        self._overapproximation_factor = overapproximation_factor
 
     def __str__(self):
         return str(self.lookup)
@@ -52,8 +53,11 @@ class SingleStateTranslator(object):
             output.append(chr(self[ord(character)]))
         return ''.join(output)
 
+    def overapproximation_factor(self):
+        return self._overapproximation_factor
+
     def to_string(self):
-        return "{" + ",".join(["" + str(x) + ": " + str(self[x]) + "" for x in range(0, 256)]) + "}"
+        return "# Overapprox fact. " + str(self.overapproximation_factor()) + "\n" + "{" + ",".join(["" + str(x) + ": " + str(self[x]) + "" for x in range(0, 256)]) + "}"
 
 class EmptySingleStateTranslator(SingleStateTranslator):
     def __init__(self):
@@ -71,6 +75,10 @@ class SymbolReconfiguration(object):
     def has_structural_additions(self):
         return len(self.modifications) > 0
 
+    def overapproximation_factor(self):
+        # TODO --- I expect some overapproximation here too(?)
+        return 0.0
+
     def isempty(self):
         return False
 
@@ -82,6 +90,9 @@ class AllPowerfulUnifier(object):
 
     def has_structural_additions(self):
         return len(self.modifications) > 0
+
+    def overapproximation_factor(self):
+        return 0.0
 
     def isempty(self):
         return False

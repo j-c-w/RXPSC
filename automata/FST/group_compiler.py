@@ -332,6 +332,8 @@ def assign_hardware(compiles_from, compiles_to, options):
         # modifications just causes problems with the reunification
         # tasks.
         modifications_required = 0
+        # How much overapproximation can we tolerate?
+        overapproximation_threshold = 0.05
         for i in range(len(compiles_to)):
             min_assigns = 100000000
             min_num_modifications = 10000000000
@@ -348,7 +350,10 @@ def assign_hardware(compiles_from, compiles_to, options):
                 is_match = False
                 match_obj = None
                 for option in compiles_to[i][j]:
-                    if option.i == index[0] and option.j == index[1]:
+                    # Don't compile if we are over the oxverapproximation
+                    # threshold --- that would just mean an overloaded
+                    # CPU.
+                    if option.i == index[0] and option.j == index[1] and option.overapproximation_factor() < overapproximation_threshold:
                         if DEBUG_COMPUTE_HARDWARE:
                             print "Match Found"
                         is_match = True
@@ -610,20 +615,28 @@ def find_match_for_addition(components, group_components, used_group_components,
         assignment_index = None
         # We also want to find the biggest possible assignment.
         last_assignment_size = -1
+        last_overapproximation_factor = 1
         for (i, j, target, conversion_machine) in conversions[min_index]:
             if (i, j) not in assigned_accelerators:
                 found_assignment = True
                 assignment_size = group_components[i][j].algebra.size()
-                if assignment_size > last_assignment_size:
+                overapproximation_factor = components.overapproximation_factor()
+
+                if assignment_size * (1 - overapproximation_factor) > last_assignment_size * (1 - last_overapproximation_factor):
                     # We want the biggest assignment possible, i.e.
                     # the largest FSM.
                     assignment_index = (i, j)
 
                     targets[min_index] = target
                     conversion_machines[min_index] = conversion_machine
+                    last_assignment_size = assignment_size
+                    last_overapproximation_factor = overapproximation_factor
 
         if found_assignment:
             assigned_accelerators.add(assignment_index)
+
+            if overapproximation_factor > 0.95:
+                print "Overapproxmation factor for assignment is very high, high CPU load is likely... (>0.95)"
 
         if not found_assignment:
             if options.use_prefix_estimation and min_index in prefix_reduced_machine_indexes:
