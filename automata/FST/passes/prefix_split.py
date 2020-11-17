@@ -51,7 +51,14 @@ def prefix_split(groups, options):
 
                     shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
 
-                    if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold:
+                    # Only use the prefix if it is (a) bigger
+                    # than the size limit, and (b) has an acceptance
+                    # rate of less than the threshold acceptance
+                    # rate (i.e. it's not super useful to have
+                    # a prefix with a 95% estimated acceptance rate)
+                    if shared_prefix is not None and \
+                            shared_prefix.size() > options.prefix_size_threshold and\
+                            alg.acceptance_rate(shared_prefix, groups[i][j].automata.symbol_lookup) < options.prefix_acceptance_rate_threshold:
                         # Replace the two algebras if the shared
                         # prefix is big enough.
                         shared_prefixes.append((i2, j2, shared_prefix, tail_first, tail_second))

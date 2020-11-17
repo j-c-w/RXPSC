@@ -2,6 +2,9 @@ import rxp_pass
 
 from automata.FST.terms import *
 
+# TODO --- This needs to take acceptance rate and the acceptance
+# rate threshold into account.
+
 # This is a pass that splits graphs into smaller components.
 # It uses various heuristics to do so.
 class SplitterPass(rxp_pass.Pass):

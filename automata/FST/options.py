@@ -29,6 +29,7 @@ class Options(object):
         self.leq_iterations_file = None
         self.leq_calls_threshold = 100000
         self.prefix_size_threshold = 5
+        self.prefix_acceptance_rate_threshold = 0.10
         self.no_leq_heuristics = True
         self.use_unification_heuristics = True
         self.use_inline_unification_heuristics = True
@@ -109,6 +110,7 @@ def create_from_args(args):
     opts.group_size_distribution = args.group_size_distribution
     opts.print_file_info = args.print_file_info
     opts.prefix_size_threshold = args.prefix_size_threshold
+    opts.prefix_acceptance_rate_threshold = args.prefix_acceptance_rate_threshold
     opts.print_unification_statistics = args.print_unification_statistics
     opts.dump_nodes_and_edges = args.dump_nodes_and_edges
     opts.dump_failing_nodes_and_edges = args.dump_failing_nodes_and_edges
@@ -213,6 +215,7 @@ def add_to_parser(parser):
     parser.add_argument('--use-prefix-estimation', default=False, dest='use_prefix_estimation', help="Use prefix estimation to allow overapproximation of automata.", action='store_true')
     parser.add_argument('--cross-compile', default=False, dest='cross_compile', help='Use cross compilation to compress regexes', action='store_true')
     parser.add_argument('--prefix-size-threshold', default=5, dest='prefix_size_threshold', help='Smallest size of prefix to use.', type=int)
+    parser.add_argument('--prefix-acceptance-rate-threshold', default=0.10, dest='prefix_acceptance_rate_threshold', type=float, help='What fraction of (random) strings should prefixes be allowed to accept?')
 
     # Target flags
     parser.add_argument('--target', choices=['single-state', 'symbol-only-reconfiguration', 'perfect-unification'], default='single-state')
