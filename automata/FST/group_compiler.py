@@ -486,16 +486,16 @@ def remove_prefixes(addition_components, group_components, options):
     for comp_index in range(len(addition_components)):
         component = addition_components[comp_index]
         removed_prefix = True
-        found_prefix = None
-        found_prefix_i = None
-        found_prefix_j = None
-        found_tail_component = None
-        found_tail_group_component = None
         last_prefix_size = -1
 
         prefix_machines = []
         # Keep removing prefixes as long as there is a match.
         while removed_prefix:
+            found_prefix = None
+            found_prefix_i = None
+            found_prefix_j = None
+            found_tail_component = None
+            found_tail_accelerator = None
             removed_prefix = False
 
             # Find the biggest prefix remaining.  There should still
@@ -503,9 +503,28 @@ def remove_prefixes(addition_components, group_components, options):
             for i in range(len(group_components)):
                 for j in range(len(group_components[i])):
                     if options.use_prefix_unification:
-                        shared_prefix, tail_first, tail_second, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.automata.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].automata.symbol_lookup, options)
+                        shared_prefix, tail_comp, tail_acc, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, dict(component.automata.symbol_lookup), group_components[i][j].algebra, group_components[i][j].automata, dict(group_components[i][j].automata.symbol_lookup), options)
+                        spsize = shared_prefix.size() if shared_prefix is not None else 0
+                        tailsize = tail_comp.size() if tail_comp is not None else 0
+                        if spsize + tailsize != component.algebra.size():
+                            print "Had a failure"
+                            print spsize
+                            print tailsize
+                            print component.algebra.size()
+                            print "Tails (comp, acc):"
+                            print tail_comp
+                            print tail_acc
+                            print "Prefix"
+                            print shared_prefix
+                            print "Initial algs: (comp, acc)"
+                            print component.algebra
+                            print group_components[i][j].algebra
+                            assert False
                     else:
-                        shared_prefix, tail_first, tail_second = alg.prefix_merge(group_components[i][j].algebra, group_components[i][j].automata.symbol_lookup, component.algebra, component.automata.symbol_lookup, options)
+                        shared_prefix, tail_acc, tail_comp = alg.prefix_merge(group_components[i][j].algebra.clone(), group_components[i][j].automata.symbol_lookup, component.algebra.clone(), component.automata.symbol_lookup, options)
+                        spsize = shared_prefix.size() if shared_prefix is not None else 0
+                        tailsize = tail_comp.size() if tail_comp is not None else 0
+                        assert spsize + tailsize == component.algebra.size()
                         conversion_machine = FST.EmptySingleStateTranslator()
 
                     # We are looking for more than just a splitting of
@@ -514,7 +533,7 @@ def remove_prefixes(addition_components, group_components, options):
                     # where the conversion uses the entireity of the automata in
                     # the group_components
 
-                    if tail_second is not None:
+                    if tail_acc is not None:
                         continue # second component didn't get used
                     # up completely.
 
@@ -524,8 +543,8 @@ def remove_prefixes(addition_components, group_components, options):
                         found_conversion_machine = conversion_machine
                         found_prefix_i = i
                         found_prefix_j = j
-                        found_tail_component = tail_first
-                        found_tail_group_component = tail_second
+                        found_tail_component = tail_comp
+                        found_tail_accelerator = tail_acc
 
             if found_prefix is not None:
                 removed_prefix = True
@@ -541,16 +560,18 @@ def remove_prefixes(addition_components, group_components, options):
                 used_accelerators.add((found_prefix_i, found_prefix_j))
 
                 # And also update the component we are trying to match.
-                if found_tail_group_component is None:
+                if found_tail_component is None:
                     # This prefix ate up the whole regex match.
                     # There is no more component to deal with :)
                     component = None
                     break
                 else:
-                    # There is still more, update the component.
-                    component = AutomataContainer(
-                            alg.full_graph_for(found_tail_component, component.automata.symbol_lookup),
-                            found_tail_component)
+                    # There is still more, update the component and
+                    # recalgulate the algebra.
+                    graph = alg.full_graph_for(found_tail_component, component.automata.symbol_lookup)
+                    recomputed_algebra = sc.compute_depth_equation(graph, options)
+                    print recomputed_algebra
+                    component = AutomataContainer(graph, recomputed_algebra)
         #endwhile
         all_prefix_machines.append(prefix_machines)
         if component is not None:
@@ -558,6 +579,8 @@ def remove_prefixes(addition_components, group_components, options):
             # prefix match --- in that case, no further work is
             # needed on it, so we don't append.
             remaining_components.append(component)
+        else:
+            print "Tried to add components, but it was none"
 
     return all_prefix_machines, remaining_components, used_accelerators, prefix_reduced_machine_indexes
 
@@ -570,6 +593,7 @@ def find_match_for_addition(components, group_components, used_group_components,
     for comp_index in range(len(components)):
         component = components[comp_index]
         conversions.append([])
+        print "Looking for conversions!"
 
         for i in range(len(group_components)):
             for j in range(len(group_components[i])):
@@ -664,6 +688,7 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
 
     # Create the conversion machines that
     cc_list = []
+    print "Targets are ", targets
     for i in range(len(targets)):
         target = targets[i]
         conversion_machine = conversion_machines[i]
@@ -676,6 +701,7 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
         cc_group.add_automata(postfix_component.automata, postfix_component.algebra, conversion_machine)
         assert conversion_machine is not None
         cc_list.append(cc_group)
+    print "Length of CCList is ", len(cc_list)
 
     if options.use_prefix_splitting:
         # Also need to return the null translators for the new
@@ -684,12 +710,14 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
         # a lot more potential here for /inexact/ prefixes.
         for prefix_machine_set in prefix_machines:
             for (accelerator_prefix, addition_prefix, conversion) in prefix_machine_set:
+                print "Adding a prefix machine :)"
                 resmachine = CCGroup(accelerator_prefix.automata, accelerator_prefix.algebra)
                 # Need also to get the machine that we converted
                 # from.
                 resmachine.add_automata(addition_prefix.automata, addition_prefix.algebra, conversion)
                 assert conversion is not None
                 cc_list.append(resmachine)
+    print "Length of CC List is ", len(cc_list)
 
     return cc_list
 
@@ -721,15 +749,20 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             # underlying component will already have been matched.
             # NOTE: The length of the postfix_components may not
             # be the same as the addition components
+            print "Found prefix, using postfix components", postfix_components
             addition_components[i] = postfix_components
 
-            if len(prefix_machines) > 0:
+            if len(prefix_machines[0]) > 0:
                 has_partial_match[i] = True
 
         # Now, work out the number of compiles from each source
         # component to each dest component, and try to find at
         # least one.
         if not options.prefix_merging_only:
+            if has_partial_match[i]:
+                print "Has a prefix machine extracted!"
+                print "Machine size is ", prefix_machines[0][0][0].algebra.size()
+                print prefix_machines
             targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, prefix_reduced_machine_indexes, options)
         else:
             if not options.use_prefix_splitting:
@@ -751,6 +784,8 @@ def find_conversions_for_additions(addition_components, existing_components, opt
                     conversion_machines = None
 
         group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_machine_indexes, options)
+        print "Group Conversion machines are "
+        print group_conv_machines
 
         all_conv_machines.append(group_conv_machines)
     return all_conv_machines
