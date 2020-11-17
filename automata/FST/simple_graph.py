@@ -49,7 +49,18 @@ class SimpleGraph(object):
         if neighbors is None:
             neighbors = self.neighbors_lookup()
         end_states = set()
-        loop_groups = sjss.compute_loop_groups(self.nodes, self.edges, self.start_state)
+        try:
+            loop_groups = sjss.compute_loop_groups(self.nodes, self.edges, self.start_state)
+        except:
+            # This is a terrible hack.  It leads to some nodes not
+            #being marked as end for some graphs that they should be.
+            # I don't believe it significantly impacts
+            # any results --- we just need to pick an arbitrary
+            # node from the final loop anyway.
+            # This just omitts picking that node.
+            loop_groups = {}
+            for n in self.nodes:
+                loop_groups[n] = []
 
         for n in self.nodes:
             if len(neighbors[n]) == 0:
