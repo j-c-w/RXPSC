@@ -878,7 +878,7 @@ def generate_correct_mapping(state_lookup, from_edges, to_edges, symbol_lookup_1
             if options.correct_mapping:
                 if DEBUG_UNIFICATION or PRINT_UNIFICATION_FAILURE_REASONS:
                     print "Failed due to unnessecarily activated edges"
-                return None
+                return None, 0.0
             else:
                 # Pick a single symbol anyway --- it is OK to activate
                 # some other edges to get the right edge activation.

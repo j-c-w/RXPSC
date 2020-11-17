@@ -68,12 +68,12 @@ def generate(unification, to_atma, from_atma, options):
         if result:
             overapproximation_factor = result.overapproximation_factor()
 
-        if result and structural_modification_count == 0 and overapproximation_factor == 0:
+        if result and structural_modification_count == 0 and overapproximation_factor <= 0.000005:
             # Auto-return if we get an answer with 0 modification and
             # no overapproximation.
             return result, None
         elif result and (overapproximation_factor < best_overapproximation_factor or \
-                (structural_modification_count < best_structural_modification_count and overapproximation_factor == best_overapproximation_factor)): 
+                (structural_modification_count < best_structural_modification_count and overapproximation_factor <= best_overapproximation_factor + 0.0005)): 
             best_result = result
             best_structural_modification_count = structural_modification_count
             best_overapproximation_factor = overapproximation_factor

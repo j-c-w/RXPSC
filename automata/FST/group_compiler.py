@@ -353,7 +353,10 @@ def assign_hardware(compiles_from, compiles_to, options):
                     # Don't compile if we are over the oxverapproximation
                     # threshold --- that would just mean an overloaded
                     # CPU.
-                    if option.i == index[0] and option.j == index[1] and option.overapproximation_factor() < overapproximation_threshold:
+                    # Note that I think we are loosing a fair few
+                    # unifications here to overapproximation thresholding, could probably do with increasing that,
+                    # and certainly exploring it a bit more.
+                    if option.i == index[0] and option.j == index[1] and option.conversion_machine.overapproximation_factor() < overapproximation_threshold:
                         if DEBUG_COMPUTE_HARDWARE:
                             print "Match Found"
                         is_match = True
@@ -620,7 +623,7 @@ def find_match_for_addition(components, group_components, used_group_components,
             if (i, j) not in assigned_accelerators:
                 found_assignment = True
                 assignment_size = group_components[i][j].algebra.size()
-                overapproximation_factor = components.overapproximation_factor()
+                overapproximation_factor = conversion_machine.overapproximation_factor()
 
                 if assignment_size * (1 - overapproximation_factor) > last_assignment_size * (1 - last_overapproximation_factor):
                     # We want the biggest assignment possible, i.e.
