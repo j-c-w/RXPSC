@@ -550,6 +550,50 @@ def linear_algebra_for(branch, accept_states):
 
     return sum_elt.normalize()
 
+# Given an algebra, and a symbol lookup for it, estimate
+# the acceptance rate of that algebra for a random string
+# of characters.  Note that since we are dealing with NFAs,
+# the acceptance rate /can be higher/ than 1.0 (ie. we could
+# get multiple accepts for a string)
+# See inline comments, but this actually turns out to eb
+# more like 1 - rejection probability, which is slightly
+# different (e.g. for algebras that do not have accept statements)
+def acceptance_rate(algebra, symbol_lookup):
+    if algebra.isaccept():
+        return 1.0
+    elif algebra.isend():
+        # This is of course not strictly true.  Perhaps
+        # this should be seen as '1 - likelyhood to reject something'.
+        return 1.0
+    elif algebra.isconst():
+        # Again, not strictly 'accepting rate', more like 1 - reject rate.
+        assert algebra.val == 1
+        # What fraction of charactrs active this edge?
+        fraction = float(len(symbol_lookup[algebra.edges[0]])) / 256.0
+        return fraction
+    elif algebra.isbranch():
+        accept_odds = 0.0
+        for opt in algebra.options:
+            # I get the feeling we might have FP errors here...
+            # Hopefully doesn't matter since this is an heuristic.
+            accept_odds += acceptance_rate(opt, symbol_lookup)
+        return accept_odds
+    elif algebra.issum():
+        accept_odds = 1.0
+        for e in algebra.e1:
+            sub_odds = acceptance_rate(e, symbol_lookup)
+            accept_odds *= sub_odds
+        return accept_odds
+    elif algebra.isproduct():
+        # This doesn't reduce accepting chances at all, just
+        # stick with 1., i.e., there could be some accepts
+        # in it, but mainly it doesn't have some non-zero chance
+        # of getting derailed.
+        return 1.0
+    else:
+        assert False
+
+
 # This is an alternative to the below algorithm taht supporst
 # generation of a full graph from an APA, but doesn't give you
 # the final node (expect that would not be hard to achieve)
