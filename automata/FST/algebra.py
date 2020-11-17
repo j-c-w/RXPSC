@@ -598,15 +598,16 @@ def acceptance_rate(algebra, symbol_lookup):
 # generation of a full graph from an APA, but doesn't give you
 # the final node (expect that would not be hard to achieve)
 def full_graph_for(algebra, symbol_lookup):
+    print symbol_lookup
     symbol_lookup = dict(symbol_lookup) # Deep copy the symbol lookup
     edges = set(algebra.all_edges())
     start_state = algebra.get_first_node()
     nodes = set()
-    # Don't modify the symbol lookup in place
-    symbol_lookup = dict(symbol_lookup)
 
     for (from_n, to_n) in set(edges):
         if from_n == start_state and start_state != 0:
+            if from_n == 97 and to_n == 108:
+                print "Found node you are looking for"
             symbol_lookup[(0, to_n)] = symbol_lookup[(from_n, to_n)]
             del symbol_lookup[(from_n, to_n)]
             edges.remove((from_n, to_n))
@@ -724,6 +725,23 @@ def graph_for(algebra, symbol_lookup):
 def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options):
     prefix, postA, postB, unifier = prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options)
 
+    if prefix is not None:
+        psize = prefix.size()
+    else:
+        psize = 0
+    if postA is not None:
+        bsize = postA.size()
+    else:
+        bsize = 0
+
+    if psize + bsize != A.size():
+        print "Computed sizes are"
+        print psize
+        print bsize
+        print "But original size was"
+        print B.size()
+        assert False
+
     if prefix is not None and prefix.equals(Const(0, [])):
         prefix = None
     if postA is not None and postA.equals(Const(0, [])):
@@ -835,7 +853,11 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
             # quickly estimate to stop unifying any further.
             total_prefix = []
             tail_A = None
+            if len(A.e1) > len(B.e1):
+                tail_A = A.e1[len(B.e1):]
             tail_B = None
+            if len(B.e1) > len(A.e1):
+                tail_B = B.e1[len(A.e1):]
             # We want to keep track of both of these, in case
             # the unification is expected to fail so we can
             # stop unifying.
@@ -869,6 +891,7 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
                     if DEBUG_PREFIX_MERGE:
                         print "No more element unification, computing tails"
                     # Do not keep unifying --- we reached the end.
+                    # We can (and should) reset the tails in this case.
                     tail_A = A.e1[elt:]
                     tail_B = B.e1[elt:]
                     break
@@ -897,7 +920,11 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
                 tail_B = []
 
             if DEBUG_PREFIX_MERGE:
-                print "Reached end of sum unification, the total prefix extracted was ", total_prefix
+                print "Reached end of sum unification, the total prefix extracted was ", Sum(total_prefix).normalize()
+                print "Tail A is :"
+                print Sum(tail_A).normalize() if tail_A is not None else None
+                print "Tail B is"
+                print Sum(tail_B).normalize() if tail_B is not None else None
 
             if len(total_prefix) > 0:
                 # Create the master unifier
@@ -913,6 +940,11 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
                 return None, A, B, None
         else:
             # Types don't match.
+            if DEBUG_PREFIX_MERGE:
+                print "Types don't match, returning"
+                print A.type()
+                print B.type()
+                print "^ unmatched types"
             return None, A, B, None
 
     return prefix_unify_internal(A, B)
@@ -925,8 +957,10 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
 def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
     if DEBUG_PREFIX_MERGE:
         print "Trying to prefix merge"
-        print A.str_with_lookup(symbol_lookup_A)
-        print B.str_with_lookup(symbol_lookup_B)
+        # print A.str_with_lookup(symbol_lookup_A)
+        # print B.str_with_lookup(symbol_lookup_B)
+        print A
+        print B
     if A.isconst() and B.isconst() and A.val == B.val:
         last_equal_index = -1
         for i in range(len(A.edges)):
@@ -990,7 +1024,11 @@ def prefix_merge(A, symbol_lookup_A, B, symbol_lookup_B, options):
     elif A.issum() and B.issum():
         total_prefix = []
         tail_A = None
+        if len(A.e1) > len(B.e1):
+            tail_A = A.e1[len(B.e1):]
         tail_B = None
+        if len(B.e1) > len(A.e1):
+            tail_B = B.e1[len(A.e1):]
         for elt in range(min(len(A.e1), len(B.e1))):
             sub_prefix, sub_tail_A, sub_tail_B = prefix_merge(A.e1[elt], symbol_lookup_A, B.e1[elt], symbol_lookup_B, options)
             if DEBUG_PREFIX_MERGE:
