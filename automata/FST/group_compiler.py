@@ -682,26 +682,30 @@ def find_match_for_addition(components, group_components, used_group_components,
 
 
 def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_machine_indexes, options):
-    if conversion_machines is None:
+    if conversion_machines is None and len(prefix_machines) == 0:
         return None
-    assert len(targets) == len(conversion_machines)
+    if conversion_machines:
+        assert len(targets) == len(conversion_machines)
 
-    # Create the conversion machines that
     cc_list = []
-    print "Targets are ", targets
-    for i in range(len(targets)):
-        target = targets[i]
-        conversion_machine = conversion_machines[i]
-        if i in prefix_reduced_machine_indexes:
-            # This is a prefix reduced automata for which we
-            # have a partial match.
-            continue
+    # We don't atually have to have this part if we have
+    # a prefix machine for this machine.
+    if targets is not None:
+        # Create the conversion machines that
+        print "Targets are ", targets
+        for i in range(len(targets)):
+            target = targets[i]
+            conversion_machine = conversion_machines[i]
+            if i in prefix_reduced_machine_indexes:
+                # This is a prefix reduced automata for which we
+                # have a partial match.
+                continue
 
-        cc_group = CCGroup(target.automata, target.algebra)
-        cc_group.add_automata(postfix_component.automata, postfix_component.algebra, conversion_machine)
-        assert conversion_machine is not None
-        cc_list.append(cc_group)
-    print "Length of CCList is ", len(cc_list)
+            cc_group = CCGroup(target.automata, target.algebra)
+            cc_group.add_automata(postfix_component.automata, postfix_component.algebra, conversion_machine)
+            assert conversion_machine is not None
+            cc_list.append(cc_group)
+        print "Length of CCList is ", len(cc_list)
 
     if options.use_prefix_splitting:
         # Also need to return the null translators for the new
@@ -718,6 +722,8 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
                 assert conversion is not None
                 cc_list.append(resmachine)
     print "Length of CC List is ", len(cc_list)
+    if len(cc_list) == 0:
+        return None
 
     return cc_list
 
@@ -749,20 +755,16 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             # underlying component will already have been matched.
             # NOTE: The length of the postfix_components may not
             # be the same as the addition components
-            print "Found prefix, using postfix components", postfix_components
             addition_components[i] = postfix_components
 
             if len(prefix_machines[0]) > 0:
+                print "Found prefix, using postfix components", postfix_components
                 has_partial_match[i] = True
 
         # Now, work out the number of compiles from each source
         # component to each dest component, and try to find at
         # least one.
         if not options.prefix_merging_only:
-            if has_partial_match[i]:
-                print "Has a prefix machine extracted!"
-                print "Machine size is ", prefix_machines[0][0][0].algebra.size()
-                print prefix_machines
             targets, conversion_machines = find_match_for_addition(addition_components[i], existing_components, used_existing_components, prefix_reduced_machine_indexes, options)
         else:
             if not options.use_prefix_splitting:
