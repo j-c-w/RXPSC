@@ -402,5 +402,16 @@ class PrefixTest(unittest.TestCase):
         prefix, alg_a, alg_b, unifier = alg.prefix_unify(t1, s1, t2, s1, EmptyOptions)
         self.assertNotEqual(unifier, None)
 
+class AcceptRateTest(unittest.TestCase):
+    def test_ar(self):
+        slookup = {0: [0]*256, 1:[1,2,3,4,5], 2: [1], 3: [8,3,5,1,2,3,1,4,1,2,3,1,2]}
+
+
+        t = Sum([Const(2, [0, 1]), Accept(), End()]).normalize()
+        t2 = Sum([Const(2, [0, 1]), Branch([Const(1, [2]), Const(1, [3])]), Accept()]).normalize()
+
+        self.assertTrue(alg.acceptance_rate(t, slookup) < 0.03)
+        self.assertTrue(alg.acceptance_rate(t2, slookup) < 0.002)
+
 if __name__ == "__main__":
     unittest.main()
