@@ -17,7 +17,7 @@ max_sims=$3
 mkdir -p $simdir/outputs
 
 block_size=10
-mem=1G
+mem=3G
 n=0
 last_n=0
 # Submit by ranges.
@@ -29,11 +29,13 @@ if [[ ${#eddie} -gt 0 ]]; then
 			n=$(($3 + 1))
 		fi
 
-			qsub -o $simdir/outputs/round_std_$n -e $simdir/outputs/round_err_$n -h v_mem=$mem run_simulation.sh $infile $simdir $(seq $last_n $((n - 1)) -s ' ')
+		set -x
+		qsub -o $simdir/outputs/round_std_$n -P inf_regex_synthesis -e $simdir/outputs/round_err_$n -l h_vmem=$mem run_simulation.sh $PWD $infile $simdir $(seq  -s ' ' $last_n $((n - 1)))
+		sleep 0.3
 
 		last_n=$n
 	done
 else
 	set -x
-	parallel ./run_simulation.sh $infile $simdir {} ::: $(seq -s' ' 0 $max_sims)
+	parallel ./run_simulation.sh $PWD $infile $simdir {} ::: $(seq -s' ' 0 $max_sims)
 fi

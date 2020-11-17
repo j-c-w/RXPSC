@@ -1,12 +1,17 @@
 #!/bin/bash
 set -eu
 
-if [[ $# -lt 2 ]]; then
-	echo "Usage $0 <Input File> <Simulators File> <Range (numbers)>"
+if [[ $# -lt 3 ]]; then
+	echo "Usage $0 <This directory (for eddie, but used elsewhere)> <Input File> <Simulators File> <Range (numbers)>"
 	exit 1
 fi
 
-cd $(dirname $0) # Eddie starts this in the top directory.
+# Install pypy, some of this processing is really long...:
+~/.scripts/EddieScripts/install_pypy.sh $TMPDIR/pypy
+export PATH=$PATH:$TMPDIR/pypy/bin
+
+cd $1
+shift
 
 input_file=$(readlink -f $1)
 sim_file=$2
@@ -32,5 +37,5 @@ while [[ $# -gt 0 ]]; do
 
 	# Now, put together all the report files to find overall
 	# acceptances.
-	python2 check_acceptances.py $orig/0/*.report $generated/0/*.report 
+	pypy check_acceptances.py $orig/0/*.report $generated/0/*.report 
 done
