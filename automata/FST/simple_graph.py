@@ -14,6 +14,9 @@ class SimpleGraph(object):
         self.accepting_states = accepting_states
         self.start_state = start_state
 
+        for edge in edges:
+            assert edge in symbol_lookup
+
     def clone(self):
         return SimpleGraph(
                 set(self.nodes),
