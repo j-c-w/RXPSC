@@ -402,6 +402,19 @@ class PrefixTest(unittest.TestCase):
         prefix, alg_a, alg_b, unifier = alg.prefix_unify(t1, s1, t2, s1, EmptyOptions)
         self.assertNotEqual(unifier, None)
 
+    def test_prefix_branches(self):
+        s1 = {
+                (0, 1): [65],
+                (1, 2): [66],
+                (2, 3): [67],
+                (3, 4): [68],
+                (4, 5): [69]
+        }
+        t1 = Branch([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(1, [(2, 3)])])
+        t2 = Branch([Const(1, [(0, 1)]), Product(Const(1, [(1, 2)])), Const(3, [(2, 3), (3, 4), (4, 5)])])
+
+        print alg.prefix_unify(t1, s1, t2, s1, EmptyOptions)
+
 class AcceptRateTest(unittest.TestCase):
     def test_ar(self):
         slookup = {0: [0]*256, 1:[1,2,3,4,5], 2: [1], 3: [8,3,5,1,2,3,1,4,1,2,3,1,2]}
