@@ -12,12 +12,13 @@ if [[ $# -ne 5 ]]; then
 fi
 mem=7G
 
-to_accelerate=$1
-accelerated=$2
-results=$3
-flags="$4"
+name=$1
+to_accelerate=$2
+accelerated=$3
+results=$4
+flags="$5"
 
-output_folder=$results/$name
+output_folder=$results/${name}_${to_accelerate_name}
 
 mkdir -p $output_folder
 
@@ -31,6 +32,5 @@ if [[ ${#eddie} -eq 0 ]]; then
 	pypy rxpsc.py "${=flags}" $full_to_accelerate_path $full_accelerated_path > $full_output_path/result
 else
 	cd ../../..
-	set -x
-	echo qsub -o $full_output_path/result_$to_accelerate_name -e $full_output_path/err_$to_accelerate_name -pe sharedmem 2 -l h_vmem=$mem eddie_submission_wrapper.sh ${=flags} $full_to_accelerate_path $full_accelerated_path
+	qsub -o $full_output_path/result_$to_accelerate_name -e $full_output_path/err_$to_accelerate_name -pe sharedmem 2 -l h_vmem=$mem eddie_submission_wrapper.sh ${=flags} $full_to_accelerate_path $full_accelerated_path
 fi
