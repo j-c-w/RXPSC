@@ -637,7 +637,13 @@ def find_match_for_addition(components, group_components, used_group_components,
     # routines, but it is a bit simpler because it is a one-way
     # process (i.e. you can only compile from the accelerators
     # that are being added in this
+    iterations = 0
     while len(assigned_components) < len(components):
+        iterations += 1
+        if iterations > 10000:
+            # Previously encountered non-termination bugs in this
+            # loop --- aim to avoid those :)
+            assert False
         min_conversions = 100000000
         min_index = None
         # Find index with fewest conversions
