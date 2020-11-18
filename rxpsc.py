@@ -162,6 +162,11 @@ def run_addition_experiment(add_from, add_to, options):
     automata_components_from = extract_automata_components(from_file_groups, options)
     automata_components_to = extract_automata_components(to_file_groups, options)
 
+    automata_components_to = gc.wrap_automata(automata_components_to, options)
+    if options.use_prefix_splitting:
+        automata_components_to = pass_list.ComputeAlgebras.execute(automata_components_to, options)
+        automata_components_to = pass_list.PrefixSplit.execute(automata_components_to, options)
+
     print "Trying to convert ", len(automata_components_from[0]), "automata"
 
     # Run each individual experiment:
@@ -170,7 +175,8 @@ def run_addition_experiment(add_from, add_to, options):
             # The to components need to be recloned every time, since the underlying
             # functions change it (doh)
             print "Checking..."
-            add_to_check([[automata_components_from[i][j]]], clone_automata_components(automata_components_to), options)
+            from_group = gc.wrap_automata([[automata_components_from[i][j]]], options)
+            add_to_check(from_group, clone_automata_components(automata_components_to), options)
     print "Finished experiment run!"
 
 
