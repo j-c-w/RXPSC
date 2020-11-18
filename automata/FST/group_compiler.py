@@ -761,7 +761,7 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             # be the same as the addition components
             addition_components[i] = postfix_components
 
-            if len(prefix_machines[0]) > 0:
+            if len(prefix_machines) > 0 and len(prefix_machines[0]) > 0:
                 print "Found prefix, using postfix components", postfix_components
                 has_partial_match[i] = True
 
