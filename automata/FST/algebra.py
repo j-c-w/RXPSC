@@ -811,22 +811,21 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
             if len(A.options) != len(B.options):
                 return None, A, B, None
 
-            assignment_indicies = [None] * len(A.options)
-            unifiers = [None] * len(A.options)
-            for a_index in range(len(A.options)):
-                a_opt = A.options[a_index]
+            assignment_indicies = [None] * len(B.options)
+            unifiers = [None] * len(B.options)
+            for b_index in range(len(B.options)):
+                b_opt = B.options[b_index]
                 prefix_index = None
 
-                for b_index in range(len(B.options)):
-                    b_opt = B.options[b_index]
-
+                for a_index in range(len(A.options)):
+                    a_opt = A.options[a_index]
                     prefix_unification, tail_a, tail_b, unifier = prefix_unify_internal(a_opt, b_opt)
 
                     # Can only unify the branch if we have unity all the way to the end.
                     if tail_a is None and tail_b is None:
-                        assignment_indicies[a_index] = b_index
+                        assignment_indicies[b_index] = a_index
                         assert unifier is not None
-                        unifiers[a_index] = unifier
+                        unifiers[b_index] = unifier
             
             # We could do a better job here by trying to decide
             # which unifiers to proceed with (all of them?) instead
