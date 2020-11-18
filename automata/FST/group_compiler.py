@@ -504,27 +504,31 @@ def remove_prefixes(addition_components, group_components, options):
                 for j in range(len(group_components[i])):
                     if options.use_prefix_unification:
                         shared_prefix, tail_comp, tail_acc, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, dict(component.automata.symbol_lookup), group_components[i][j].algebra, group_components[i][j].automata, dict(group_components[i][j].automata.symbol_lookup), options)
-                        spsize = shared_prefix.size() if shared_prefix is not None else 0
-                        tailsize = tail_comp.size() if tail_comp is not None else 0
-                        if spsize + tailsize != component.algebra.size():
-                            print "Had a failure"
-                            print spsize
-                            print tailsize
-                            print component.algebra.size()
-                            print "Tails (comp, acc):"
-                            print tail_comp
-                            print tail_acc
-                            print "Prefix"
-                            print shared_prefix
-                            print "Initial algs: (comp, acc)"
-                            print component.algebra
-                            print group_components[i][j].algebra
-                            assert False
+                        # This is a reasonable check to do for debugging
+                        # odd behaviour, but it catches some things
+                        # that shoulnd't be caught.
+                        # spsize = shared_prefix.size() if shared_prefix is not None else 0
+                        # tailsize = tail_comp.size() if tail_comp is not None else 0
+                        # if spsize + tailsize != component.algebra.size():
+                        #     print "Had a failure"
+                        #     print spsize
+                        #     print tailsize
+                        #     print component.algebra.size()
+                        #     print "Tails (comp, acc):"
+                        #     print tail_comp
+                        #     print tail_acc
+                        #     print "Prefix"
+                        #     print shared_prefix
+                        #     print "Initial algs: (comp, acc)"
+                        #     print component.algebra
+                        #     print group_components[i][j].algebra
+                        #     assert False
                     else:
                         shared_prefix, tail_acc, tail_comp = alg.prefix_merge(group_components[i][j].algebra.clone(), group_components[i][j].automata.symbol_lookup, component.algebra.clone(), component.automata.symbol_lookup, options)
-                        spsize = shared_prefix.size() if shared_prefix is not None else 0
-                        tailsize = tail_comp.size() if tail_comp is not None else 0
-                        assert spsize + tailsize == component.algebra.size()
+                        # Likewise --- see above.
+                        # spsize = shared_prefix.size() if shared_prefix is not None else 0
+                        # tailsize = tail_comp.size() if tail_comp is not None else 0
+                        # assert spsize + tailsize == component.algebra.size()
                         conversion_machine = FST.EmptySingleStateTranslator()
 
                     # We are looking for more than just a splitting of
