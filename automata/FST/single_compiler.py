@@ -212,7 +212,7 @@ def compute_depth_equation(atma, options, dump_output=False):
 
     if len(atma.nodes) > options.graph_size_threshold:
         print "Graph is too large for current implementation --- skipping"
-        print "Graph is ", len(nodes), "and limit is ", options.graph_size_threshold, "nodes"
+        print "Graph is ", len(atma.nodes), "and limit is ", options.graph_size_threshold, "nodes"
         print "Increase with --graph-size-limit <N>"
         compilation_statistics.graph_too_big += 1
         return None
