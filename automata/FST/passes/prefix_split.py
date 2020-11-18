@@ -20,6 +20,7 @@ class PrefixSplitPass(rxp_pass.Pass):
 # In other words, the current implementation provides the
 # numbers, but not a real implementation of prefix-split
 # automata.
+prefix_split_cache = {}
 def prefix_split(groups, options):
     import automata.FST.algebra as alg
     from automata.FST.group_compiler import AutomataContainer
@@ -49,7 +50,20 @@ def prefix_split(groups, options):
                     if i2 == i and j2 == j:
                         continue
 
-                    shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
+                    # We use this cache because in some experiment modes,
+                    # we are often calling prefix_split over and over and over
+                    # again to setup each subsequent experiment.
+                    # In any 'real' usecases, we wouldn'tt expect
+                    # this cache to be actually useful.
+                    key = (groups[i][j].automata.id, groups[i2][j2].automata.id)
+                    if key in prefix_split_cache:
+                        shared_prefix, tail_first, tail_second = prefix_split_cache[key]
+                        # shared_prefix, tail_first, tail_second = shared_prefix.clone() if shared_prefix is not None else None, \
+                        #         tail_first.clone() if tail_first is not None else None, \
+                        #         tail_second.clone() if tail_second is not None else None
+                    else:
+                        shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
+                        prefix_split_cache[key] = shared_prefix, tail_first, tail_second
 
                     # Only use the prefix if it is (a) bigger
                     # than the size limit, and (b) has an acceptance

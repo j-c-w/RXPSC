@@ -503,7 +503,7 @@ def remove_prefixes(addition_components, group_components, options):
             for i in range(len(group_components)):
                 for j in range(len(group_components[i])):
                     if options.use_prefix_unification:
-                        shared_prefix, tail_comp, tail_acc, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, dict(component.automata.symbol_lookup), group_components[i][j].algebra, group_components[i][j].automata, dict(group_components[i][j].automata.symbol_lookup), options)
+                        shared_prefix, tail_comp, tail_acc, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.automata.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].automata.symbol_lookup, options)
                         # This is a reasonable check to do for debugging
                         # odd behaviour, but it catches some things
                         # that shoulnd't be caught.
@@ -761,7 +761,7 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             # be the same as the addition components
             addition_components[i] = postfix_components
 
-            if len(prefix_machines[0]) > 0:
+            if len(prefix_machines) > 0 and len(prefix_machines[0]) > 0:
                 print "Found prefix, using postfix components", postfix_components
                 has_partial_match[i] = True
 

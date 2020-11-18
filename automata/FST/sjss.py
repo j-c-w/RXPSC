@@ -702,7 +702,10 @@ def automata_to_nodes_and_edges(automata):
     accepting_states = set(automata.reporting_states_list())
     start_state = automata.fake_root.id
     assert start_state == 0
-    return simple_graph.SimpleGraph(set(automata.node_ids_list()), edges, generate_fst.edge_label_lookup_generate(automata), accepting_states, start_state)
+
+    graph = simple_graph.SimpleGraph(set(automata.node_ids_list()), edges, generate_fst.edge_label_lookup_generate(automata), accepting_states, start_state)
+    graph.id = automata.id
+    return graph
 
 # Convert a nodes and edges representation to an automata network
 # object.
