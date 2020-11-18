@@ -58,12 +58,18 @@ def prefix_split(groups, options):
                     key = (groups[i][j].automata.id, groups[i2][j2].automata.id)
                     if key in prefix_split_cache:
                         shared_prefix, tail_first, tail_second = prefix_split_cache[key]
+                        if shared_prefix is None:
+                            tail_first = groups[i][j].algebra
+                            tail_second = groups[i2][j2].algebra
                         # shared_prefix, tail_first, tail_second = shared_prefix.clone() if shared_prefix is not None else None, \
                         #         tail_first.clone() if tail_first is not None else None, \
                         #         tail_second.clone() if tail_second is not None else None
                     else:
                         shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
-                        prefix_split_cache[key] = shared_prefix, tail_first, tail_second
+                        # Make that we've computed this, but that
+                        # it may not the the best one.  The chosen
+                        # splits will get saved.
+                        prefix_split_cache[key] = None, None, None
 
                     # Only use the prefix if it is (a) bigger
                     # than the size limit, and (b) has an acceptance
@@ -104,6 +110,9 @@ def prefix_split(groups, options):
             group1_set = False
             old_symbol_lookup = groups[i][j].automata.symbol_lookup
             for (i2, j2, prefix, tail_first, tail_second) in splits:
+                # Save the split so it doens't have to be computed again.
+                key = (groups[i][j].automata.id, groups[i2][j2].automata.id)
+                prefix_split_cache[key] = prefix, tail_first, tail_second
                 prefix_groups_required.add(i2)
                 if not group1_set:
                     if tail_first is None:
