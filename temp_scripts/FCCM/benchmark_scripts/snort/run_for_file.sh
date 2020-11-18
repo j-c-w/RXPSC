@@ -18,7 +18,7 @@ accelerated=$3
 results=$4
 flags="$5"
 
-output_folder=$results/${name}_${to_accelerate_name}
+output_folder=$results/${name}_${to_accelerate}
 
 mkdir -p $output_folder
 
