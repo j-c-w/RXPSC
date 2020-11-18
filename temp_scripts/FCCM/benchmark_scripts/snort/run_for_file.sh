@@ -18,14 +18,14 @@ accelerated=$3
 results=$4
 flags="$5"
 
-output_folder=$results/${name}_${to_accelerate}
+to_accelerate_name=$(basename $to_accelerate)
+output_folder=$results/${name}_${to_accelerate_name}
 
 mkdir -p $output_folder
 
 full_output_path=$(readlink -f $output_folder)
 full_accelerated_path=$(readlink -f ${accelerated})
 full_to_accelerate_path=$(readlink -f ${to_accelerate})
-to_accelerate_name=$(basename $to_accelerate)
 
 if [[ ${#eddie} -eq 0 ]]; then
 	cd ../../..
