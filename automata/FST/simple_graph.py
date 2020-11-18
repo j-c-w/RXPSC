@@ -1,5 +1,9 @@
 import sjss
 
+
+# Use negative IDs to not conflict with Grapefruit IDs, whcih are
+# psotivie, and sometimes passed over.
+simple_graph_id_counter = -1
 class SimpleGraph(object):
     def __init__(self, nodes, edges, symbol_lookup, accepting_states, start_state):
         assert type(symbol_lookup) == type({})
@@ -13,6 +17,10 @@ class SimpleGraph(object):
         self.symbol_lookup = symbol_lookup
         self.accepting_states = accepting_states
         self.start_state = start_state
+
+        global simple_graph_id_counter
+        self.id = simple_graph_id_counter
+        simple_graph_id_counter -= 1
 
         for edge in edges:
             assert edge in symbol_lookup
@@ -76,5 +84,18 @@ class SimpleGraph(object):
                 end_states.add(n)
         return end_states
 
+    def __hash__(self):
+        # This is not a truly unique hash, but is designed to
+        # be unique-enough.. Think we could do better if required.
+        node_count = len(self.nodes)
+        node_sum = sum(self.nodes)
+        edges_count = len(self.edges)
+        symbs = 0
+        for edge in self.edges:
+            symbs += edge[0] * sum(self.symbol_lookup[edge])
+        return symbs * node_sum + edges_count * node_count
+
 def fromatma(atma):
-    return sjss.automata_to_nodes_and_edges(atma)
+    g = sjss.automata_to_nodes_and_edges(atma)
+    g.id = atma.id
+    return g
