@@ -628,7 +628,7 @@ def find_match_for_addition(components, group_components, used_group_components,
     # We could sort this etc, but I don't expec the components
     # list to ever be very long, so we can just go through it
     # every time.
-    assignment_count = 0
+    assigned_components = set()
     targets = [None] * len(components)
     conversion_machines = [None] * len(components)
     assigned_accelerators = set()
@@ -637,11 +637,13 @@ def find_match_for_addition(components, group_components, used_group_components,
     # routines, but it is a bit simpler because it is a one-way
     # process (i.e. you can only compile from the accelerators
     # that are being added in this
-    while assignment_count < len(components):
+    while len(assigned_components) < len(components):
         min_conversions = 100000000
         min_index = None
         # Find index with fewest conversions
         for i in range(len(components)):
+            if i in assigned_components:
+                continue
             if len(conversions[i]) == 0:
                 # There are no conversion opportunties for
                 # this automata, so we can't do this.
@@ -658,13 +660,16 @@ def find_match_for_addition(components, group_components, used_group_components,
         # We also want to find the biggest possible assignment.
         last_assignment_size = -1
         last_overapproximation_factor = 1
+        print "Conversions are", conversions[min_index]
         for (i, j, target, conversion_machine) in conversions[min_index]:
             if (i, j) not in assigned_accelerators:
+                print "Conversion not assigned"
                 found_assignment = True
                 assignment_size = group_components[i][j].algebra.size()
                 overapproximation_factor = conversion_machine.overapproximation_factor()
 
                 if assignment_size * (1 - overapproximation_factor) > last_assignment_size * (1 - last_overapproximation_factor):
+                    print "Found a more optimal conversion"
                     # We want the biggest assignment possible, i.e.
                     # the largest FSM.
                     assignment_index = (i, j)
@@ -676,6 +681,7 @@ def find_match_for_addition(components, group_components, used_group_components,
 
         if found_assignment:
             assigned_accelerators.add(assignment_index)
+            assigned_components.add(min_index)
 
             if overapproximation_factor > 0.95:
                 print "Overapproxmation factor for assignment is very high, high CPU load is likely... (>0.95)"
@@ -717,7 +723,7 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
                 continue
 
             cc_group = CCGroup(target.automata, target.algebra)
-            cc_group.add_automata(postfix_component.automata, postfix_component.algebra, conversion_machine)
+            cc_group.add_automata(None, None, conversion_machine)
             assert conversion_machine is not None
             cc_list.append(cc_group)
         print "Length of CCList is ", len(cc_list)
