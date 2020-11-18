@@ -13,6 +13,7 @@ import automata.HDL.hdl_generator as hd_gen
 import automata.FST.group_compiler as gc
 import automata.FST.compilation_statistics as compilation_statistics
 import automata.FST.generator.generate_python as generate_python
+import automata.FST.passes.pass_list as pass_list
 
 sys.setrecursionlimit(25000)
 
@@ -97,6 +98,15 @@ def compute_initial_state_count(automata_components):
 def run_addition_experiment_anml_zoo(anml_file, options):
     groups = extract_file_groups(anml_file, file_input=True)
     extracted_components = extract_automata_components(groups, options)
+    # Compute the prefix split for this file --- we'll remove 
+    # any splits that were calculated using the experimental
+    # automata later.  It's a bit expensive (and unnessecary)
+    # to calculate it later.
+    prefix_extracted_components = gc.wrap_automata(clone_automata_components(extracted_components), options)
+    if options.use_prefix_splitting:
+        existing_components = pass_list.ComputeAlgebras.execute(prefix_extracted_components, options)
+        split_components = pass_list.PrefixSplit.execute(existing_components, options)
+
     # Should be the case because we expect there to have only
     # been one file.
     assert len(extracted_components) == 1
@@ -106,16 +116,28 @@ def run_addition_experiment_anml_zoo(anml_file, options):
     for i in range(0, len(extracted_components[0])):
         # Needs to re-cloned every time because the underlying
         # functions change it.
-        automata_components = clone_automata_components(extracted_components)
+        automata_components = clone_automata_components(split_components)
 
         # Get the automata we are adding out, but note that
         # we obviously can't just test if we can compile
         # to an accelerator that already has that automata(!)
         # so delete it :)
-        add_test_automata = automata_components[0][i]
-        del automata_components[0][i]
+        add_test_automata = gc.wrap_automata([[extracted_components[0][i]]], options)
 
-        add_to_check([[add_test_automata]], automata_components, options)
+        # Go through and delete any prefixes that were extracted
+        # just for this automata.  Also delete this automata.
+        for j in range(len(automata_components[0]) - 1, -1, -1):
+            if j == i:
+                del automata_components[0][j]
+            else:
+                # Check if this is a prefix extracted just for this
+                # automata (and one other).
+                if len(automata_components[0][j].supported_automata) == 2 and \
+                        (0, i) in automata_components[0][j].supported_automata:
+                    del automata_components[0][j]
+
+
+        add_to_check(add_test_automata, automata_components, options)
 
         print "ANMLZoo Experiment Mode: Experiment complete, trying next one!"
 
@@ -206,7 +228,7 @@ def add_to_check(automata_components_from, automata_components_to, options):
 
         dump_machines(conversions, folder, options, selected_indexes=selected_indexes)
 
-        original_machines = [[gc.CCGroup(sjss.automata_to_nodes_and_edges(m), None)] for m in automata_components_from[0]]
+        original_machines = [[gc.CCGroup(m.automata, None)] for m in automata_components_from[0]]
         dump_machines(original_machines, original_folder, options)
 
 

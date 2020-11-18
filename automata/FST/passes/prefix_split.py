@@ -20,7 +20,6 @@ class PrefixSplitPass(rxp_pass.Pass):
 # In other words, the current implementation provides the
 # numbers, but not a real implementation of prefix-split
 # automata.
-prefix_split_cache = {}
 def prefix_split(groups, options):
     import automata.FST.algebra as alg
     from automata.FST.group_compiler import AutomataContainer
@@ -50,26 +49,7 @@ def prefix_split(groups, options):
                     if i2 == i and j2 == j:
                         continue
 
-                    # We use this cache because in some experiment modes,
-                    # we are often calling prefix_split over and over and over
-                    # again to setup each subsequent experiment.
-                    # In any 'real' usecases, we wouldn'tt expect
-                    # this cache to be actually useful.
-                    key = (groups[i][j].automata.id, groups[i2][j2].automata.id)
-                    if key in prefix_split_cache:
-                        shared_prefix, tail_first, tail_second = prefix_split_cache[key]
-                        if shared_prefix is None:
-                            tail_first = groups[i][j].algebra
-                            tail_second = groups[i2][j2].algebra
-                        # shared_prefix, tail_first, tail_second = shared_prefix.clone() if shared_prefix is not None else None, \
-                        #         tail_first.clone() if tail_first is not None else None, \
-                        #         tail_second.clone() if tail_second is not None else None
-                    else:
-                        shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
-                        # Make that we've computed this, but that
-                        # it may not the the best one.  The chosen
-                        # splits will get saved.
-                        prefix_split_cache[key] = None, None, None
+                    shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
 
                     # Only use the prefix if it is (a) bigger
                     # than the size limit, and (b) has an acceptance
@@ -90,6 +70,7 @@ def prefix_split(groups, options):
             split_size = -1
             splits = []
             prefix_groups_required = set()
+            supported_automata = set()
             for (i2, j2, prefix, tail_first, tail_second) in shared_prefixes:
                 if prefix.size() > split_size:
                     prefix_groups_required = groups[i][j].other_groups.union(groups[i2][j2].other_groups)
@@ -111,10 +92,10 @@ def prefix_split(groups, options):
             old_symbol_lookup = groups[i][j].automata.symbol_lookup
             for (i2, j2, prefix, tail_first, tail_second) in splits:
                 # Save the split so it doens't have to be computed again.
-                key = (groups[i][j].automata.id, groups[i2][j2].automata.id)
-                prefix_split_cache[key] = prefix, tail_first, tail_second
                 prefix_groups_required.add(i2)
+                supported_automata.add((i2, j2))
                 if not group1_set:
+                    supported_automata.add((i, j))
                     if tail_first is None:
                         automata_to_remove.add((i, j))
                     else:
@@ -141,13 +122,14 @@ def prefix_split(groups, options):
             # This makes sure that we don't add things to multiple
             # lists.
             if len(splits) > 0:
-                prefixes_to_add.append((i, j, prefix, prefix_groups_required, old_symbol_lookup))
+                prefixes_to_add.append((i, j, prefix, prefix_groups_required, supported_automata, old_symbol_lookup))
 
     # Now add the prefixes to the groups that need it.
-    for i, j, prefix, other_groups, old_symbol_lookup in prefixes_to_add:
+    for i, j, prefix, other_groups, supported_automata, old_symbol_lookup in prefixes_to_add:
         new_graph = alg.full_graph_for(prefix, old_symbol_lookup)
         wrapper = AutomataContainer(new_graph, None)
         wrapper.other_groups = other_groups
+        wrapper.supported_automata = supported_automata
         groups[i].append(wrapper)
 
     automata_to_remove = sorted(list(automata_to_remove))[::-1]

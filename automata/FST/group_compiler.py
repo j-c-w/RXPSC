@@ -81,8 +81,19 @@ class AutomataContainer(object):
         self.automata = automata
         self.algebra = algebra
         self.other_groups = set()
+        # Which other automata rely on this (e.g. as a prefix?)
+        self.supported_automata = set()
 
         assert isinstance(automata, simple_graph.SimpleGraph)
+
+    def clone(self):
+        cloned_atma = self.automata.clone() if self.automata else None
+        cloned_alg = self.algebra.clone() if self.algebra else None
+        new_cont =  AutomataContainer(cloned_atma, cloned_alg)
+        new_cont.other_groups = set(self.other_groups)
+        new_cont.supported_automata = set(self.supported_automata)
+
+        return new_cont
 
 # Store an automata to be implemented, and a set of translators
 # to link up to it as a CCGroup (ConnectedComponent Group)
@@ -809,29 +820,6 @@ def compile_to_existing(addition_components, existing_components, options):
     assert options.target == 'single-state'
     if options.print_compile_time:
         start_time = time.time()
-
-    # Wrap the automata in the wrappers I use to keep track of
-    # metadata.
-    addition_components = wrap_automata(addition_components, options)
-    existing_components = wrap_automata(existing_components, options)
-
-    # In this case, we have had the opportunity to specify
-    # the behaviour of the accelerators that were placed into hardware.
-    # We chose previously to prefix merge (and prefix split) them, so do so
-    # again here.
-    if options.use_prefix_splitting:
-        if DEBUG_COMPILE_TO_EXISTING:
-            print "Assuming that underlying accelerators were prefix-split, splitting..."
-            initial_count = sum([len(x) for x in existing_components])
-        existing_components = pass_list.ComputeAlgebras.execute(existing_components, options)
-        existing_components = pass_list.PrefixSplit.execute(existing_components, options)
-
-        if DEBUG_COMPILE_TO_EXISTING:
-            print "Total introduced prefixes is "
-            print sum([len(x) for x in existing_components]) - initial_count
-
-    existing_components = pass_list.ComputeAlgebras.execute(existing_components, options)
-    existing_components = pass_list.Splitter.execute(existing_components, options)
 
     # Now, we can turn these into algebras :)
     addition_components = pass_list.ComputeAlgebras.execute(addition_components, options)
