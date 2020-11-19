@@ -36,6 +36,8 @@ def prefix_split(groups, options):
                 # This algebra has been completely replaced
                 # by a prefix --- move onto next.
                 continue
+            if groups[i][j] is None:
+                continue
 
             shared_prefixes = []
             # Aim is to only iterate over the /subsequent/
@@ -47,6 +49,8 @@ def prefix_split(groups, options):
                     jrange = range(len(groups[i2]))
                 for j2 in jrange:
                     if i2 == i and j2 == j:
+                        continue
+                    if groups[i2][j2] is None:
                         continue
 
                     shared_prefix, tail_first, tail_second = alg.prefix_merge(groups[i][j].algebra, groups[i][j].automata.symbol_lookup, groups[i2][j2].algebra, groups[i2][j2].automata.symbol_lookup, options)
@@ -134,6 +138,6 @@ def prefix_split(groups, options):
 
     automata_to_remove = sorted(list(automata_to_remove))[::-1]
     for (i, j) in automata_to_remove:
-        del groups[i][j]
+        groups[i][j] = None
 
     return groups

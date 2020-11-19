@@ -32,15 +32,36 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
         # However, I do note that this should support a whole
         # micrograph structure.
         acceptance_file_acceptances = set()
+        all_files_accepts = []
         for file in split_acceptance_files:
             print file
             with open(file, 'r') as f:
+                this_file_accepts = {}
                 for line in f.readlines():
                     if line == '':
                         continue
 
+                    start_index = line.split(',')[0].replace('(', '')
                     accept_index = line.split(',')[1].replace(')', '').replace(' ', '')
-                    acceptance_file_acceptances.add(int(accept_index))
+                    if start_index in this_file_accepts:
+                        this_file_accepts[start_index].append(accept_index)
+                    else:
+                        this_file_accepts[start_index] = [accept_indexe]
+                all_files_accepts.append(this_file_accepts)
+
+
+        # Now, combine all those into one.
+        for accepts_set in all_files_accepts:
+            for start in accepts_set:
+                ends = set(accepts_set[start])
+                while len(ends) > 0:
+                    next_ends = set()
+                    for other_accepts_set in all_files_accepts:
+                        for end in ends:
+                            if end in other_accepts_set:
+                                next_ends = next_ends.union(other_accepts_set[end])
+                            else:
+                                acceptance_file_acceptances.add((start, end))
 
         for (start, end) in accept_indexes:
             # Check that there is at least one accept in this range --- i.e. we did not miss an acceptance we should have had.

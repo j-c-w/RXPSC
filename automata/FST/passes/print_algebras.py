@@ -7,4 +7,5 @@ class PrintAlgebraPass(rxp_pass.Pass):
     def execute(self, groups, options):
         for i in range(len(groups)):
             for j in range(len(groups[i])):
-                print groups[i][j].algebra
+                if groups[i][j] is not None:
+                    print groups[i][j].algebra

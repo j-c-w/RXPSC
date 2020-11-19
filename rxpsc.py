@@ -77,7 +77,10 @@ def clone_automata_components(components):
     for group in components:
         new_group = []
         for comp in group:
-            new_group.append(comp.clone())
+            if comp is None:
+                new_group.append(None)
+            else:
+                new_group.append(comp.clone())
         new_components.append(new_group)
     return new_components
 
@@ -102,10 +105,14 @@ def run_addition_experiment_anml_zoo(anml_file, options):
     # any splits that were calculated using the experimental
     # automata later.  It's a bit expensive (and unnessecary)
     # to calculate it later.
+    print len(extracted_components[0])
     prefix_extracted_components = gc.wrap_automata(clone_automata_components(extracted_components), options)
+    print len(prefix_extracted_components[0])
     if options.use_prefix_splitting:
         existing_components = pass_list.ComputeAlgebras.execute(prefix_extracted_components, options)
+        print len(existing_components[0])
         split_components = pass_list.PrefixSplit.execute(existing_components, options)
+        print len(split_components[0])
 
     # Should be the case because we expect there to have only
     # been one file.
@@ -127,14 +134,16 @@ def run_addition_experiment_anml_zoo(anml_file, options):
         # Go through and delete any prefixes that were extracted
         # just for this automata.  Also delete this automata.
         for j in range(len(automata_components[0]) - 1, -1, -1):
+            if automata_components[0][j] is None:
+                continue
             if j == i:
-                del automata_components[0][j]
+                automata_components[0][j] = None
             else:
                 # Check if this is a prefix extracted just for this
                 # automata (and one other).
                 if len(automata_components[0][j].supported_automata) == 2 and \
                         (0, i) in automata_components[0][j].supported_automata:
-                    del automata_components[0][j]
+                    automata_components[0][j] = None
 
 
         add_to_check(add_test_automata, automata_components, options)

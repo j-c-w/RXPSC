@@ -133,6 +133,8 @@ def compute_cross_compatibility_matrix_for(group, options):
 
     for i in range(len(group)):
         for j in range(len(group[i])):
+            if group[i][j] is None:
+                continue
             # Now, compile everything that is /not/ in this
             # group to this.
             tasks.append((group, i, j, options, read_comparison_cache, dump_comparison_cache))
@@ -402,6 +404,8 @@ def generate_base_automata_for(groups, assignments, options):
 
     for i in range(len(groups)):
         for j in range(len(groups[i])):
+            if groups[i][j] is None:
+                continue
             # See if this is assigned to itself:
             assignment = assignments[i][j]
             if assignment.i == i and assignment.j == j:
@@ -513,6 +517,9 @@ def remove_prefixes(addition_components, group_components, options):
             # be a threshold to the prefix size applied.
             for i in range(len(group_components)):
                 for j in range(len(group_components[i])):
+                    if group_components[i][j] is None:
+                        continue
+
                     if options.use_prefix_unification:
                         shared_prefix, tail_comp, tail_acc, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.automata.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].automata.symbol_lookup, options)
                         # This is a reasonable check to do for debugging
@@ -612,6 +619,8 @@ def find_match_for_addition(components, group_components, used_group_components,
 
         for i in range(len(group_components)):
             for j in range(len(group_components[i])):
+                if group_components[i][j] is None:
+                    continue
                 if (i, j) in used_group_components:
                     # We can't use this to target any accelerator, because it's being used by a prefix
                     # merge.
@@ -666,16 +675,13 @@ def find_match_for_addition(components, group_components, used_group_components,
         # We also want to find the biggest possible assignment.
         last_assignment_size = -1
         last_overapproximation_factor = 1
-        print "Conversions are", conversions[min_index]
         for (i, j, target, conversion_machine) in conversions[min_index]:
             if (i, j) not in assigned_accelerators:
-                print "Conversion not assigned"
                 found_assignment = True
                 assignment_size = group_components[i][j].algebra.size()
                 overapproximation_factor = conversion_machine.overapproximation_factor()
 
                 if assignment_size * (1 - overapproximation_factor) > last_assignment_size * (1 - last_overapproximation_factor):
-                    print "Found a more optimal conversion"
                     # We want the biggest assignment possible, i.e.
                     # the largest FSM.
                     assignment_index = (i, j)
@@ -732,7 +738,6 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
             cc_group.add_automata(None, None, conversion_machine)
             assert conversion_machine is not None
             cc_list.append(cc_group)
-        print "Length of CCList is ", len(cc_list)
 
     if options.use_prefix_splitting:
         # Also need to return the null translators for the new
@@ -741,14 +746,12 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
         # a lot more potential here for /inexact/ prefixes.
         for prefix_machine_set in prefix_machines:
             for (accelerator_prefix, addition_prefix, conversion) in prefix_machine_set:
-                print "Adding a prefix machine :)"
                 resmachine = CCGroup(accelerator_prefix.automata, accelerator_prefix.algebra)
                 # Need also to get the machine that we converted
                 # from.
                 resmachine.add_automata(addition_prefix.automata, addition_prefix.algebra, conversion)
                 assert conversion is not None
                 cc_list.append(resmachine)
-    print "Length of CC List is ", len(cc_list)
     if len(cc_list) == 0:
         return None
 
@@ -813,8 +816,6 @@ def find_conversions_for_additions(addition_components, existing_components, opt
                     conversion_machines = None
 
         group_conv_machines = build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_machine_indexes, options)
-        print "Group Conversion machines are "
-        print group_conv_machines
 
         all_conv_machines.append(group_conv_machines)
     return all_conv_machines
@@ -1019,6 +1020,8 @@ def print_regex_injection_stats(groups, options):
     compiling_opts = 0
     for i in range(len(groups)):
         for j in range(len(groups[i])):
+            if groups[i][j] is None:
+                continue
             if len(compiles_to[i][j]) == 0:
                 non_compiling_opts += 1
             else:

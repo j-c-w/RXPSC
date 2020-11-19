@@ -14,6 +14,10 @@ class ComputeAlgebraPass(rxp_pass.Pass):
             group = []
             equation_index = 0
             for cc in cc_list:
+                if cc is None:
+                    group.append(None)
+                    continue
+
                 if options.print_file_info:
                     print "Compiling equation from group ", group_index
                     print "Equation index", equation_index
@@ -35,6 +39,7 @@ class ComputeAlgebraPass(rxp_pass.Pass):
                 if not depth_eqn:
                     # Means that the graph was too big for the current
                     # setup.
+                    group.append(None)
                     continue
 
                 edges_not_in_graph = False
@@ -62,5 +67,6 @@ class ComputeAlgebraPass(rxp_pass.Pass):
 
         for x in groups:
             for y in x:
-                assert y.algebra is not None
+                if y is not None:
+                    assert y.algebra is not None
         return groups
