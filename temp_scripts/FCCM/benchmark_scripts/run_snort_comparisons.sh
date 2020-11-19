@@ -11,14 +11,17 @@ if [[ $# -ne 2 ]]; then
 	exit 1
 fi
 
+# Used to run shorter experiments, should be just very very high by default.
+files_to_execute=200
+
 benchmark=$1
 results=$2
 
 other_flags="--compression-stats --no-structural-change --allow-overapproximation --backend python"
 
 flag_combinations=(
-	"--use-prefix-splitting --use-prefix-estimation --output-folder $results/sim/unification/"
-	"--use-prefix-splitting --use-prefix-estimation --prefix-merging-only --no-prefix-unification --output-folder $results/sim/nounification/"
+	"--use-prefix-splitting --prefix-size-threshold 1 --use-prefix-estimation"
+	"--use-prefix-splitting --prefix-size-threshold 1 --use-prefix-estimation --prefix-merging-only --no-prefix-unification"
 	# ""
 	)
 
@@ -29,7 +32,11 @@ flag_combination_names=(
 
 files_to_run=(  $(find $benchmark -name "*.anml" ) )
 
+findex=1
 for file in ${files_to_run[@]}; do
+	if [[ $findex -gt $files_to_execute ]]; then
+		break
+	fi
 	fcomb_index=1
 	for fcomb in ${flag_combinations[@]}; do
 		# The tool filters out the file from being used
@@ -38,12 +45,14 @@ for file in ${files_to_run[@]}; do
 		echo $file
 		echo $fcomb
 		name=${flag_combination_names[fcomb_index]}
+		of_flag="--output-folder $results/sim/$name/$(basename $file)"
 		if [[ ${#eddie} -gt 0 ]]; then
-			./snort/run_for_file.sh $name $file $benchmark $results "addition-experiment $fcomb $other_flags" --eddie
-			sleep 0.3 # Submitting jobs too fast is bad for eddie.
+			./snort/run_for_file.sh $name $file $benchmark $results "addition-experiment $fcomb $other_flags $of_flag" --eddie
+			sleep 0.1 # Submitting jobs too fast is bad for eddie.
 		else
-			./snort/run_for_file.sh $name $file $benchmark $results "addition-experiment $fcomb $other_flags"
+			./snort/run_for_file.sh $name $file $benchmark $results "addition-experiment $fcomb $other_flags $of_flag"
 		fi
 		fcomb_index=$((fcomb_index + 1))
 	done
+	findex=$((findex + 1))
 done
