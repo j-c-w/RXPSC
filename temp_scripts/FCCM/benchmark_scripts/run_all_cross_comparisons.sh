@@ -10,7 +10,7 @@ if [[ $# -ne 2 ]]; then
 fi
 
 ANMLZoo=$1
-results=$2
+results=$(readlink -f $2)
 # Can also be eg. compress
 mode=addition-experiment-anml-zoo
 
@@ -31,10 +31,10 @@ flag_combinations=(
 	# ""
 	# "--allow-overapproximation"
 	# "--use-prefix-splitting --use-prefix-estimation --output-folder $results/sim/nounification/"
-	# "--use-prefix-splitting --use-prefix-estimation --prefix-merging-only --no-prefix-unification --prefix-size-threshold 2"
-	# "--use-prefix-splitting --use-prefix-estimation"
+	# "--use-prefix-splitting --use-prefix-estimation --prefix-merging-only --no-prefix-unification --prefix-size-threshold 2 --time"
+	"--use-prefix-splitting --use-prefix-estimation --prefix-size-threshold 1"
 	# "--use-prefix-splitting --use-prefix-estimation --prefix-size-threshold 2"
-	"--use-prefix-splitting"
+	# "--use-prefix-splitting"
 	# ""
 	# "--use-prefix-splitting"
 	# "--no-structural-change"
@@ -55,5 +55,5 @@ for bmark in ${bmarks[@]}; do
 done
 
 if [[ ${#eddie} -eq 0 ]]; then
-	parallel --dry-run ./cross_comparisons/run_anml_cross_comparison.sh $ANMLZoo {1} $results \"$mode '{=2 uq(); =}' $other_flags --output-folder $results/sim/{1}_{#}\" {#} ::: ${bmarks[@]} ::: "${flag_combinations[@]}"
+	parallel ./cross_comparisons/run_anml_cross_comparison.sh $ANMLZoo {1} $results \"$mode '{=2 uq(); =}' $other_flags --output-folder $results/sim/{1}_{#}\" {#} ::: ${bmarks[@]} ::: "${flag_combinations[@]}"
 fi
