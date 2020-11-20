@@ -54,18 +54,22 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
         # You can hop to any subsequent sims.  If you don't hop through
         # all the sims, then you aren't an accept!
         acceptance_file_acceptances = set()
-        initial_accepts = all_files_accepts[0]
-        for i in range(1, len(all_files_accepts)):
+        initial_accepts = set(all_files_accepts[0].keys())
+        for i in range(0, len(all_files_accepts) - 1):
             this_accepts_set = all_files_accepts[i]
+            next_accepts_set = all_files_accepts[i + 1]
             current_accepts = set()
             for start in initial_accepts:
-                ends = initial_accepts[start]
+                ends = this_accepts_set[start]
                 for end in ends:
-                    if end in this_accepts_set:
-                        for ind in this_accepts_set[end]:
-                            current_accepts.add(ind)
+                    if end in next_accepts_set:
+                        current_accepts.add(end)
             initial_accepts = current_accepts
-        acceptance_file_acceptances = initial_accepts
+
+        acceptance_file_acceptances = set()
+        for ind in initial_accepts:
+            for end in all_files_accepts[-1][ind]:
+                acceptance_file_acceptances.add(end)
 
         for (start, end) in accept_indexes:
             # Check that there is at least one accept in this range --- i.e. we did not miss an acceptance we should have had.
