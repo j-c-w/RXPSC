@@ -1,6 +1,7 @@
 #!/bin/zsh
 
 set -eu
+set -x
 
 typeset -a eddie
 zparseopts -D -E -eddie=eddie
@@ -20,6 +21,7 @@ block_size=10
 mem=3G
 n=0
 last_n=0
+simulators=( $(find $simdir -type d -wholename "*/generated_*/0" | sort) )
 # Submit by ranges.
 if [[ ${#eddie} -gt 0 ]]; then
 	while [[ $n -le $max_sims ]]; do
@@ -29,13 +31,12 @@ if [[ ${#eddie} -gt 0 ]]; then
 			n=$(($3 + 1))
 		fi
 
-		set -x
-		qsub -o $simdir/outputs/round_std_$n -P inf_regex_synthesis -e $simdir/outputs/round_err_$n -l h_vmem=$mem run_simulation.sh $PWD $infile $simdir $(seq  -s ' ' $last_n $((n - 1)))
-		sleep 0.3
+		qsub -o $simdir/outputs/round_std_$n -P inf_regex_synthesis -e $simdir/outputs/round_err_$n -l h_vmem=$mem run_simulation.sh $PWD $infile $simdir ${simulators[@]:$last_n:$n}
+		sleep 0.1
 
 		last_n=$n
 	done
 else
 	set -x
-	parallel ./run_simulation.sh $PWD $infile $simdir {} ::: $(seq -s' ' 0 $max_sims)
+	parallel ./run_simulation.sh $PWD $infile $simdir {} ::: ${simulators[@]}
 fi
