@@ -764,6 +764,21 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
         assert len(targets) == len(conversion_machines)
 
     cc_list = []
+
+    if options.use_prefix_splitting:
+        # Also need to return the null translators for the new
+        # algebra.  These can all be empty, because we know
+        # that these are exact prefixes.  Note that there is
+        # a lot more potential here for /inexact/ prefixes.
+        for prefix_machine_set in prefix_machines:
+            for (accelerator_prefix, addition_prefix, conversion) in prefix_machine_set:
+                resmachine = CCGroup(accelerator_prefix.automata, accelerator_prefix.algebra)
+                # Need also to get the machine that we converted
+                # from.
+                resmachine.add_automata(addition_prefix.automata, addition_prefix.algebra, conversion)
+                assert conversion is not None
+                cc_list.append(resmachine)
+
     # We don't atually have to have this part if we have
     # a prefix machine for this machine.
     print "Targets are ", targets
@@ -782,19 +797,6 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
             assert conversion_machine is not None
             cc_list.append(cc_group)
 
-    if options.use_prefix_splitting:
-        # Also need to return the null translators for the new
-        # algebra.  These can all be empty, because we know
-        # that these are exact prefixes.  Note that there is
-        # a lot more potential here for /inexact/ prefixes.
-        for prefix_machine_set in prefix_machines:
-            for (accelerator_prefix, addition_prefix, conversion) in prefix_machine_set:
-                resmachine = CCGroup(accelerator_prefix.automata, accelerator_prefix.algebra)
-                # Need also to get the machine that we converted
-                # from.
-                resmachine.add_automata(addition_prefix.automata, addition_prefix.algebra, conversion)
-                assert conversion is not None
-                cc_list.append(resmachine)
     if len(cc_list) == 0:
         return None
 
