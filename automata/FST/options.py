@@ -84,6 +84,7 @@ def create_from_args(args):
     group_compiler.DEBUG_GENERATE_BASE = args.debug_generate_base
     group_compiler.MODIFICATION_LIMIT = args.modification_limit
     group_compiler.DEBUG_COMPILE_TO_EXISTING = args.debug_compile_to_existing
+    group_compiler.DEBUG_REMOVE_PREFIXES = args.debug_remove_prefixes
 
     opts = Options()
     opts.output_folder = args.output_folder
@@ -189,6 +190,7 @@ def add_to_parser(parser):
     parser.add_argument('--memory-debug', default=False, dest='memory_debug', action='store_true')
     parser.add_argument('--print-compile-time', action='store_true', dest='print_compile_time', default=False)
     parser.add_argument('--debug-compile-to-existing', action='store_true', dest='debug_compile_to_existing', default=False)
+    parser.add_argument('--debug-remove-prefixes', action='store_true', dest='debug_remove_prefixes', default=False)
     parser.add_argument('--print-unification-statistics', action='store_true', dest='print_unification_statistics', default=False)
     parser.add_argument('--print-leq-failure-reasons', default=False, dest='print_leq_failure_reasons', action='store_true', help='Print counters indicating why various equations failed the LEQ phase')
     parser.add_argument('--print-unification-failure-reasons', default=False, dest='print_unification_failure_reasons', action='store_true', help='Print reasons that unifiers fail within the single state unification method.')

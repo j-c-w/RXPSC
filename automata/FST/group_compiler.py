@@ -29,6 +29,7 @@ DEBUG_COMPUTE_COMPAT_MATRIX = True
 DEBUG_GENERATE_BASE = False
 DEBUG_COMPILE_TO_EXISTING = True
 DEBUG_FIND_MATCH = True
+DEBUG_REMOVE_PREFIXES = True
 
 # This is a class that contains a set of accelerated
 # regular expressions.  We can use it to find which
@@ -568,11 +569,37 @@ def remove_prefixes(addition_components, group_components, options):
                     # the group_components
 
                     if tail_acc is not None:
+                        compilation_statistics.tail_accelerator_not_none += 1
                         continue # second component didn't get used
                     # up completely.
+                    else:
+                        compilation_statistics.tail_accelerator_found += 1
 
-                    if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold and shared_prefix.size() > last_prefix_size:
-                        last_prefix_size = shared_prefix.size()
+                    if DEBUG_REMOVE_PREFIXES and shared_prefix is not None:
+                        print "Intermediate prefix acceptancerate is ", alg.acceptance_rate(shared_prefix, group_components[i][j].automata.symbol_lookup)
+                        print "Intermediate overapproximation factor is ", overapproximation_factor
+                        print "Length is ", shared_prefix.size()
+
+                    # How much does this accept?
+                    prefix_acceptance_rate = alg.acceptance_rate(shared_prefix, group_components[i][j].automata.symbol_lookup)
+                    # This is not a perfect equation --- ideally,
+                    # we'd take both into account, not just the bigger
+                    # one.  However, they aren't independent, so
+                    # we can't just multiply them.  (eg.. a big overapprox factor
+                    # might still result in a lot of overacceptance
+                    # even with a small prefix accept rate and vice-versa)
+                    # Pretty sure there is a mathematically sound way
+                    # to do this, and I just don't know it.
+                    accept_rate_modulated_size = (1 - max(overapproximation_factor, prefix_acceptance_rate))
+                    if shared_prefix is not None:
+                        accept_rate_modulated_size = accept_rate_modulated_size * shared_prefix.size()
+                        print "Accept rate modulated size is ", accept_rate_modulated_size
+                        print "(Current best is) ", last_accept_rate_modulated_size
+
+                    if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold and accept_rate_modulated_size > last_accept_rate_modulated_size:
+                        if DEBUG_REMOVE_PREFIXES:
+                            print "Replacing old prefixes"
+                        last_accept_rate_modulated_size = accept_rate_modulated_size
                         found_prefix = shared_prefix
                         found_conversion_machine = conversion_machine
                         found_prefix_i = i
@@ -583,6 +610,12 @@ def remove_prefixes(addition_components, group_components, options):
             if found_prefix is not None:
                 removed_prefix = True
                 prefix_reduced_machine_indexes.add(comp_index)
+                rem_prefixes_count += 1
+                if DEBUG_REMOVE_PREFIXES:
+                    print "Removed ", rem_prefixes_count, "prefixes"
+                    print "Used prefix acceptancerate is ", alg.acceptance_rate(found_prefix, group_components[found_prefix_i][found_prefix_j].automata.symbol_lookup)
+                    print "Used overapproximation factor is ", overapproximation_factor
+                    print "Accept rate modulated size was ", accept_rate_modulated_size
                 input_graph = alg.full_graph_for(found_prefix, group_components[found_prefix_i][found_prefix_j].automata.symbol_lookup)
                 newly_accelerated_prefix = AutomataContainer(input_graph, found_prefix)
 
@@ -765,6 +798,7 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
     if len(cc_list) == 0:
         return None
 
+    print "Length of CC List is: ", len(cc_list)
     return cc_list
 
 
