@@ -207,9 +207,15 @@ def add_to(add_from, add_to, options):
 
 dump_index = 0
 def add_to_check(automata_components_from, automata_components_to, options):
+    if options.time:
+        start_time = time.time()
     # Only support one group at a time right now.
     assert len(automata_components_from) == 1
     conversions = gc.compile_to_existing(automata_components_from, automata_components_to, options)
+
+    if options.time:
+        print "TIMING: Time taken ", time.time() - start_time
+
     # Check that all the conversions are individually not none.
     failed = False
     for conv in conversions:
