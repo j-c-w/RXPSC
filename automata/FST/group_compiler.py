@@ -769,6 +769,10 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
         # Add one set of machines for each machine we converted from.
         cc_list.append([])
 
+    # Need to do the prefix splitting first --- the simulartor
+    # code (which is total shit and really needs that micrograph
+    # model), assumes that automata should be executed in order
+    # that they are reported.
     if options.use_prefix_splitting:
         # Also need to return the null translators for the new
         # algebra.  These can all be empty, because we know
