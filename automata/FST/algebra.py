@@ -721,8 +721,8 @@ def graph_for(algebra, symbol_lookup):
 #   B unifier that has to be completed to complete the unification.
 # We focus on unifying from the B /to/ A. (i.e. A is underlying
 # hardware)
-def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options):
-    prefix, postA, postB, unifier = prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options)
+def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options, can_end_in_accept=False):
+    prefix, postA, postB, unifier = prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options, can_end_in_accept=can_end_in_accept)
 
     if prefix is not None:
         psize = prefix.size()
@@ -758,11 +758,20 @@ def prefix_unify(A, symbol_lookup_A, B, symbol_lookup_B, options):
     return prefix, postA, postB, unifier
 
 
-def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options):
+def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, options, can_end_in_accept=False):
     globals = {
             'symbol_lookup_A': symbol_lookup_A,
             'symbol_lookup_B': symbol_lookup_B,
-            'options': options
+            'options': options,
+            # Some implementations might take a prefix
+            # and try to connect it with other nodes
+            # in the graph.  Those implementations should
+            # probably set 'can_end_in_accept' to false, particularly
+            # if they don't want to overaccept.
+            # Other implementations, such as the python simulator,
+            # or the proposed Grapefruit model, can deal with this
+            # being set to True (and benefit greatly from it).
+            'can_end_in_accept': can_end_in_accept
     }
 
     def prefix_unify_internal(A, B):
@@ -899,16 +908,24 @@ def prefix_unify_internal_wrapper(A, symbol_lookup_A, B, symbol_lookup_B, option
             # modifiers to the last const --- so if that's the case,
             # then pull the last const out of the total prefix.
             if tail_A and tail_B and (tail_A[0].isaccept() or tail_B[0].isaccept()):
-                assert len(total_prefix) > 0 # Don't think we
-                # have any empty regexes input, pretty sure MNRL
-                # converter doesn't support that.
-                tail_A = A.e1[elt - 1:]
-                tail_B = B.e1[elt - 1:]
+                assert can_end_in_accept
+                if can_end_in_accept:
+                    # We said it can end in accept, just drop the + a part from the tails.
+                    if tail_A[0].isaccept():
+                        tail_A = tail_A[1:]
+                    if tail_B[0].isaccept():
+                        tail_B = tail_B[1:]
+                else: # can't end in accept.
+                    assert len(total_prefix) > 0 # Don't think we
+                    # have any empty regexes input, pretty sure MNRL
+                    # converter doesn't support that.
+                    tail_A = A.e1[elt - 1:]
+                    tail_B = B.e1[elt - 1:]
 
-                assert not tail_A[0].isaccept() and not tail_B[0].isaccept()
-                # Remove the element we just added back on the tails.
-                del total_prefix[-1]
-                del unifiers_found[-1]
+                    assert not tail_A[0].isaccept() and not tail_B[0].isaccept()
+                    # Remove the element we just added back on the tails.
+                    del total_prefix[-1]
+                    del unifiers_found[-1]
 
             # If they are just +e, then drop them.
             if tail_A and len(tail_A) == 1 and tail_A[0].isend():

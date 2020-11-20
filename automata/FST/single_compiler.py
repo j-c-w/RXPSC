@@ -36,12 +36,12 @@ def compile(from_atma, to_atma, options):
     return compile_from_algebras(depth_eqn_from, from_atma, depth_eqn_to, to_atma, options)
 
 
-def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbol_lookup_to, options):
+def prefix_unify(from_alg, from_atma, symbol_lookup_from, to_alg, to_atma, symbol_lookup_to, options, can_end_in_accept=False):
     if not options.use_inline_unification_heuristics:
         symbol_lookup_from = None
         symbol_lookup_to = None
 
-    prefix, post_to, post_from, unification = algebra.prefix_unify(to_alg, symbol_lookup_to, from_alg, symbol_lookup_from, options)
+    prefix, post_to, post_from, unification = algebra.prefix_unify(to_alg, symbol_lookup_to, from_alg, symbol_lookup_from, options, can_end_in_accept=can_end_in_accept)
 
     if unification is None:
         return None, from_alg, to_alg, None, generate_fst.GenerationFailureReason("Structural Failure")

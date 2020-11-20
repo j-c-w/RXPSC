@@ -500,8 +500,12 @@ def remove_prefixes(addition_components, group_components, options):
     # machines.
     for comp_index in range(len(addition_components)):
         component = addition_components[comp_index]
+        if component is None:
+            continue
+
         removed_prefix = True
-        last_prefix_size = -1
+        last_accept_rate_modulated_size = -1
+        rem_prefixes_count = 0
 
         prefix_machines = []
         # Keep removing prefixes as long as there is a match.
@@ -520,8 +524,16 @@ def remove_prefixes(addition_components, group_components, options):
                     if group_components[i][j] is None:
                         continue
 
+                    # Keep track of the overapprox fact.
+                    # a pure prefix merge (i.e. not prefix unification)
+                    # will always have an overapprox factor of 0
+                    overapproximation_fact = 0.0
+
                     if options.use_prefix_unification:
-                        shared_prefix, tail_comp, tail_acc, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.automata.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].automata.symbol_lookup, options)
+                        can_end_in_accept = not options.correct_mapping
+                        shared_prefix, tail_comp, tail_acc, conversion_machine, failure_reason = sc.prefix_unify(component.algebra, component.automata, component.automata.symbol_lookup, group_components[i][j].algebra, group_components[i][j].automata, group_components[i][j].automata.symbol_lookup, options, can_end_in_accept=can_end_in_accept)
+                        if conversion_machine is not None:
+                            overapproximation_factor = conversion_machine.overapproximation_factor()
                         # This is a reasonable check to do for debugging
                         # odd behaviour, but it catches some things
                         # that shoulnd't be caught.
@@ -592,17 +604,14 @@ def remove_prefixes(addition_components, group_components, options):
                     # recalgulate the algebra.
                     graph = alg.full_graph_for(found_tail_component, component.automata.symbol_lookup)
                     recomputed_algebra = sc.compute_depth_equation(graph, options)
-                    print recomputed_algebra
                     component = AutomataContainer(graph, recomputed_algebra)
         #endwhile
         all_prefix_machines.append(prefix_machines)
-        if component is not None:
-            # Component will be None if we got an entire-component
-            # prefix match --- in that case, no further work is
-            # needed on it, so we don't append.
-            remaining_components.append(component)
-        else:
-            print "Tried to add components, but it was none"
+        print "Adding the component to the tail", component
+        # Component will be None if we got an entire-component
+        # prefix match --- in that case, no further work is
+        # needed on it, so we don't append.
+        remaining_components.append(component)
 
     return all_prefix_machines, remaining_components, used_accelerators, prefix_reduced_machine_indexes
 
@@ -615,7 +624,8 @@ def find_match_for_addition(components, group_components, used_group_components,
     for comp_index in range(len(components)):
         component = components[comp_index]
         conversions.append([])
-        print "Looking for conversions!"
+        if component is None:
+            continue
 
         for i in range(len(group_components)):
             for j in range(len(group_components[i])):
@@ -723,16 +733,16 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
     cc_list = []
     # We don't atually have to have this part if we have
     # a prefix machine for this machine.
+    print "Targets are ", targets
     if targets is not None:
         # Create the conversion machines that
-        print "Targets are ", targets
         for i in range(len(targets)):
             target = targets[i]
             conversion_machine = conversion_machines[i]
-            if i in prefix_reduced_machine_indexes:
-                # This is a prefix reduced automata for which we
-                # have a partial match.
-                continue
+            if target is None:
+                continue # This means that the whole match
+            # was eaten by the prefix matching alg, so we don't
+            # need any other automata :)
 
             cc_group = CCGroup(target.automata, target.algebra)
             cc_group.add_automata(None, None, conversion_machine)
@@ -788,7 +798,6 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             addition_components[i] = postfix_components
 
             if len(prefix_machines) > 0 and len(prefix_machines[0]) > 0:
-                print "Found prefix, using postfix components", postfix_components
                 has_partial_match[i] = True
 
         # Now, work out the number of compiles from each source

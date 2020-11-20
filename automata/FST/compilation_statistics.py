@@ -47,3 +47,7 @@ failed_algebra_computations = 0
 
 # Splitting
 splits_made = 0
+
+# Addition of new automata to existing accelerators
+tail_accelerator_not_none = 0
+tail_accelerator_found = 0
