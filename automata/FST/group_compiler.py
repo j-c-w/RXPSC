@@ -593,8 +593,9 @@ def remove_prefixes(addition_components, group_components, options):
                     accept_rate_modulated_size = (1 - max(overapproximation_factor, prefix_acceptance_rate))
                     if shared_prefix is not None:
                         accept_rate_modulated_size = accept_rate_modulated_size * shared_prefix.size()
-                        print "Accept rate modulated size is ", accept_rate_modulated_size
-                        print "(Current best is) ", last_accept_rate_modulated_size
+                        if DEBUG_REMOVE_PREFIXES:
+                            print "Accept rate modulated size is ", accept_rate_modulated_size
+                            print "(Current best is) ", last_accept_rate_modulated_size
 
                     if shared_prefix is not None and shared_prefix.size() > options.prefix_size_threshold and accept_rate_modulated_size > last_accept_rate_modulated_size:
                         if DEBUG_REMOVE_PREFIXES:
@@ -764,20 +765,24 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
         assert len(targets) == len(conversion_machines)
 
     cc_list = []
+    for _ in targets if targets is not None else prefix_machines:
+        # Add one set of machines for each machine we converted from.
+        cc_list.append([])
 
     if options.use_prefix_splitting:
         # Also need to return the null translators for the new
         # algebra.  These can all be empty, because we know
         # that these are exact prefixes.  Note that there is
         # a lot more potential here for /inexact/ prefixes.
-        for prefix_machine_set in prefix_machines:
+        for i in range(len(prefix_machines)):
+            prefix_machine_set = prefix_machines[i]
             for (accelerator_prefix, addition_prefix, conversion) in prefix_machine_set:
                 resmachine = CCGroup(accelerator_prefix.automata, accelerator_prefix.algebra)
                 # Need also to get the machine that we converted
                 # from.
                 resmachine.add_automata(addition_prefix.automata, addition_prefix.algebra, conversion)
                 assert conversion is not None
-                cc_list.append(resmachine)
+                cc_list[i].append(resmachine)
 
     # We don't atually have to have this part if we have
     # a prefix machine for this machine.
@@ -795,13 +800,19 @@ def build_cc_list(targets, conversion_machines, prefix_machines, prefix_reduced_
             cc_group = CCGroup(target.automata, target.algebra)
             cc_group.add_automata(None, None, conversion_machine)
             assert conversion_machine is not None
-            cc_list.append(cc_group)
+            cc_list[i].append(cc_group)
 
-    if len(cc_list) == 0:
-        return None
+    for cc_elem in cc_list:
+        if len(cc_elem) == 0:
+            return None
+    # Not a fundamental flaw, but pretty sure this should be the
+    # case.  If it's not 1, then need to look at the calls
+    # to this and figure out why those are wrapping the result
+    # of this function in a list.
+    assert len(cc_list) == 1
 
-    print "Length of CC List is: ", len(cc_list)
-    return cc_list
+    print "Length of CC List is: ", len(cc_list[0])
+    return cc_list[0]
 
 
 def find_conversions_for_additions(addition_components, existing_components, options):
