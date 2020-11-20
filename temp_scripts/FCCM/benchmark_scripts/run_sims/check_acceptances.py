@@ -41,27 +41,31 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
                     if line == '':
                         continue
 
-                    start_index = line.split(',')[0].replace('(', '')
-                    accept_index = line.split(',')[1].replace(')', '').replace(' ', '')
+                    start_index = int(line.split(',')[0].replace('(', '').strip())
+                    accept_index = int(line.split(',')[1].replace(')', '').replace(' ', '').strip())
                     if start_index in this_file_accepts:
                         this_file_accepts[start_index].append(accept_index)
                     else:
-                        this_file_accepts[start_index] = [accept_indexe]
+                        this_file_accepts[start_index] = [accept_index]
                 all_files_accepts.append(this_file_accepts)
 
 
         # Now, combine all those into one.
-        for accepts_set in all_files_accepts:
-            for start in accepts_set:
-                ends = set(accepts_set[start])
-                while len(ends) > 0:
-                    next_ends = set()
-                    for other_accepts_set in all_files_accepts:
-                        for end in ends:
-                            if end in other_accepts_set:
-                                next_ends = next_ends.union(other_accepts_set[end])
-                            else:
-                                acceptance_file_acceptances.add((start, end))
+        # You can hop to any subsequent sims.  If you don't hop through
+        # all the sims, then you aren't an accept!
+        acceptance_file_acceptances = set()
+        initial_accepts = all_files_accepts[0]
+        for i in range(1, len(all_files_accepts)):
+            this_accepts_set = all_files_accepts[i]
+            current_accepts = set()
+            for start in initial_accepts:
+                ends = initial_accepts[start]
+                for end in ends:
+                    if end in this_accepts_set:
+                        for ind in this_accepts_set[end]:
+                            current_accepts.add(ind)
+            initial_accepts = current_accepts
+        acceptance_file_acceptances = initial_accepts
 
         for (start, end) in accept_indexes:
             # Check that there is at least one accept in this range --- i.e. we did not miss an acceptance we should have had.
