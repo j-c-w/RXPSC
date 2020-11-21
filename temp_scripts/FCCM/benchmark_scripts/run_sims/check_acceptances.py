@@ -73,6 +73,10 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
         # all the sims, then you aren't an accept!
         acceptance_file_acceptances = set()
         initial_accepts = set(all_files_accepts[0].keys())
+        # We want to ignore simulators that are given the CPU
+        # more work, so keep track of the intermediate accept
+        # counts, as it is correct to exclude a tail.
+        accept_sets = [None] * (len(all_files_accepts) - 1)
         for i in range(0, len(all_files_accepts) - 1):
             this_accepts_set = all_files_accepts[i]
             next_accepts_set = all_files_accepts[i + 1]
@@ -82,6 +86,7 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
                 for end in ends:
                     if end in next_accepts_set:
                         current_accepts.add(end)
+            accept_sets[i] = initial_accepts
             initial_accepts = current_accepts
 
         acceptance_file_acceptances = set()
@@ -91,8 +96,9 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
                     acceptance_file_acceptances.add(end)
         # This says that the last prefix is just branching
         # out --- it's more optimal to ignore it.
-        if len(acceptance_file_acceptances) > len(initial_accepts):
-            acceptance_file_acceptances = initial_accepts
+        for accset in accept_sets:
+            if len(acceptance_file_acceptances) > len(accset):
+                acceptance_file_acceptances = accset
 
         print "Total number of acceptances found is "
         print len(acceptance_file_acceptances)
