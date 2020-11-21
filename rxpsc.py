@@ -98,7 +98,7 @@ def compute_initial_state_count(automata_components):
 # Then, it assumes that /one/ regexp from that file is not implemented,
 # and the others all are.  It tries to compile the unimplemented
 # regexp to the implemented ones.
-def run_addition_experiment_anml_zoo(anml_file, options):
+def run_addition_experiment_anml_zoo(anml_file, options, number_experiments=None):
     groups = extract_file_groups(anml_file, file_input=True)
     extracted_components = extract_automata_components(groups, options)
     # Compute the prefix split for this file --- we'll remove 
@@ -117,10 +117,16 @@ def run_addition_experiment_anml_zoo(anml_file, options):
     # Should be the case because we expect there to have only
     # been one file.
     assert len(extracted_components) == 1
+    experiment_count = 0
 
     print "ANMLZoo Experiment Mode: Automata Extracted, running experiments!"
 
     for i in range(0, len(extracted_components[0])):
+        if number_experiments is not None and experiment_count > number_experiments:
+            print "Completed all requested experiments! (", number_experiments, ")"
+            break
+        experiment_count += 1
+
         # Needs to re-cloned every time because the underlying
         # functions change it.
         automata_components = clone_automata_components(split_components)
@@ -353,6 +359,7 @@ if __name__ == "__main__":
     addition_experiment_anml_zoo_parser = subparsers.add_parser('addition-experiment-anml-zoo', help='Given an ANMLZoo ANML file, try converting every regex in that file, assuming that every other one in that file has been fixed in hardware')
     addition_experiment_anml_zoo_parser.set_defaults(mode='addition-experiment-anml-zoo')
     addition_experiment_anml_zoo_parser.add_argument('anml_file')
+    addition_experiment_anml_zoo_parser.add_argument('--experiments', help="How many experiments to run (at max?) by default runs all", default=None, type=int, dest='number_experiments')
 
     options.add_to_parser(compress_parser)
     options.add_to_parser(addition_parser)
@@ -367,6 +374,6 @@ if __name__ == "__main__":
     elif args.mode == 'addition':
         add_to(args.addition_file, args.accelerator_file, opts)
     elif args.mode == 'addition-experiment-anml-zoo':
-        run_addition_experiment_anml_zoo(args.anml_file, opts)
+        run_addition_experiment_anml_zoo(args.anml_file, opts, number_experiments=args.number_experiments)
     else:
         run_addition_experiment(args.addition_file, args.accelerator_file, opts)
