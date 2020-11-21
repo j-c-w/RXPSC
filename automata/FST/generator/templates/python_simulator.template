@@ -50,7 +50,7 @@ class ActiveState(object):
         return hash(self) == hash(other) and self.start_index == other.start_index
 
 def exec_automata(i, inputstring, trace=False):
-    active_states = set([ActiveState(graphs[i]['start_state'], [0])])
+    active_states = set([ActiveState(graphs[i]['start_state'], set([0]))])
     matches = []
 
     neighbors = generate_neighbors_lookup(graphs[i]['nodes'], graphs[i]['edges'])
