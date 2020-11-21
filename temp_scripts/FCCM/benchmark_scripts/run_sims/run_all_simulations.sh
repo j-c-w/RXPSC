@@ -4,7 +4,8 @@ set -eu
 set -x
 
 typeset -a eddie
-zparseopts -D -E -eddie=eddie
+typeset -a nosim
+zparseopts -D -E -eddie=eddie -no-sim=nosim
 
 if [[ $# -ne 3 ]]; then
 	echo "Usage: $0 <Input file> <Simulators Directory> <Simulator Max Range>"
@@ -22,6 +23,9 @@ mem=3G
 n=0
 last_n=0
 simulators=( $(find $simdir -type d -wholename "*/generated_*/0" | sort) )
+if [[ ${#nosim} -gt 0 ]]; then
+	flags="--no-sim"
+fi
 # Submit by ranges.
 if [[ ${#eddie} -gt 0 ]]; then
 	while [[ $n -le $max_sims ]]; do
@@ -31,12 +35,12 @@ if [[ ${#eddie} -gt 0 ]]; then
 			n=$(($3 + 1))
 		fi
 
-		qsub -o $simdir/outputs/round_std_$n -P inf_regex_synthesis -e $simdir/outputs/round_err_$n -l h_vmem=$mem run_simulation.sh $PWD $infile $simdir ${simulators[@]:$last_n:$n} --eddie
+		qsub -P inf_regex_synthesis -o $simdir/outputs/round_std_$n -P inf_regex_synthesis -e $simdir/outputs/round_err_$n -l h_vmem=$mem run_simulation.sh $PWD $infile $simdir ${simulators[@]:$last_n:$n} --eddie $flags
 		sleep 0.1
 
 		last_n=$n
 	done
 else
 	set -x
-	parallel ./run_simulation.sh $PWD $infile $simdir {} > $simdir/outputs/{n}.out ::: ${simulators[@]}
+	parallel ./run_simulation.sh $PWD $infile $simdir {} $flags > $simdir/outputs/{n}.out ::: ${simulators[@]}
 fi
