@@ -17,6 +17,7 @@ shift
 
 input_file=$(readlink -f $1)
 sim_file=$2
+TIMEOUT_TIME=300 # 5 minutes.  Should be incresed for bigger data
 
 shift 2
 while [[ $# -gt 0 ]]; do
@@ -27,13 +28,13 @@ while [[ $# -gt 0 ]]; do
 	# Run both the inputs
 	pushd $generated
 	for file in $(find -name "*.py"); do
-		pypy $file 0 $input_file $file.report
+		timeout $TIMEOUT_TIME pypy $file 0 $input_file $file.report || echo "FAILED DUE TO TIME" > $file.report
 	done
 	popd
 
 	pushd $orig
 	for file in $(find -name "*.py"); do
-		pypy $file 0 $input_file $file.report
+		timeout $TIMEOUT_TIME pypy $file 0 $input_file $file.report || echo "FAILED DUE TO TIME" > $file.report
 	done
 	popd
 

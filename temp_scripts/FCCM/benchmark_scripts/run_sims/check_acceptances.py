@@ -40,6 +40,24 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
                 for line in f.readlines():
                     if line == '':
                         continue
+                    if line.strip() == 'FAILED DUE TO TIME':
+                        # THIS IS A DIRTY HACK. We say that if 
+                        # this thing failed to simulate due to a timeout,
+                        # then it probably was overaccepting loads (looking at what happens
+                        # that seems true.
+                        # So, if so, then we print out appropriate data so the collector does OK.
+
+                        # This is the most pessimistic assumption for
+                        # RXPSC, so I think it's fair to make it
+                        # (ie. if there's a simulator bug, just assumpe
+                        # the whole thing failed.)
+                        print "Evaluated Accelerator output ", base_file
+                        print "Overacceptances", 100000000000
+                        print "Successful matches", 0
+                        print "Failed matches (i.e. a bug)", 0
+                        print "Average Accept Length", 0
+                        print "Max Accept Length", 0
+                        return
 
                     start_index = int(line.split(',')[0].replace('(', '').strip())
                     accept_index = int(line.split(',')[1].replace(')', '').replace(' ', '').strip())
