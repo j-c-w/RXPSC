@@ -43,11 +43,21 @@ class ActiveState(object):
         self.state_no = state_no
         self.start_index = start_index
 
+    def __hash__(self):
+        return hash((self.state_no, self.start_index))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
 def exec_automata(i, inputstring, trace=False):
     active_states = set([ActiveState(graphs[i]['start_state'], 0)])
     matches = []
 
     neighbors = generate_neighbors_lookup(graphs[i]['nodes'], graphs[i]['edges'])
+    symbol_lookup = graphs[i]['symbol_lookup']
+    accepting_states = graphs[i]['accepting_states']
+    end_states = graphs[i]['end_states']
+    start_state = graphs[i]['start_state']
     character_index = -1
     for character in inputstring:
         character = ord(character)
@@ -57,15 +67,13 @@ def exec_automata(i, inputstring, trace=False):
         if trace:
             print "Read symbol ", character
             print "In states ", active_states
-        next_states = set([ActiveState(graphs[i]['start_state'], character_index)])
+        next_states = set([ActiveState(start_state, character_index)])
         for current_state in active_states:
             neighbor_states = neighbors[current_state.state_no]
             state_state_index = current_state.start_index
 
             for next_state_no in neighbor_states:
-                assert type(character) == type(list(graphs[i]['symbol_lookup'][(current_state.state_no, next_state_no)])[0])
-
-                if character in graphs[i]['symbol_lookup'][(current_state.state_no, next_state_no)]:
+                if character in symbol_lookup[(current_state.state_no, next_state_no)]:
                     next_states.add(ActiveState(next_state_no, state_state_index))
         active_states = next_states
 
@@ -75,7 +83,7 @@ def exec_automata(i, inputstring, trace=False):
             # automata (i.e. given this implementation, they should be
             # made accepts) --- they don't need to accept
             # in every implementation.
-            if state.state_no in graphs[i]['accepting_states'] or state.state_no in graphs[i]['end_states']:
+            if state.state_no in accepting_states or state.state_no in end_states:
                 matches.append((state.start_index, character_index))
 
     return matches
