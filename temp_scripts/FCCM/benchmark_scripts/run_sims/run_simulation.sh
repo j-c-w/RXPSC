@@ -1,14 +1,19 @@
-#!/bin/bash
+#!/bin/zsh
 set -eu
+
+typeset -a eddie
+zparseopts -D -E -eddie=eddie
 
 if [[ $# -lt 3 ]]; then
 	echo "Usage $0 <This directory (for eddie, but used elsewhere)> <Input File> <Simulators Files>"
 	exit 1
 fi
 
-# Install pypy, some of this processing is really long...:
-~/.scripts/EddieScripts/install_pypy.sh $TMPDIR/pypy
-export PATH=$PATH:$TMPDIR/pypy/bin
+if [[ ${#eddie} -gt 0 ]]; then
+	# Install pypy, some of this processing is really long...:
+	~/.scripts/EddieScripts/install_pypy.sh $TMPDIR/pypy
+	export PATH=$PATH:$TMPDIR/pypy/bin
+fi
 
 set -x
 

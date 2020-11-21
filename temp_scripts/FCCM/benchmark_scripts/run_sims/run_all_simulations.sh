@@ -31,12 +31,12 @@ if [[ ${#eddie} -gt 0 ]]; then
 			n=$(($3 + 1))
 		fi
 
-		qsub -o $simdir/outputs/round_std_$n -P inf_regex_synthesis -e $simdir/outputs/round_err_$n -l h_vmem=$mem run_simulation.sh $PWD $infile $simdir ${simulators[@]:$last_n:$n}
+		qsub -o $simdir/outputs/round_std_$n -P inf_regex_synthesis -e $simdir/outputs/round_err_$n -l h_vmem=$mem run_simulation.sh $PWD $infile $simdir ${simulators[@]:$last_n:$n} --eddie
 		sleep 0.1
 
 		last_n=$n
 	done
 else
 	set -x
-	parallel ./run_simulation.sh $PWD $infile $simdir {} ::: ${simulators[@]}
+	parallel ./run_simulation.sh $PWD $infile $simdir {} > $simdir/outputs/{n}.out ::: ${simulators[@]}
 fi
