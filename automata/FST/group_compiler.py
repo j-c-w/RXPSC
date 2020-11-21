@@ -561,6 +561,7 @@ def remove_prefixes(addition_components, group_components, options):
                         # tailsize = tail_comp.size() if tail_comp is not None else 0
                         # assert spsize + tailsize == component.algebra.size()
                         conversion_machine = FST.EmptySingleStateTranslator()
+                        overapproximation_factor = 0.0 # Overapprox for a true prefix is always 0
 
                     # We are looking for more than just a splitting of
                     # two automata here, which is what we are looking for
