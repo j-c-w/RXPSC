@@ -2,7 +2,8 @@
 set -eu
 
 typeset -a eddie
-zparseopts -D -E -eddie=eddie
+typeset -a nosim
+zparseopts -D -E -eddie=eddie -no-sim=nosim
 
 if [[ $# -lt 3 ]]; then
 	echo "Usage $0 <This directory (for eddie, but used elsewhere)> <Input File> <Simulators Files>"
@@ -31,17 +32,19 @@ while [[ $# -gt 0 ]]; do
 	shift
 
 	# Run both the inputs
-	pushd $generated
-	for file in $(find -name "*.py"); do
-		timeout $TIMEOUT_TIME pypy $file 0 $input_file $file.report || echo "FAILED DUE TO TIME" > $file.report
-	done
-	popd
+	if [[ ${#nosim} -eq 0 ]]; then
+		pushd $generated
+		for file in $(find -name "*.py"); do
+			timeout $TIMEOUT_TIME pypy $file 0 $input_file $file.report || echo "FAILED DUE TO TIME" > $file.report
+		done
+		popd
 
-	pushd $orig
-	for file in $(find -name "*.py"); do
-		timeout $TIMEOUT_TIME pypy $file 0 $input_file $file.report || echo "FAILED DUE TO TIME" > $file.report
-	done
-	popd
+		pushd $orig
+		for file in $(find -name "*.py"); do
+			timeout $TIMEOUT_TIME pypy $file 0 $input_file $file.report || echo "FAILED DUE TO TIME" > $file.report
+		done
+		popd
+	fi
 
 	# Now, put together all the report files to find overall
 	# acceptances.
