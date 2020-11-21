@@ -44,17 +44,18 @@ class ActiveState(object):
         self.start_index = start_index
 
     def __hash__(self):
-        return hash((self.state_no, self.start_index))
+        return hash((self.state_no))
 
     def __eq__(self, other):
-        return hash(self) == hash(other)
+        return hash(self) == hash(other) and self.start_index == other.start_index
 
 def exec_automata(i, inputstring, trace=False):
-    active_states = set([ActiveState(graphs[i]['start_state'], 0)])
+    active_states = set([ActiveState(graphs[i]['start_state'], [0])])
     matches = []
 
     neighbors = generate_neighbors_lookup(graphs[i]['nodes'], graphs[i]['edges'])
     symbol_lookup = graphs[i]['symbol_lookup']
+    nodes = graphs[i]['nodes']
     accepting_states = graphs[i]['accepting_states']
     end_states = graphs[i]['end_states']
     start_state = graphs[i]['start_state']
@@ -67,24 +68,33 @@ def exec_automata(i, inputstring, trace=False):
         if trace:
             print "Read symbol ", character
             print "In states ", active_states
-        next_states = set([ActiveState(start_state, character_index)])
+        next_states_lookup = {}
+        for n in nodes:
+            if n == start_state:
+                next_states_lookup[n] = set([character_index])
+            else:
+                next_states_lookup[n] = set()
         for current_state in active_states:
             neighbor_states = neighbors[current_state.state_no]
             state_state_index = current_state.start_index
 
             for next_state_no in neighbor_states:
                 if character in symbol_lookup[(current_state.state_no, next_state_no)]:
-                    next_states.add(ActiveState(next_state_no, state_state_index))
-        active_states = next_states
+                    next_states_lookup[next_state_no] |= state_state_index
 
-        for state in next_states:
+        active_states = set()
+        for state in next_states_lookup:
+            active_states.add(ActiveState(state, next_states_lookup[state]))
+
+        for state in active_states:
             # We use the end-state hack here because the generator
             # doesn't properly deal with end states in intermediately-generated
             # automata (i.e. given this implementation, they should be
             # made accepts) --- they don't need to accept
             # in every implementation.
             if state.state_no in accepting_states or state.state_no in end_states:
-                matches.append((state.start_index, character_index))
+                for start_ind in state.start_index:
+                    matches.append((start_ind, character_index))
 
     return matches
 
