@@ -86,8 +86,16 @@ def compute_overacceptance_counts(base_file, split_acceptance_files):
 
         acceptance_file_acceptances = set()
         for ind in initial_accepts:
-            for end in all_files_accepts[-1][ind]:
-                acceptance_file_acceptances.add(end)
+            if len(all_files_accepts[-1][ind]) > 0:
+                for end in all_files_accepts[-1][ind]:
+                    acceptance_file_acceptances.add(end)
+        # This says that the last prefix is just branching
+        # out --- it's more optimal to ignore it.
+        if len(acceptance_file_acceptances) > len(initial_accepts):
+            acceptance_file_acceptances = initial_accepts
+
+        print "Total number of acceptances found is "
+        print len(acceptance_file_acceptances)
 
         for (start, end) in accept_indexes:
             # Check that there is at least one accept in this range --- i.e. we did not miss an acceptance we should have had.
