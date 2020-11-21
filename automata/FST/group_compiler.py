@@ -502,6 +502,7 @@ def remove_prefixes(addition_components, group_components, options):
     for comp_index in range(len(addition_components)):
         component = addition_components[comp_index]
         if component is None:
+            remaining_components.append(None)
             continue
 
         removed_prefix = True
@@ -848,6 +849,10 @@ def find_conversions_for_additions(addition_components, existing_components, opt
             # NOTE: The length of the postfix_components may not
             # be the same as the addition components
             addition_components[i] = postfix_components
+            if len(postfix_components) == 0:
+                # If there is no postfix, we must have at least
+                # on eprefix
+                assert len(prefix_machines) > 0
 
             if len(prefix_machines) > 0 and len(prefix_machines[0]) > 0:
                 has_partial_match[i] = True
