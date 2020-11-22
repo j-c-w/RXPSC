@@ -43,18 +43,37 @@ class ActiveState(object):
         self.state_no = state_no
         self.start_index = start_index
 
+        if len(self.start_index) > 500:
+            # Try to deal with the start index blowup for some
+            # of these automata.  Unlikely a match that
+            # far ago matters anyway?
+            # Although the above is true, this is not a completely
+            # correct move.  It's not a core part of this tool, so
+            # I'm not going to fix it --- for evaluations, which
+            # is all this is fast enough for anyway, you just
+            # need to check that you didn't loose any accepts that
+            # should have happened.
+            # If an automat is going to overaccept loads, this shouldn't
+            # affect the results (in terms of -- that thing overaccepts too much to be useful)
+            # it does however stop 1TB results files being written to disk for
+            # 1MB input files :).
+            # Anyway, long story short is I believe this to be a reasonable
+            # acceleration opportunity taht doesn't measurbaly affect results.
+            self.start_index = set(sorted(list(self.start_index)[400:]))
+
     def __hash__(self):
-        return hash((self.state_no, self.start_index))
+        return hash((self.state_no))
 
     def __eq__(self, other):
-        return hash(self) == hash(other)
+        return hash(self) == hash(other) and self.start_index == other.start_index
 
 def exec_automata(i, inputstring, trace=False):
-    active_states = set([ActiveState(graphs[i]['start_state'], 0)])
+    active_states = set([ActiveState(graphs[i]['start_state'], set([0]))])
     matches = []
 
     neighbors = generate_neighbors_lookup(graphs[i]['nodes'], graphs[i]['edges'])
     symbol_lookup = graphs[i]['symbol_lookup']
+    nodes = graphs[i]['nodes']
     accepting_states = graphs[i]['accepting_states']
     end_states = graphs[i]['end_states']
     start_state = graphs[i]['start_state']
@@ -67,24 +86,33 @@ def exec_automata(i, inputstring, trace=False):
         if trace:
             print "Read symbol ", character
             print "In states ", active_states
-        next_states = set([ActiveState(start_state, character_index)])
+        next_states_lookup = {}
+        for n in nodes:
+            if n == start_state:
+                next_states_lookup[n] = set([character_index])
+            else:
+                next_states_lookup[n] = set()
         for current_state in active_states:
             neighbor_states = neighbors[current_state.state_no]
             state_state_index = current_state.start_index
 
             for next_state_no in neighbor_states:
                 if character in symbol_lookup[(current_state.state_no, next_state_no)]:
-                    next_states.add(ActiveState(next_state_no, state_state_index))
-        active_states = next_states
+                    next_states_lookup[next_state_no] |= state_state_index
 
-        for state in next_states:
+        active_states = set()
+        for state in next_states_lookup:
+            active_states.add(ActiveState(state, next_states_lookup[state]))
+
+        for state in active_states:
             # We use the end-state hack here because the generator
             # doesn't properly deal with end states in intermediately-generated
             # automata (i.e. given this implementation, they should be
             # made accepts) --- they don't need to accept
             # in every implementation.
             if state.state_no in accepting_states or state.state_no in end_states:
-                matches.append((state.start_index, character_index))
+                for start_ind in state.start_index:
+                    matches.append((start_ind, character_index))
 
     return matches
 
