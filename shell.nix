@@ -7,7 +7,7 @@ let
 	pythonEnvs = rec {
 		pkgsList = ppkgs: with ppkgs; [
 		enum tqdm sortedcontainers numpy pathos
-		pygraphviz jinja2
+		jinja2
 		];
 		# pypy doesn't support alll the packages
 		# particularly well.
@@ -34,17 +34,17 @@ let
 
 	pythonpkgs = if use_pypy then pypy.pkgs else python2.pkgs;
 	# Get HSCompile
-	hscompile = (import ~/.scripts/Nix/CustomPackages/AutomataTools/hscompile/default.nix );
+	hscompile = (import ./nix/hscompile.nix );
 in
 pkgs.mkShell {
 	SHELL_NAME = "APSim";
 	buildInputs = [ pythonEnvs.pythonenv swig
 	# networkx
-	(callPackage ~/.scripts/Nix/CustomPackages/PythonTools/networkx/default.nix {buildPythonPackage = pythonpkgs.buildPythonPackage; pythonPkgs = pythonpkgs; pkgs = pkgs;} )
+	(callPackage ./nix/networkx.nix {buildPythonPackage = pythonpkgs.buildPythonPackage; pythonPkgs = pythonpkgs; pkgs = pkgs;} )
 	# deap
-	(callPackage ~/.scripts/Nix/CustomPackages/PythonTools/deap/default.nix {buildPythonPackage = pythonpkgs.buildPythonPackage; pythonPkgs = pythonpkgs; pkgs = pkgs;} )
+	(callPackage ./nix/deap.nix {buildPythonPackage = pythonpkgs.buildPythonPackage; pythonPkgs = pythonpkgs; pkgs = pkgs;} )
 	# Get VASim tools
-	(callPackage ~/.scripts/Nix/CustomPackages/AutomataTools/vasim/default.nix {})  
+	(callPackage ./nix/vasim.nix {})  
 	# (callPackage ~/.scripts/Nix/CustomPackages/PythonTools/Guppy/default.nix {buildPythonPackage = pythonpkgs.buildPythonPackage; pythonPkgs = pythonpkgs; pkgs = pkgs;} )
 	# Guppy only supports cpython, pypy isn't supported.
 	# (callPackage ~/.scripts/Nix/CustomPackages/PythonTools/Guppy/default.nix {buildPythonPackage = pypy2.pkgs.buildPythonPackage; ppythonPkgs = pypy2.pkgs; pkgs = pkgs; })

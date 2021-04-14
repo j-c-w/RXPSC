@@ -1,0 +1,12 @@
+diff --git a/Makefile b/Makefile
+index 32e8243..b736035 100644
+--- a/Makefile
++++ b/Makefile
+@@ -83,7 +83,4 @@ cleanpugi:
+ 	$(info Cleaning PugiXML...)
+ 	rm -rf $(PUGI)/build
+ 
+-submodule_init:
+-	@git submodule update --init --recursive
+-
+ .PHONY: clean cleanvasim cleanmnrl cleanpugi vasim_release mnrl pugi submodule_init

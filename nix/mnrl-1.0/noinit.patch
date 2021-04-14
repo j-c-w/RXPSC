@@ -1,0 +1,15 @@
+diff --git a/C++/Makefile b/C++/Makefile
+index 690a732..7957d9d 100644
+--- a/C++/Makefile
++++ b/C++/Makefile
+@@ -73,10 +73,6 @@ $(ODIR)/json11.o: $(JSON11)/json11.cpp
+ $(ODIR)/%.o: $(SRCDIR)/%.asm
+ 	nasm $(NASMFLAGS) -o $@ $<
+ 
+-$(JSON11_HPP):
+-	git submodule init
+-	git submodule update	
+-
+ test: libmnrl $(TESTDIR)/readwrite
+ 
+ $(TESTDIR)/readwrite: $(TESTDIR)/readwrite.cpp
